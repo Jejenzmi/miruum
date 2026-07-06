@@ -1,0 +1,178 @@
+// Miruum OTA — hotel booking data model.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  gender       String?
+  birthDate    String?
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+
+  bookings     Booking[]
+  favorites    Favorite[]
+  notifications Notification[]
+  reviews      Review[]
+}
+
+model Hotel {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  city        String
+  address     String
+  lat         Float?
+  lng         Float?
+  description String
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+  priceFrom   Int      @default(0) // rupiah / night
+  starRating  Int      @default(3)
+  imageUrl    String
+  checkInInfo  String  @default("Dari jam 14.00")
+  checkOutInfo String  @default("Sebelum 12.00")
+  isPromo     Boolean  @default(false)
+  promoLabel  String?
+  createdAt   DateTime @default(now())
+
+  photos      HotelPhoto[]
+  facilities  HotelFacility[]
+  rooms       Room[]
+  reviews     Review[]
+  favorites   Favorite[]
+  bookings    Booking[]
+}
+
+model HotelPhoto {
+  id      String @id @default(cuid())
+  hotelId String
+  url     String
+  sort    Int    @default(0)
+  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+}
+
+model Facility {
+  id    String @id @default(cuid())
+  name  String @unique
+  icon  String // icon key used by the app
+  hotels HotelFacility[]
+}
+
+model HotelFacility {
+  hotelId    String
+  facilityId String
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([hotelId, facilityId])
+}
+
+model Room {
+  id                String  @id @default(cuid())
+  hotelId           String
+  name              String
+  bedInfo           String  @default("1 Double bed dan 2 Ranjang Twin")
+  capacity          Int     @default(2)
+  price             Int
+  originalPrice     Int?
+  discountLabel     String?
+  refundable        Boolean @default(true)
+  breakfast         Boolean @default(false)
+  freeWifi          Boolean @default(true)
+  freeCancellation  Boolean @default(true)
+  stock             Int     @default(5)
+  hotel             Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  hotelId    String
+  userId     String?
+  authorName String
+  rating     Float
+  body       String
+  createdAt  DateTime @default(now())
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+}
+
+model Favorite {
+  userId  String
+  hotelId String
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel   Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@id([userId, hotelId])
+}
+
+enum BookingStatus {
+  PENDING
+  PAID
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  code           String        @unique
+  userId         String
+  hotelId        String
+  roomId         String
+  checkIn        DateTime
+  checkOut       DateTime
+  nights         Int
+  guests         Int           @default(2)
+  rooms          Int           @default(1)
+  bookerName     String
+  bookerEmail    String
+  bookerPhone    String
+  forSelf        Boolean       @default(true)
+  specialRequest String?
+  roomPrice      Int
+  taxFee         Int
+  totalPrice     Int
+  status         BookingStatus @default(PENDING)
+  paymentMethod  String?
+  bank           String?
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel          Hotel         @relation(fields: [hotelId], references: [id])
+  room           Room          @relation(fields: [roomId], references: [id])
+}
+
+model Promo {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  title       String
+  description String
+  discountPct Int      @default(0)
+  imageUrl    String
+  validUntil  String?
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  title     String
+  body      String
+  type      String   @default("info") // info | success | pending | cancel
+  hotelName String?
+  orderCode String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

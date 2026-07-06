@@ -1,0 +1,320 @@
+import express from "express";
+import cors from "cors";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+import { prisma } from "./prisma.js";
+import { signToken, requireAuth, optionalAuth, type AuthRequest } from "./auth.js";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const PORT = Number(process.env.PORT || 5013);
+
+const publicUser = (u: any) => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  phone: u.phone,
+  gender: u.gender,
+  birthDate: u.birthDate,
+  avatarUrl: u.avatarUrl,
+});
+
+// ─────────────────────────── Health ───────────────────────────
+app.get("/api/health", (_req, res) => res.json({ ok: true, service: "miruum", ts: Date.now() }));
+
+// ─────────────────────────── Auth ───────────────────────────
+app.post("/api/auth/register", async (req, res) => {
+  const schema = z.object({
+    name: z.string().min(2),
+    email: z.string().email(),
+    password: z.string().min(6),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Data tidak valid", details: parsed.error.issues });
+  const { name, email, password } = parsed.data;
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists) return res.status(409).json({ error: "Email sudah terdaftar" });
+  const user = await prisma.user.create({
+    data: { name, email, passwordHash: await bcrypt.hash(password, 10) },
+  });
+  res.json({ token: signToken(user.id), user: publicUser(user) });
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  const schema = z.object({ email: z.string().email(), password: z.string() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Data tidak valid" });
+  const { email, password } = parsed.data;
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return res.status(401).json({ error: "Pengguna tidak terdaftar" });
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) return res.status(401).json({ error: "Email atau kata sandi salah" });
+  res.json({ token: signToken(user.id), user: publicUser(user) });
+});
+
+// Mock OTP — accepts any 4-digit code or "1234".
+app.post("/api/auth/otp/request", (_req, res) => res.json({ ok: true, hint: "1234" }));
+app.post("/api/auth/otp/verify", (req, res) => {
+  const code = String(req.body?.code ?? "");
+  if (/^\d{4}$/.test(code)) return res.json({ ok: true });
+  return res.status(400).json({ error: "Kode OTP salah" });
+});
+
+app.get("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user) return res.status(404).json({ error: "Not found" });
+  res.json({ user: publicUser(user) });
+});
+
+app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    name: z.string().min(2).optional(),
+    phone: z.string().optional(),
+    gender: z.string().optional(),
+    birthDate: z.string().optional(),
+    avatarUrl: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Data tidak valid" });
+  const user = await prisma.user.update({ where: { id: req.userId }, data: parsed.data });
+  res.json({ user: publicUser(user) });
+});
+
+// ─────────────────────────── Hotels ───────────────────────────
+const hotelCard = {
+  id: true, name: true, slug: true, city: true, address: true, rating: true,
+  reviewCount: true, priceFrom: true, starRating: true, imageUrl: true,
+  isPromo: true, promoLabel: true,
+} as const;
+
+app.get("/api/hotels", async (req, res) => {
+  const { query, city, minPrice, maxPrice, star, sort } = req.query as Record<string, string>;
+  const where: any = {};
+  if (query) where.OR = [
+    { name: { contains: query, mode: "insensitive" } },
+    { city: { contains: query, mode: "insensitive" } },
+    { address: { contains: query, mode: "insensitive" } },
+  ];
+  if (city) where.city = { contains: city, mode: "insensitive" };
+  if (minPrice || maxPrice) where.priceFrom = {
+    ...(minPrice ? { gte: Number(minPrice) } : {}),
+    ...(maxPrice ? { lte: Number(maxPrice) } : {}),
+  };
+  if (star) where.starRating = { gte: Number(star) };
+  const orderBy =
+    sort === "price_asc" ? { priceFrom: "asc" as const } :
+    sort === "price_desc" ? { priceFrom: "desc" as const } :
+    sort === "rating" ? { rating: "desc" as const } :
+    { createdAt: "desc" as const };
+  const hotels = await prisma.hotel.findMany({ where, orderBy, select: hotelCard });
+  res.json({ hotels });
+});
+
+app.get("/api/hotels/promo", async (_req, res) => {
+  const hotels = await prisma.hotel.findMany({ where: { isPromo: true }, select: hotelCard });
+  res.json({ hotels });
+});
+
+app.get("/api/hotels/recommended", async (_req, res) => {
+  const hotels = await prisma.hotel.findMany({ orderBy: { rating: "desc" }, take: 10, select: hotelCard });
+  res.json({ hotels });
+});
+
+app.get("/api/hotels/:id", async (req, res) => {
+  const hotel = await prisma.hotel.findUnique({
+    where: { id: req.params.id },
+    include: {
+      photos: { orderBy: { sort: "asc" } },
+      facilities: { include: { facility: true } },
+      rooms: true,
+      reviews: { orderBy: { createdAt: "desc" }, take: 5 },
+    },
+  });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  res.json({
+    hotel: {
+      ...hotel,
+      facilities: hotel.facilities.map((f) => f.facility),
+    },
+  });
+});
+
+app.get("/api/hotels/:id/reviews", async (req, res) => {
+  const reviews = await prisma.review.findMany({
+    where: { hotelId: req.params.id },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ reviews });
+});
+
+app.get("/api/hotels/:id/rooms", async (req, res) => {
+  const rooms = await prisma.room.findMany({ where: { hotelId: req.params.id } });
+  res.json({ rooms });
+});
+
+// ─────────────────────────── Promos & static ───────────────────────────
+app.get("/api/promos", async (_req, res) => {
+  const promos = await prisma.promo.findMany();
+  res.json({ promos });
+});
+
+app.get("/api/payment-methods", (_req, res) => {
+  res.json({
+    methods: [
+      {
+        group: "Mobile Banking",
+        banks: [
+          { code: "mandiri", name: "Mandiri" },
+          { code: "bni", name: "BNI" },
+          { code: "bca", name: "BCA" },
+          { code: "bsi", name: "Bank Syariah Indonesia" },
+        ],
+      },
+      {
+        group: "Transfer Bank",
+        banks: [
+          { code: "mandiri", name: "Mandiri" },
+          { code: "bni", name: "BNI" },
+          { code: "bca", name: "BCA" },
+          { code: "bsi", name: "Bank Syariah Indonesia" },
+        ],
+      },
+    ],
+  });
+});
+
+// ─────────────────────────── Favorites ───────────────────────────
+app.get("/api/favorites", requireAuth, async (req: AuthRequest, res) => {
+  const favs = await prisma.favorite.findMany({
+    where: { userId: req.userId },
+    include: { hotel: { select: hotelCard } },
+  });
+  res.json({ hotels: favs.map((f) => f.hotel) });
+});
+
+app.post("/api/favorites/:hotelId", requireAuth, async (req: AuthRequest, res) => {
+  await prisma.favorite.upsert({
+    where: { userId_hotelId: { userId: req.userId!, hotelId: req.params.hotelId } },
+    create: { userId: req.userId!, hotelId: req.params.hotelId },
+    update: {},
+  });
+  res.json({ ok: true });
+});
+
+app.delete("/api/favorites/:hotelId", requireAuth, async (req: AuthRequest, res) => {
+  await prisma.favorite.deleteMany({ where: { userId: req.userId, hotelId: req.params.hotelId } });
+  res.json({ ok: true });
+});
+
+// ─────────────────────────── Bookings ───────────────────────────
+function makeCode() {
+  return "MRM-" + Math.floor(1000000 + Math.random() * 8999999);
+}
+
+app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    hotelId: z.string(),
+    roomId: z.string(),
+    checkIn: z.string(),
+    checkOut: z.string(),
+    guests: z.number().int().min(1).default(2),
+    rooms: z.number().int().min(1).default(1),
+    bookerName: z.string().min(2),
+    bookerEmail: z.string().email(),
+    bookerPhone: z.string().min(5),
+    forSelf: z.boolean().default(true),
+    specialRequest: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Data pemesanan tidak valid", details: parsed.error.issues });
+  const d = parsed.data;
+  const room = await prisma.room.findUnique({ where: { id: d.roomId } });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  const checkIn = new Date(d.checkIn);
+  const checkOut = new Date(d.checkOut);
+  const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
+  const roomPrice = room.price * nights * d.rooms;
+  const taxFee = Math.round(roomPrice * 0.11); // 11% tax & service
+  const totalPrice = roomPrice + taxFee;
+  const booking = await prisma.booking.create({
+    data: {
+      code: makeCode(),
+      userId: req.userId!,
+      hotelId: d.hotelId,
+      roomId: d.roomId,
+      checkIn, checkOut, nights,
+      guests: d.guests, rooms: d.rooms,
+      bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
+      forSelf: d.forSelf, specialRequest: d.specialRequest,
+      roomPrice, taxFee, totalPrice,
+      status: "PENDING",
+    },
+    include: { hotel: { select: hotelCard }, room: true },
+  });
+  res.json({ booking });
+});
+
+app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
+  const { status } = req.query as Record<string, string>;
+  const where: any = { userId: req.userId };
+  if (status) where.status = status;
+  const bookings = await prisma.booking.findMany({
+    where, orderBy: { createdAt: "desc" },
+    include: { hotel: { select: hotelCard }, room: true },
+  });
+  res.json({ bookings });
+});
+
+app.get("/api/bookings/:id", requireAuth, async (req: AuthRequest, res) => {
+  const booking = await prisma.booking.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { hotel: { select: hotelCard }, room: true },
+  });
+  if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+  res.json({ booking });
+});
+
+app.post("/api/bookings/:id/pay", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({ method: z.string(), bank: z.string().optional() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Metode pembayaran tidak valid" });
+  const booking = await prisma.booking.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+  const updated = await prisma.booking.update({
+    where: { id: booking.id },
+    data: { status: "PAID", paymentMethod: parsed.data.method, bank: parsed.data.bank, paidAt: new Date() },
+    include: { hotel: { select: hotelCard }, room: true },
+  });
+  // fire a success notification
+  await prisma.notification.create({
+    data: {
+      userId: req.userId!,
+      title: `Pesanan ${updated.hotel.name}`,
+      body: `Pembayaran berhasil. No. Pesanan ${updated.code}`,
+      type: "success",
+      hotelName: updated.hotel.name,
+      orderCode: updated.code,
+    },
+  });
+  res.json({ booking: updated });
+});
+
+app.post("/api/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
+  const booking = await prisma.booking.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } });
+  res.json({ booking: updated });
+});
+
+// ─────────────────────────── Notifications ───────────────────────────
+app.get("/api/notifications", requireAuth, async (req: AuthRequest, res) => {
+  const notifications = await prisma.notification.findMany({
+    where: { OR: [{ userId: req.userId }, { userId: null }] },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ notifications });
+});
+
+app.listen(PORT, () => console.log(`[miruum] API listening on :${PORT}`));

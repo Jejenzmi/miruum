@@ -1,0 +1,12 @@
+# Keep the web build context tiny — only build/web + nginx.conf are needed.
+android
+ios
+linux
+macos
+windows
+test
+.dart_tool
+.git
+.idea
+build/*
+!build/web

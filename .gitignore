@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+backend/.env
+
+# Flutter
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+
+# Deploy secrets
+deploy/.env
+
+# Misc
+.DS_Store
+*.log

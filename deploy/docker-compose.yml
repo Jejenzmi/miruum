@@ -1,0 +1,65 @@
+name: miruum
+
+# Deploy Miruum (OTA booking hotel) di VPS → https://miruum.gokar.id
+# Kredensial diisi lewat file .env (lihat .env.example).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: miruum
+      POSTGRES_USER: miruum
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - miruum_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U miruum"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    environment:
+      DATABASE_URL: postgresql://miruum:${DB_PASSWORD}@db:5432/miruum?schema=public
+      NODE_ENV: production
+      PORT: "5013"
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../app
+      dockerfile: Dockerfile.web
+    ports:
+      - "127.0.0.1:8095:80"   # di-proxy oleh nginx host → miruum.gokar.id
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Backup DB harian (pg_dump → volume). 14 salinan terakhir disimpan.
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - miruum_backups:/backups
+    entrypoint: >
+      sh -c 'while true; do
+        ts=$$(date +%Y-%m-%d_%H-%M-%S);
+        pg_dump -h db -U miruum miruum --no-owner --no-privileges | gzip > /backups/miruum-$$ts.sql.gz;
+        ls -1t /backups/miruum-*.sql.gz | tail -n +15 | xargs -r rm --;
+        echo "[backup] $$ts done";
+        sleep 86400;
+      done'
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  miruum_pgdata:
+  miruum_backups:
