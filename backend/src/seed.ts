@@ -90,8 +90,33 @@ const REVIEWS = [
   { authorName: "Sinta", rating: 9.0, body: "Sangat nyaman, kolam renang bagus, staff helpful. Recommended!" },
 ];
 
+// Partner (hotel owner) accounts → which hotel slugs they own.
+const PARTNERS = [
+  { name: "Panji Group", email: "partner@panji.id", owns: ["hotel-panji", "hotel-broto"] },
+  { name: "Hillside Management", email: "partner@hillside.id", owns: ["hillside-hotel"] },
+  { name: "Mandarin Hospitality", email: "partner@mandarin.id", owns: ["hotel-mandarin", "hotel-tulip"] },
+];
+
 async function main() {
   console.log("[seed] start");
+
+  // Admin (Back Office)
+  await prisma.user.upsert({
+    where: { email: "admin@miruum.id" },
+    create: { name: "Admin Miruum", email: "admin@miruum.id", passwordHash: await bcrypt.hash("admin123", 10), role: "ADMIN" },
+    update: { role: "ADMIN" },
+  });
+
+  // Partners (Extranet) + ownership map
+  const ownerBySlug: Record<string, string> = {};
+  for (const p of PARTNERS) {
+    const partner = await prisma.user.upsert({
+      where: { email: p.email },
+      create: { name: p.name, email: p.email, passwordHash: await bcrypt.hash("partner123", 10), role: "PARTNER" },
+      update: { role: "PARTNER", name: p.name },
+    });
+    for (const slug of p.owns) ownerBySlug[slug] = partner.id;
+  }
 
   // Facilities catalog
   const facMap: Record<string, string> = {};
@@ -111,12 +136,13 @@ async function main() {
         rating: h.rating, reviewCount: h.reviewCount, priceFrom: h.priceFrom,
         starRating: h.starRating, imageUrl: h.image, description: LOREM,
         isPromo: h.isPromo ?? false, promoLabel: h.promoLabel, lat: h.lat, lng: h.lng,
+        ownerId: ownerBySlug[h.slug] ?? null,
       },
       update: {
         name: h.name, city: h.city, address: h.address, rating: h.rating,
         reviewCount: h.reviewCount, priceFrom: h.priceFrom, starRating: h.starRating,
         imageUrl: h.image, isPromo: h.isPromo ?? false, promoLabel: h.promoLabel,
-        lat: h.lat, lng: h.lng,
+        lat: h.lat, lng: h.lng, ownerId: ownerBySlug[h.slug] ?? null,
       },
     });
 
@@ -191,7 +217,8 @@ async function main() {
     ],
   });
 
-  console.log(`[seed] done — ${HOTELS.length} hotels, ${PROMOS.length} promos, demo user demo@miruum.id / demo123`);
+  console.log(`[seed] done — ${HOTELS.length} hotels, ${PROMOS.length} promos, ${PARTNERS.length} partners`);
+  console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
 }
 
 main()

@@ -1,0 +1,36 @@
+<%- include('../partials/top', { title:'Pesanan Masuk', heading:'Pesanan Masuk', section:'extranet', active:'bookings', me }) %>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Kode</th><th>Hotel</th><th>Kamar</th><th>Tamu</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% bookings.forEach(function(b){ %>
+        <tr>
+          <td><b><%= b.code %></b></td>
+          <td><%= b.hotel ? b.hotel.name : '-' %></td>
+          <td><%= b.room ? b.room.name : '-' %></td>
+          <td><%= b.user ? b.user.name : '-' %></td>
+          <td><%= rupiah(b.totalPrice) %></td>
+          <td><span class="pill <%= b.status %>"><%= b.status %></span></td>
+          <td>
+            <% if (b.status === 'PAID') { %>
+              <div class="actions">
+                <form method="post" action="/extranet/bookings/<%= b.id %>/status">
+                  <input type="hidden" name="status" value="COMPLETED"><button class="btn sm">Selesai</button>
+                </form>
+                <form method="post" action="/extranet/bookings/<%= b.id %>/status" onsubmit="return confirm('Batalkan pesanan?')">
+                  <input type="hidden" name="status" value="CANCELLED"><button class="btn danger sm">Batal</button>
+                </form>
+              </div>
+            <% } else { %>
+              <span class="muted">—</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!bookings.length) { %><tr><td colspan="7" class="empty">Belum ada pesanan masuk</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

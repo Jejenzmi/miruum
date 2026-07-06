@@ -8,11 +8,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+  PARTNER
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
   passwordHash String
+  role         Role     @default(USER)
   phone        String?
   gender       String?
   birthDate    String?
@@ -23,6 +30,7 @@ model User {
   favorites    Favorite[]
   notifications Notification[]
   reviews      Review[]
+  ownedHotels  Hotel[]  @relation("HotelOwner")
 }
 
 model Hotel {
@@ -43,8 +51,10 @@ model Hotel {
   checkOutInfo String  @default("Sebelum 12.00")
   isPromo     Boolean  @default(false)
   promoLabel  String?
+  ownerId     String?
   createdAt   DateTime @default(now())
 
+  owner       User?    @relation("HotelOwner", fields: [ownerId], references: [id])
   photos      HotelPhoto[]
   facilities  HotelFacility[]
   rooms       Room[]

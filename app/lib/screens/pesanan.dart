@@ -1,81 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
+import '../api.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/cubits.dart';
+import '../bloc/view_state.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
 import 'pembayaran.dart';
 import 'hotel_detail.dart';
 
-class PesananScreen extends StatefulWidget {
+class PesananScreen extends StatelessWidget {
   const PesananScreen({super.key});
-  @override
-  State<PesananScreen> createState() => _PesananScreenState();
-}
-
-class _PesananScreenState extends State<PesananScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tab = TabController(length: 2, vsync: this);
-  Future<List<Booking>>? _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _reload();
-  }
-
-  void _reload() {
-    final session = context.read<Session>();
-    if (session.isLoggedIn) _future = session.api.bookings();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<Session>();
+    final auth = context.watch<AuthBloc>().state;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text('Pesanan'),
         centerTitle: false,
         titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
-        bottom: session.isLoggedIn
-            ? TabBar(
-                controller: _tab,
-                labelColor: MC.primaryDark,
-                unselectedLabelColor: MC.inkFaint,
-                indicatorColor: MC.primary,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-                tabs: const [Tab(text: 'Aktif'), Tab(text: 'Riwayat Transaksi')],
-              )
-            : null,
       ),
       body: SafeArea(
         top: false,
-        child: !session.isLoggedIn
-            ? _LoginPrompt(onLogin: () async {
-                if (await ensureLoggedIn(context)) setState(_reload);
-              })
-            : FutureBuilder<List<Booking>>(
-                future: _future,
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: MC.primary));
-                  }
-                  final all = snap.data ?? [];
-                  final active = all.where((b) => b.status == 'PENDING' || b.status == 'PAID').toList();
-                  final history = all.where((b) => b.status == 'COMPLETED' || b.status == 'CANCELLED' || b.status == 'REFUNDED').toList();
-                  return TabBarView(controller: _tab, children: [
-                    _list(active, empty: 'Belum ada pesanan aktif'),
-                    _list(history, empty: 'Belum ada riwayat transaksi'),
-                  ]);
-                },
+        child: !auth.isLoggedIn
+            ? _LoginPrompt(onLogin: () => ensureLoggedIn(context))
+            : BlocProvider(
+                create: (ctx) => BookingsCubit(ctx.read<Api>())..load(),
+                child: const _PesananTabs(),
               ),
       ),
     );
   }
+}
 
-  Widget _list(List<Booking> items, {required String empty}) {
+class _PesananTabs extends StatelessWidget {
+  const _PesananTabs();
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(children: [
+        const TabBar(
+          labelColor: MC.primaryDark,
+          unselectedLabelColor: MC.inkFaint,
+          indicatorColor: MC.primary,
+          labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+          tabs: [Tab(text: 'Aktif'), Tab(text: 'Riwayat Transaksi')],
+        ),
+        Expanded(
+          child: BlocBuilder<BookingsCubit, ViewState<List<Booking>>>(
+            builder: (context, state) {
+              if (state.isLoading) {
+                return const Center(child: CircularProgressIndicator(color: MC.primary));
+              }
+              final all = state.data ?? [];
+              final active = all.where((b) => b.status == 'PENDING' || b.status == 'PAID').toList();
+              final history = all.where((b) => b.status == 'COMPLETED' || b.status == 'CANCELLED' || b.status == 'REFUNDED').toList();
+              return TabBarView(children: [
+                _list(context, active, empty: 'Belum ada pesanan aktif'),
+                _list(context, history, empty: 'Belum ada riwayat transaksi'),
+              ]);
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _list(BuildContext context, List<Booking> items, {required String empty}) {
     if (items.isEmpty) {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.receipt_long_rounded, size: 48, color: MC.inkFaint),
@@ -84,12 +81,12 @@ class _PesananScreenState extends State<PesananScreen> with SingleTickerProvider
       ]));
     }
     return RefreshIndicator(
-      onRefresh: () async => setState(_reload),
+      onRefresh: () => context.read<BookingsCubit>().load(),
       child: ListView.separated(
         padding: const EdgeInsets.all(20),
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, i) => _OrderCard(items[i], onChanged: () => setState(_reload)),
+        itemBuilder: (context, i) => _OrderCard(items[i], onChanged: () => context.read<BookingsCubit>().load()),
       ),
     );
   }

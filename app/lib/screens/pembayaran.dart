@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'voucher.dart';
@@ -22,11 +21,11 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   @override
   void initState() {
     super.initState();
-    _future = context.read<Session>().api.booking(widget.bookingId);
+    _future = context.read<Api>().booking(widget.bookingId);
   }
 
   Future<void> _pickMethod() async {
-    final methods = await context.read<Session>().api.paymentMethods();
+    final methods = await context.read<Api>().paymentMethods();
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
@@ -84,7 +83,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     }
     setState(() => _paying = true);
     try {
-      final paid = await context.read<Session>().api.pay(b.id, _method!, bank: _bank);
+      final paid = await context.read<Api>().pay(b.id, _method!, bank: _bank);
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => VoucherScreen(booking: paid, bankName: _bankName ?? _method!)));
     } on ApiException catch (e) {

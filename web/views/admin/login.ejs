@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Back Office — Miruum</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand"><span class="mark">🐾</span> <span class="name">Miruum</span></div>
+    <h2>Back Office</h2>
+    <p class="muted" style="margin-top:-6px">Masuk sebagai admin Miruum</p>
+    <% if (error) { %><div class="error"><%= error %></div><% } %>
+    <form method="post" action="/admin/login">
+      <label>Email</label>
+      <input name="email" type="email" value="admin@miruum.id" required>
+      <label>Kata Sandi</label>
+      <input name="password" type="password" value="admin123" required>
+      <div style="margin-top:20px"><button class="btn" style="width:100%;justify-content:center">Masuk</button></div>
+    </form>
+    <div class="hint">Demo admin: admin@miruum.id / admin123</div>
+    <p style="text-align:center;margin-top:16px"><a href="/">← Kembali ke beranda</a></p>
+  </div>
+</div>
+</body>
+</html>

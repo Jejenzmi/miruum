@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Response, type NextFunction } from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -15,11 +15,24 @@ const publicUser = (u: any) => ({
   id: u.id,
   name: u.name,
   email: u.email,
+  role: u.role,
   phone: u.phone,
   gender: u.gender,
   birthDate: u.birthDate,
   avatarUrl: u.avatarUrl,
 });
+
+// Role guard — verifies JWT then checks the user's role from DB.
+function requireRole(...roles: string[]) {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    requireAuth(req, res, async () => {
+      const user = await prisma.user.findUnique({ where: { id: req.userId } });
+      if (!user || !roles.includes(user.role)) return res.status(403).json({ error: "Akses ditolak" });
+      (req as any).role = user.role;
+      next();
+    });
+  };
+}
 
 // ─────────────────────────── Health ───────────────────────────
 app.get("/api/health", (_req, res) => res.json({ ok: true, service: "miruum", ts: Date.now() }));
@@ -315,6 +328,129 @@ app.get("/api/notifications", requireAuth, async (req: AuthRequest, res) => {
     orderBy: { createdAt: "desc" },
   });
   res.json({ notifications });
+});
+
+// ═══════════════════════ BACK OFFICE (ADMIN) ═══════════════════════
+app.get("/api/admin/stats", requireRole("ADMIN"), async (_req, res) => {
+  const [hotels, users, bookings, paid] = await Promise.all([
+    prisma.hotel.count(),
+    prisma.user.count(),
+    prisma.booking.count(),
+    prisma.booking.findMany({ where: { status: { in: ["PAID", "COMPLETED"] } }, select: { totalPrice: true } }),
+  ]);
+  const revenue = paid.reduce((s, b) => s + b.totalPrice, 0);
+  const byStatus = await prisma.booking.groupBy({ by: ["status"], _count: true });
+  res.json({ hotels, users, bookings, revenue, byStatus });
+});
+
+app.get("/api/admin/hotels", requireRole("ADMIN"), async (_req, res) => {
+  const hotels = await prisma.hotel.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { owner: { select: { id: true, name: true, email: true } }, _count: { select: { rooms: true, bookings: true } } },
+  });
+  res.json({ hotels });
+});
+
+app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({
+    name: z.string().min(2), city: z.string().min(2), address: z.string().min(2),
+    description: z.string().default(""), priceFrom: z.coerce.number().int().default(0),
+    starRating: z.coerce.number().int().min(1).max(5).default(3), rating: z.coerce.number().default(8),
+    imageUrl: z.string().default(""), isPromo: z.coerce.boolean().default(false),
+    promoLabel: z.string().optional(), ownerId: z.string().optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data hotel tidak valid", details: p.error.issues });
+  const slug = p.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 9000 + 1000);
+  const hotel = await prisma.hotel.create({ data: { ...p.data, slug, ownerId: p.data.ownerId || null } });
+  res.json({ hotel });
+});
+
+app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({
+    name: z.string().optional(), city: z.string().optional(), address: z.string().optional(),
+    description: z.string().optional(), priceFrom: z.coerce.number().int().optional(),
+    starRating: z.coerce.number().int().optional(), rating: z.coerce.number().optional(),
+    imageUrl: z.string().optional(), isPromo: z.coerce.boolean().optional(),
+    promoLabel: z.string().optional(), ownerId: z.string().optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = { ...p.data };
+  if (data.ownerId === "") data.ownerId = null;
+  const hotel = await prisma.hotel.update({ where: { id: req.params.id }, data });
+  res.json({ hotel });
+});
+
+app.delete("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.hotel.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+app.get("/api/admin/bookings", requireRole("ADMIN"), async (_req, res) => {
+  const bookings = await prisma.booking.findMany({
+    orderBy: { createdAt: "desc" }, take: 100,
+    include: { hotel: { select: { name: true, city: true } }, user: { select: { name: true, email: true } }, room: { select: { name: true } } },
+  });
+  res.json({ bookings });
+});
+
+app.get("/api/admin/users", requireRole("ADMIN"), async (_req, res) => {
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, email: true, role: true, phone: true, createdAt: true, _count: { select: { bookings: true } } },
+  });
+  res.json({ users });
+});
+
+// ═══════════════════════ EXTRANET (PARTNER) ═══════════════════════
+app.get("/api/partner/overview", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotels = await prisma.hotel.findMany({
+    where: { ownerId: req.userId },
+    include: { _count: { select: { rooms: true, bookings: true, reviews: true } } },
+  });
+  const hotelIds = hotels.map((h) => h.id);
+  const bookings = await prisma.booking.findMany({ where: { hotelId: { in: hotelIds } }, select: { totalPrice: true, status: true } });
+  const revenue = bookings.filter((b) => b.status === "PAID" || b.status === "COMPLETED").reduce((s, b) => s + b.totalPrice, 0);
+  res.json({ hotels, totalBookings: bookings.length, revenue });
+});
+
+app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotel = await prisma.hotel.findFirst({
+    where: { id: req.params.id, ownerId: req.userId },
+    include: { rooms: true, photos: true },
+  });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan / bukan milik Anda" });
+  res.json({ hotel });
+});
+
+app.get("/api/partner/bookings", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotels = await prisma.hotel.findMany({ where: { ownerId: req.userId }, select: { id: true } });
+  const bookings = await prisma.booking.findMany({
+    where: { hotelId: { in: hotels.map((h) => h.id) } },
+    orderBy: { createdAt: "desc" }, take: 100,
+    include: { hotel: { select: { name: true } }, user: { select: { name: true, email: true } }, room: { select: { name: true } } },
+  });
+  res.json({ bookings });
+});
+
+app.put("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ price: z.coerce.number().int().optional(), stock: z.coerce.number().int().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data kamar tidak valid" });
+  const room = await prisma.room.findUnique({ where: { id: req.params.id }, include: { hotel: true } });
+  if (!room || room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
+  const updated = await prisma.room.update({ where: { id: req.params.id }, data: p.data });
+  res.json({ room: updated });
+});
+
+app.put("/api/partner/bookings/:id/status", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const status = String(req.body?.status ?? "");
+  if (!["COMPLETED", "CANCELLED"].includes(status)) return res.status(400).json({ error: "Status tidak valid" });
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id }, include: { hotel: true } });
+  if (!booking || booking.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Pesanan bukan milik Anda" });
+  const updated = await prisma.booking.update({ where: { id: req.params.id }, data: { status: status as any } });
+  res.json({ booking: updated });
 });
 
 app.listen(PORT, () => console.log(`[miruum] API listening on :${PORT}`));

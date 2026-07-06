@@ -1,6 +1,8 @@
 name: miruum
 
 # Deploy Miruum (OTA booking hotel) di VPS → https://miruum.gokar.id
+#   /        → web portal (landing + Back Office + Extranet)  [Node/Express/EJS]
+#   /api     → backend core API (dipakai mobile app + portal)
 # Kredensial diisi lewat file .env (lihat .env.example).
 services:
   db:
@@ -25,17 +27,22 @@ services:
       NODE_ENV: production
       PORT: "5013"
       JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "127.0.0.1:5013:5013"   # nginx host → /api
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
   web:
-    build:
-      context: ../app
-      dockerfile: Dockerfile.web
+    build: ../web
+    environment:
+      API_URL: http://backend:5013/api
+      SESSION_SECRET: ${SESSION_SECRET}
+      APK_URL: ${APK_URL:-}
+      PORT: "4101"
     ports:
-      - "127.0.0.1:8095:80"   # di-proxy oleh nginx host → miruum.gokar.id
+      - "127.0.0.1:8095:4101"   # nginx host → /
     depends_on:
       - backend
     restart: unless-stopped

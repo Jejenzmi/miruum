@@ -1,0 +1,23 @@
+<%- include('../partials/top', { title:'Pesanan', heading:'Semua Pesanan', section:'admin', active:'bookings', me }) %>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Kode</th><th>Hotel</th><th>Kamar</th><th>Pemesan</th><th>Malam</th><th>Total</th><th>Status</th></tr></thead>
+    <tbody>
+      <% bookings.forEach(function(b){ %>
+        <tr>
+          <td><b><%= b.code %></b></td>
+          <td><%= b.hotel ? b.hotel.name : '-' %><br><span class="muted" style="font-size:11px"><%= b.hotel ? b.hotel.city : '' %></span></td>
+          <td><%= b.room ? b.room.name : '-' %></td>
+          <td><%= b.user ? b.user.name : '-' %><br><span class="muted" style="font-size:11px"><%= b.user ? b.user.email : '' %></span></td>
+          <td><%= b.nights %></td>
+          <td><%= rupiah(b.totalPrice) %></td>
+          <td><span class="pill <%= b.status %>"><%= b.status %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!bookings.length) { %><tr><td colspan="7" class="empty">Belum ada pesanan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

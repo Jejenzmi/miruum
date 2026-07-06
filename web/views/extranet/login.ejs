@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extranet — Miruum</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>.login-wrap{background:linear-gradient(135deg,#b8791a,#F5A623)}</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand"><span class="mark">🏨</span> <span class="name">Miruum</span> Mitra</div>
+    <h2>Extranet</h2>
+    <p class="muted" style="margin-top:-6px">Masuk sebagai mitra hotel</p>
+    <% if (error) { %><div class="error"><%= error %></div><% } %>
+    <form method="post" action="/extranet/login">
+      <label>Email</label>
+      <input name="email" type="email" value="partner@panji.id" required>
+      <label>Kata Sandi</label>
+      <input name="password" type="password" value="partner123" required>
+      <div style="margin-top:20px"><button class="btn orange" style="width:100%;justify-content:center">Masuk</button></div>
+    </form>
+    <div class="hint" style="background:var(--orange-s);color:#b8791a">Demo mitra: partner@panji.id / partner123</div>
+    <p style="text-align:center;margin-top:16px"><a href="/">← Kembali ke beranda</a></p>
+  </div>
+</div>
+</body>
+</html>

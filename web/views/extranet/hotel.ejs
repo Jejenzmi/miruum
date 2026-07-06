@@ -1,0 +1,39 @@
+<%- include('../partials/top', { title: hotel.name, heading: hotel.name, section:'extranet', active:'dashboard', me }) %>
+
+<div class="card">
+  <div style="display:flex;gap:16px;align-items:center">
+    <img class="thumb" style="width:80px;height:80px" src="<%= hotel.imageUrl %>" alt="">
+    <div>
+      <h2 style="margin-bottom:2px"><%= hotel.name %></h2>
+      <p class="muted" style="margin:0"><%= hotel.city %> · <%= '★'.repeat(hotel.starRating) %> · <%= hotel.rating %>/10</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Kamar & Ketersediaan</h2>
+  <p class="muted" style="margin-top:-8px">Ubah harga & stok kamar Anda.</p>
+  <table>
+    <thead><tr><th>Kamar</th><th>Tipe</th><th>Atur Harga & Stok</th></tr></thead>
+    <tbody>
+      <% hotel.rooms.forEach(function(r){ %>
+        <tr>
+          <td><b><%= r.name %></b><br><span class="muted" style="font-size:11px"><%= r.bedInfo %></span></td>
+          <td><%= r.refundable ? 'Refundable' : 'Non-refundable' %><%= r.breakfast ? ' · Sarapan' : '' %></td>
+          <td>
+            <form method="post" action="/extranet/rooms/<%= r.id %>" style="display:flex;gap:8px;align-items:center">
+              <input name="price" type="number" value="<%= r.price %>" style="max-width:140px" title="Harga/malam">
+              <input name="stock" type="number" value="<%= r.stock %>" style="max-width:80px" title="Stok">
+              <button class="btn sm">Simpan</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!hotel.rooms.length) { %><tr><td colspan="5" class="empty">Belum ada kamar</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<a class="btn ghost" href="/extranet">← Kembali</a>
+
+<%- include('../partials/bottom') %>

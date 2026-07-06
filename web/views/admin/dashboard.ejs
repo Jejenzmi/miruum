@@ -1,0 +1,41 @@
+<%- include('../partials/top', { title:'Dashboard', heading:'Dashboard', section:'admin', active:'dashboard', me }) %>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="icon" style="background:var(--green-s);color:var(--green-d)">🏨</div>
+    <div class="label">Total Hotel</div><div class="value"><%= stats.hotels %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:#E5EEFF;color:#2563EB">🧾</div>
+    <div class="label">Total Pesanan</div><div class="value"><%= stats.bookings %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--orange-s);color:#b8791a">👥</div>
+    <div class="label">Pengguna</div><div class="value"><%= stats.users %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--green-s);color:var(--green-d)">💰</div>
+    <div class="label">Pendapatan (paid)</div><div class="value" style="font-size:20px"><%= rupiah(stats.revenue) %></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Pesanan Terbaru</h2>
+  <table>
+    <thead><tr><th>Kode</th><th>Hotel</th><th>Pemesan</th><th>Total</th><th>Status</th></tr></thead>
+    <tbody>
+      <% bookings.forEach(function(b){ %>
+        <tr>
+          <td><b><%= b.code %></b></td>
+          <td><%= b.hotel ? b.hotel.name : '-' %></td>
+          <td><%= b.user ? b.user.name : '-' %></td>
+          <td><%= rupiah(b.totalPrice) %></td>
+          <td><span class="pill <%= b.status %>"><%= b.status %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!bookings.length) { %><tr><td colspan="5" class="empty">Belum ada pesanan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

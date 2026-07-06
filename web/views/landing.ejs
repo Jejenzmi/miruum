@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Miruum — Aplikasi Booking Hotel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="hero">
+  <div class="hero-nav">
+    <div class="brand"><span class="mark">🐾</span> <span class="name">Miruum</span></div>
+    <div class="hero-links">
+      <a class="btn ghost" href="/admin">Back Office</a>
+      <a class="btn orange" href="/extranet">Extranet Mitra</a>
+    </div>
+  </div>
+  <div class="hero-body">
+    <div>
+      <h1>Miruum</h1>
+      <div class="tag">Aplikasi Booking Hotel</div>
+      <p>Platform OTA untuk pemesanan hotel. Aplikasi pengguna tersedia sebagai <b>mobile app (Flutter)</b>,
+         dikelola lewat <b>Back Office</b> untuk admin dan <b>Extranet</b> untuk mitra hotel.</p>
+      <div class="hero-links">
+        <% if (APK_URL) { %>
+          <a class="btn" href="<%= APK_URL %>">⬇️ Unduh APK (Android)</a>
+        <% } else { %>
+          <a class="btn" href="#portals">Masuk Portal</a>
+        <% } %>
+      </div>
+      <div class="portal-cards" id="portals">
+        <div class="portal-card">
+          <div class="ic">📱</div>
+          <h3>Mobile App</h3>
+          <p class="muted">Flutter + Bloc — untuk pengguna memesan hotel. Login demo: <b>demo@miruum.id / demo123</b></p>
+        </div>
+        <a class="portal-card" href="/admin">
+          <div class="ic">🖥️</div>
+          <h3>Back Office</h3>
+          <p class="muted">Admin: kelola hotel, pesanan, pengguna. <b>admin@miruum.id / admin123</b></p>
+        </a>
+        <a class="portal-card" href="/extranet">
+          <div class="ic">🏨</div>
+          <h3>Extranet Mitra</h3>
+          <p class="muted">Mitra hotel: kelola kamar & pesanan. <b>partner@panji.id / partner123</b></p>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

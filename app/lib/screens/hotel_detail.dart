@@ -1,42 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../api.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/cubits.dart';
+import '../bloc/view_state.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'reviews.dart';
 import 'pilih_kamar.dart';
 
-class HotelDetailScreen extends StatefulWidget {
+class HotelDetailScreen extends StatelessWidget {
   final String hotelId;
   const HotelDetailScreen(this.hotelId, {super.key});
   @override
-  State<HotelDetailScreen> createState() => _HotelDetailScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (ctx) => HotelDetailCubit(ctx.read<Api>())..load(hotelId),
+      child: const _HotelDetailView(),
+    );
+  }
 }
 
-class _HotelDetailScreenState extends State<HotelDetailScreen> {
-  late Future<Hotel> _future;
+class _HotelDetailView extends StatefulWidget {
+  const _HotelDetailView();
+  @override
+  State<_HotelDetailView> createState() => _HotelDetailViewState();
+}
+
+class _HotelDetailViewState extends State<_HotelDetailView> {
   bool _descExpanded = false;
 
   @override
-  void initState() {
-    super.initState();
-    _future = context.read<Session>().api.hotel(widget.hotelId);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final session = context.watch<Session>();
+    final auth = context.watch<AuthBloc>().state;
     return Scaffold(
-      body: FutureBuilder<Hotel>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
+      body: BlocBuilder<HotelDetailCubit, ViewState<Hotel>>(
+        builder: (context, state) {
+          if (state.isLoading) {
             return const Center(child: CircularProgressIndicator(color: MC.primary));
           }
-          if (!snap.hasData) return const Center(child: Text('Hotel tidak ditemukan'));
-          final h = snap.data!;
-          final fav = session.isFavorite(h.id);
+          if (!state.isSuccess) return const Center(child: Text('Hotel tidak ditemukan'));
+          final h = state.data!;
+          final fav = auth.isFavorite(h.id);
           final photos = h.photos.isNotEmpty ? h.photos : [h.imageUrl];
           return Stack(
             children: [
@@ -48,9 +54,9 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                     backgroundColor: MC.surface,
                     leading: _circleBtn(Icons.arrow_back_rounded, () => Navigator.pop(context)),
                     actions: [
-                      if (session.isLoggedIn)
+                      if (auth.isLoggedIn)
                         _circleBtn(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                            () => session.toggleFavorite(h.id), color: fav ? MC.danger : MC.ink),
+                            () => context.read<AuthBloc>().add(AuthFavoriteToggled(h.id)), color: fav ? MC.danger : MC.ink),
                       const SizedBox(width: 8),
                     ],
                     flexibleSpace: FlexibleSpaceBar(

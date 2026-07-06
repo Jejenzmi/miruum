@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'session.dart';
+import 'api.dart';
+import 'bloc/auth/auth_bloc.dart';
 import 'theme.dart';
 import 'screens/splash.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
+  final api = Api();
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => Session()..bootstrap(),
-      child: const MiruumApp(),
+    RepositoryProvider<Api>.value(
+      value: api,
+      child: BlocProvider<AuthBloc>(
+        create: (_) => AuthBloc(api)..add(const AuthStarted()),
+        child: const MiruumApp(),
+      ),
     ),
   );
 }

@@ -1,0 +1,35 @@
+<%- include('../partials/top', { title:'Hotel', heading:'Kelola Hotel', section:'admin', active:'hotels', me }) %>
+
+<div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+  <a class="btn" href="/admin/hotels/new">➕ Tambah Hotel</a>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th></th><th>Nama</th><th>Kota</th><th>Bintang</th><th>Harga/malam</th><th>Mitra</th><th>Kamar</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% hotels.forEach(function(h){ %>
+        <tr>
+          <td><img class="thumb" src="<%= h.imageUrl %>" alt=""></td>
+          <td><b><%= h.name %></b><br><span class="muted" style="font-size:11px"><%= h.rating %>/10 · <%= h.reviewCount %> ulasan</span></td>
+          <td><%= h.city %></td>
+          <td><%= '★'.repeat(h.starRating) %></td>
+          <td><%= rupiah(h.priceFrom) %></td>
+          <td><%= h.owner ? h.owner.name : '—' %></td>
+          <td><%= h._count.rooms %></td>
+          <td>
+            <div class="actions">
+              <a class="btn ghost sm" href="/admin/hotels/<%= h.id %>/edit">Edit</a>
+              <form method="post" action="/admin/hotels/<%= h.id %>/delete" onsubmit="return confirm('Hapus hotel ini?')">
+                <button class="btn danger sm">Hapus</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!hotels.length) { %><tr><td colspan="8" class="empty">Belum ada hotel</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

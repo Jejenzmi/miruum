@@ -1,6 +1,0 @@
-# Miruum web — serve the pre-built Flutter web bundle via nginx (proxies /api).
-# The Flutter web build is produced on the host (`flutter build web`) and copied in.
-FROM nginx:alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY build/web /usr/share/nginx/html
-EXPOSE 80

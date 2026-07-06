@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../bloc/auth/auth_bloc.dart';
 import '../brand.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -44,8 +44,10 @@ class _SignInScreenState extends State<SignInScreen> {
   Future<void> _submit() async {
     setState(() => _loading = true);
     try {
-      await context.read<Session>().login(_email.text.trim(), _pass.text);
-      if (mounted) Navigator.pop(context);
+      final (token, user) = await context.read<Api>().login(_email.text.trim(), _pass.text);
+      if (!mounted) return;
+      context.read<AuthBloc>().add(AuthSessionGranted(token, user));
+      Navigator.pop(context);
     } on ApiException catch (e) {
       if (mounted) _toast(context, e.message);
     } finally {
@@ -152,9 +154,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
     setState(() => _loading = true);
     try {
-      final session = context.read<Session>();
-      await session.register(_name.text.trim(), _email.text.trim(), _pass.text);
+      final (token, user) = await context.read<Api>().register(_name.text.trim(), _email.text.trim(), _pass.text);
       if (!mounted) return;
+      context.read<AuthBloc>().add(AuthSessionGranted(token, user));
       // OTP step (mock) then done.
       await Navigator.push(context, MaterialPageRoute(builder: (_) => OtpScreen(email: _email.text.trim())));
       if (mounted) Navigator.pop(context);
@@ -234,7 +236,7 @@ class _OtpScreenState extends State<OtpScreen> {
     }
     setState(() => _loading = true);
     try {
-      await context.read<Session>().api.verifyOtp(code);
+      await context.read<Api>().verifyOtp(code);
       if (mounted) Navigator.pop(context);
     } on ApiException catch (e) {
       if (mounted) _toast(context, e.message);
@@ -293,8 +295,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
 /// Shown when a guest tries a member-only action.
 Future<bool> ensureLoggedIn(BuildContext context) async {
-  final session = context.read<Session>();
-  if (session.isLoggedIn) return true;
+  if (context.read<AuthBloc>().state.isLoggedIn) return true;
   await Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
-  return context.read<Session>().isLoggedIn;
+  return context.read<AuthBloc>().state.isLoggedIn;
 }

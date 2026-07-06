@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import '../api.dart';
+import '../bloc/auth/auth_bloc.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'pembayaran.dart';
@@ -22,9 +22,9 @@ class RincianPesananScreen extends StatefulWidget {
 }
 
 class _RincianPesananScreenState extends State<RincianPesananScreen> {
-  late final _name = TextEditingController(text: context.read<Session>().user?.name ?? '');
-  late final _email = TextEditingController(text: context.read<Session>().user?.email ?? '');
-  late final _phone = TextEditingController(text: context.read<Session>().user?.phone ?? '');
+  late final _name = TextEditingController(text: context.read<AuthBloc>().state.user?.name ?? '');
+  late final _email = TextEditingController(text: context.read<AuthBloc>().state.user?.email ?? '');
+  late final _phone = TextEditingController(text: context.read<AuthBloc>().state.user?.phone ?? '');
   final _request = TextEditingController();
   bool _forSelf = true, _loading = false;
   final _fmt = DateFormat('EEEE, d MMMM', 'id_ID');
@@ -40,7 +40,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
     }
     setState(() => _loading = true);
     try {
-      final booking = await context.read<Session>().api.createBooking({
+      final booking = await context.read<Api>().createBooking({
         'hotelId': widget.hotel.id,
         'roomId': widget.room.id,
         'checkIn': widget.checkIn.toIso8601String(),

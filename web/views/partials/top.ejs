@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> — Miruum</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="mark">🐾</span> <span class="name">Miruum</span></div>
+    <span class="badge-role"><%= section === 'admin' ? 'BACK OFFICE' : 'EXTRANET MITRA' %></span>
+    <nav class="nav">
+      <% if (section === 'admin') { %>
+        <a href="/admin" class="<%= active==='dashboard'?'active':'' %>">📊 Dashboard</a>
+        <a href="/admin/hotels" class="<%= active==='hotels'?'active':'' %>">🏨 Hotel</a>
+        <a href="/admin/bookings" class="<%= active==='bookings'?'active':'' %>">🧾 Pesanan</a>
+        <a href="/admin/users" class="<%= active==='users'?'active':'' %>">👥 Pengguna</a>
+        <a href="/admin/logout">🚪 Keluar</a>
+      <% } else { %>
+        <a href="/extranet" class="<%= active==='dashboard'?'active':'' %>">📊 Ringkasan</a>
+        <a href="/extranet/bookings" class="<%= active==='bookings'?'active':'' %>">🧾 Pesanan Masuk</a>
+        <a href="/extranet/logout">🚪 Keluar</a>
+      <% } %>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <h1><%= heading %></h1>
+      <div class="user-chip">
+        <span><%= me.name %></span>
+        <div class="avatar"><%= me.name.charAt(0).toUpperCase() %></div>
+      </div>
+    </div>

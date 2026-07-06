@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../api.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/cubits.dart';
+import '../bloc/view_state.dart';
 import '../hotel_card.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
@@ -10,57 +13,47 @@ import 'menu_hotel.dart';
 import 'notifikasi.dart';
 import 'results.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (ctx) => HomeCubit(ctx.read<Api>())..load(),
+      child: const _HomeView(),
+    );
+  }
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  late Future<_HomeData> _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
-
-  Future<_HomeData> _load() async {
-    final api = context.read<Session>().api;
-    final results = await Future.wait([api.promoHotels(), api.recommended(), api.promos()]);
-    return _HomeData(results[0] as List<Hotel>, results[1] as List<Hotel>, results[2] as List<Promo>);
-  }
-
-  void _reload() => setState(() => _future = _load());
+class _HomeView extends StatelessWidget {
+  const _HomeView();
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<Session>();
+    final auth = context.watch<AuthBloc>().state;
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async => _reload(),
-          child: FutureBuilder<_HomeData>(
-            future: _future,
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
+          onRefresh: () => context.read<HomeCubit>().load(),
+          child: BlocBuilder<HomeCubit, ViewState<HomeData>>(
+            builder: (context, state) {
+              if (state.isLoading) {
                 return const Center(child: CircularProgressIndicator(color: MC.primary));
               }
-              if (snap.hasError) {
-                return _ErrorState(onRetry: _reload);
+              if (state.isFailure) {
+                return _ErrorState(onRetry: () => context.read<HomeCubit>().load());
               }
-              final data = snap.data!;
+              final data = state.data!;
               return ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
-                  _header(session),
+                  _header(context, auth),
                   const SizedBox(height: 16),
-                  _searchBar(),
+                  _searchBar(context),
                   const SizedBox(height: 16),
-                  if (!session.isLoggedIn) ...[_guestBanner(), const SizedBox(height: 16)],
+                  if (!auth.isLoggedIn) ...[_guestBanner(context), const SizedBox(height: 16)],
                   _promoHero(),
                   const SizedBox(height: 22),
-                  _categories(),
+                  _categories(context),
                   const SizedBox(height: 24),
                   SectionHeader('Promo Terbaru', action: 'Lihat semua', onAction: () {}),
                   const SizedBox(height: 12),
@@ -79,9 +72,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _header(Session session) {
-    final greeting = session.isLoggedIn ? 'Selamat datang,' : 'Selamat datang di';
-    final name = session.isLoggedIn ? '${session.user!.name}!' : 'Miruum';
+  Widget _header(BuildContext context, AuthState auth) {
+    final greeting = auth.isLoggedIn ? 'Selamat datang,' : 'Selamat datang di';
+    final name = auth.isLoggedIn ? '${auth.user!.name}!' : 'Miruum';
     return Row(
       children: [
         Expanded(
@@ -95,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         _iconBtn(Icons.notifications_none_rounded, () async {
           if (await ensureLoggedIn(context)) {
-            if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifikasiScreen()));
+            if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifikasiScreen()));
           }
         }),
       ],
@@ -111,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-  Widget _searchBar() => GestureDetector(
+  Widget _searchBar(BuildContext context) => GestureDetector(
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen())),
         child: Container(
           height: 52,
@@ -125,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-  Widget _guestBanner() => Container(
+  Widget _guestBanner(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [MC.primaryDark, MC.primary]),
@@ -198,13 +191,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
       );
 
-  Widget _categories() => Row(children: [
-        _catTile('Hotel', Icons.hotel_rounded, MC.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen()))),
+  Widget _categories(BuildContext context) => Row(children: [
+        _catTile(context, 'Hotel', Icons.hotel_rounded, MC.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen()))),
         const SizedBox(width: 14),
-        _catTile('Hotel Package', Icons.card_travel_rounded, MC.accent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen(package: true)))),
+        _catTile(context, 'Hotel Package', Icons.card_travel_rounded, MC.accent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen(package: true)))),
       ]);
 
-  Widget _catTile(String label, IconData icon, Color color, VoidCallback onTap) => Expanded(
+  Widget _catTile(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap) => Expanded(
         child: GestureDetector(
           onTap: onTap,
           child: cardBox(
@@ -256,12 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       );
-}
-
-class _HomeData {
-  final List<Hotel> promo, recommended;
-  final List<Promo> promos;
-  _HomeData(this.promo, this.recommended, this.promos);
 }
 
 class _ErrorState extends StatelessWidget {

@@ -1,0 +1,20 @@
+<%- include('../partials/top', { title:'Pengguna', heading:'Pengguna', section:'admin', active:'users', me }) %>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th>Telepon</th><th>Pesanan</th></tr></thead>
+    <tbody>
+      <% users.forEach(function(u){ %>
+        <tr>
+          <td><b><%= u.name %></b></td>
+          <td><%= u.email %></td>
+          <td><span class="pill <%= u.role %>"><%= u.role %></span></td>
+          <td><%= u.phone || '—' %></td>
+          <td><%= u._count.bookings %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

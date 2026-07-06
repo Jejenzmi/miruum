@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'bloc/auth/auth_bloc.dart';
 import 'models.dart';
-import 'session.dart';
 import 'theme.dart';
 import 'widgets.dart';
 import 'screens/hotel_detail.dart';
@@ -16,8 +16,8 @@ class HotelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final session = context.watch<Session>();
-    final fav = session.isFavorite(hotel.id);
+    final auth = context.watch<AuthBloc>().state;
+    final fav = auth.isFavorite(hotel.id);
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(hotel.id))),
       child: cardBox(
@@ -38,9 +38,9 @@ class HotelCard extends StatelessWidget {
                     children: [
                       Expanded(child: Text(hotel.name, maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
-                      if (session.isLoggedIn)
+                      if (auth.isLoggedIn)
                         GestureDetector(
-                          onTap: () => session.toggleFavorite(hotel.id),
+                          onTap: () => context.read<AuthBloc>().add(AuthFavoriteToggled(hotel.id)),
                           child: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                               size: 20, color: fav ? MC.danger : MC.inkFaint),
                         ),

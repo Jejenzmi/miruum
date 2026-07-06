@@ -1,37 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
+import '../api.dart';
+import '../bloc/cubits.dart';
+import '../bloc/view_state.dart';
 import '../hotel_card.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
-import '../widgets.dart';
 import 'filter.dart';
 
-class ResultsScreen extends StatefulWidget {
+class ResultsScreen extends StatelessWidget {
   final String title;
   final String query;
   final DateTime? checkIn, checkOut;
   final int rooms;
   const ResultsScreen({super.key, this.title = 'Hasil Pencarian', this.query = '', this.checkIn, this.checkOut, this.rooms = 1});
+
   @override
-  State<ResultsScreen> createState() => _ResultsScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (ctx) => HotelsCubit(ctx.read<Api>())..load(query: query.isNotEmpty ? {'query': query} : null),
+      child: _ResultsView(title: title, query: query, checkIn: checkIn, checkOut: checkOut, rooms: rooms),
+    );
+  }
 }
 
-class _ResultsScreenState extends State<ResultsScreen> {
-  late Future<List<Hotel>> _future;
+class _ResultsView extends StatefulWidget {
+  final String title, query;
+  final DateTime? checkIn, checkOut;
+  final int rooms;
+  const _ResultsView({required this.title, required this.query, this.checkIn, this.checkOut, required this.rooms});
+  @override
+  State<_ResultsView> createState() => _ResultsViewState();
+}
+
+class _ResultsViewState extends State<_ResultsView> {
   FilterResult _filter = const FilterResult();
   final _fmt = DateFormat('d MMM yyyy', 'id_ID');
 
-  @override
-  void initState() {
-    super.initState();
-    _future = _load();
-  }
-
-  Future<List<Hotel>> _load() {
-    final api = context.read<Session>().api;
-    return api.hotels(q: {
+  void _apply() {
+    context.read<HotelsCubit>().load(query: {
       if (widget.query.isNotEmpty) 'query': widget.query,
       if (_filter.minPrice > 0) 'minPrice': _filter.minPrice,
       if (_filter.maxPrice < 5000000) 'maxPrice': _filter.maxPrice,
@@ -41,7 +49,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   void _openFilter() async {
     final res = await Navigator.push<FilterResult>(context, MaterialPageRoute(builder: (_) => FilterScreen(initial: _filter)));
-    if (res != null) setState(() { _filter = res; _future = _load(); });
+    if (res != null && mounted) {
+      setState(() => _filter = res);
+      _apply();
+    }
   }
 
   @override
@@ -74,13 +85,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
               ]),
             ),
             Expanded(
-              child: FutureBuilder<List<Hotel>>(
-                future: _future,
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
+              child: BlocBuilder<HotelsCubit, ViewState<List<Hotel>>>(
+                builder: (context, state) {
+                  if (state.isLoading) {
                     return const Center(child: CircularProgressIndicator(color: MC.primary));
                   }
-                  final hotels = snap.data ?? [];
+                  final hotels = state.data ?? [];
                   if (hotels.isEmpty) {
                     return const Center(child: Padding(
                       padding: EdgeInsets.all(40),

@@ -1,81 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../api.dart';
+import '../bloc/cubits.dart';
+import '../bloc/view_state.dart';
 import '../models.dart';
-import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'hotel_detail.dart';
 import 'results.dart';
 
-class JelajahScreen extends StatefulWidget {
+class JelajahScreen extends StatelessWidget {
   const JelajahScreen({super.key});
-  @override
-  State<JelajahScreen> createState() => _JelajahScreenState();
-}
-
-class _JelajahScreenState extends State<JelajahScreen> {
-  late Future<List<Hotel>> _future;
   static const _cities = ['Yogyakarta', 'Jakarta', 'Padang', 'Sleman'];
 
   @override
-  void initState() {
-    super.initState();
-    _future = context.read<Session>().api.hotels();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Jelajah'),
-        centerTitle: false,
-        titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
-      ),
-      body: SafeArea(
-        top: false,
-        child: FutureBuilder<List<Hotel>>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: MC.primary));
-            }
-            final hotels = snap.data ?? [];
-            return ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const Text('Destinasi Populer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _cities.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) => ActionChip(
-                      label: Text(_cities[i]),
-                      backgroundColor: MC.surface,
-                      side: const BorderSide(color: MC.line),
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => ResultsScreen(title: _cities[i], query: _cities[i]))),
+    return BlocProvider(
+      create: (ctx) => HotelsCubit(ctx.read<Api>())..load(),
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const Text('Jelajah'),
+          centerTitle: false,
+          titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        body: SafeArea(
+          top: false,
+          child: BlocBuilder<HotelsCubit, ViewState<List<Hotel>>>(
+            builder: (context, state) {
+              if (state.isLoading) {
+                return const Center(child: CircularProgressIndicator(color: MC.primary));
+              }
+              final hotels = state.data ?? [];
+              return ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  const Text('Destinasi Populer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _cities.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, i) => ActionChip(
+                        label: Text(_cities[i]),
+                        backgroundColor: MC.surface,
+                        side: const BorderSide(color: MC.line),
+                        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => ResultsScreen(title: _cities[i], query: _cities[i]))),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                const Text('Jelajahi Hotel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                const SizedBox(height: 12),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 0.74),
-                  itemCount: hotels.length,
-                  itemBuilder: (context, i) => _ExploreCard(hotels[i]),
-                ),
-              ],
-            );
-          },
+                  const SizedBox(height: 20),
+                  const Text('Jelajahi Hotel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 12),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 0.74),
+                    itemCount: hotels.length,
+                    itemBuilder: (context, i) => _ExploreCard(hotels[i]),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

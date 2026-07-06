@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
-import '../session.dart';
+import '../bloc/auth/auth_bloc.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -9,7 +9,7 @@ class PersonalDataScreen extends StatelessWidget {
   const PersonalDataScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final u = context.watch<Session>().user!;
+    final u = context.watch<AuthBloc>().state.user!;
     Widget row(String label, String? value) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           child: cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -46,22 +46,23 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  late final _name = TextEditingController(text: context.read<Session>().user?.name);
-  late final _phone = TextEditingController(text: context.read<Session>().user?.phone);
-  late final _gender = TextEditingController(text: context.read<Session>().user?.gender);
-  late final _birth = TextEditingController(text: context.read<Session>().user?.birthDate);
+  late final _name = TextEditingController(text: context.read<AuthBloc>().state.user?.name);
+  late final _phone = TextEditingController(text: context.read<AuthBloc>().state.user?.phone);
+  late final _gender = TextEditingController(text: context.read<AuthBloc>().state.user?.gender);
+  late final _birth = TextEditingController(text: context.read<AuthBloc>().state.user?.birthDate);
   bool _loading = false;
 
   Future<void> _save() async {
     setState(() => _loading = true);
     try {
-      await context.read<Session>().updateProfile({
+      final user = await context.read<Api>().updateMe({
         'name': _name.text.trim(),
         'phone': _phone.text.trim(),
         'gender': _gender.text.trim(),
         'birthDate': _birth.text.trim(),
       });
       if (mounted) {
+        context.read<AuthBloc>().add(AuthUserUpdated(user));
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profil diperbarui'), backgroundColor: MC.primary));
         Navigator.pop(context);
       }

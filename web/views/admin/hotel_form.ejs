@@ -1,0 +1,48 @@
+<%- include('../partials/top', { title: hotel ? 'Edit Hotel' : 'Hotel Baru', heading: hotel ? 'Edit Hotel' : 'Tambah Hotel', section:'admin', active:'hotels', me }) %>
+
+<div class="card" style="max-width:720px">
+  <form method="post" action="<%= hotel ? '/admin/hotels/'+hotel.id : '/admin/hotels' %>">
+    <label>Nama Hotel</label>
+    <input name="name" value="<%= hotel ? hotel.name : '' %>" required>
+    <div class="row2">
+      <div><label>Kota</label><input name="city" value="<%= hotel ? hotel.city : '' %>" required></div>
+      <div><label>Harga / malam (Rp)</label><input name="priceFrom" type="number" value="<%= hotel ? hotel.priceFrom : 500000 %>"></div>
+    </div>
+    <label>Alamat</label>
+    <input name="address" value="<%= hotel ? hotel.address : '' %>" required>
+    <label>Deskripsi</label>
+    <textarea name="description" rows="3"><%= hotel ? hotel.description : '' %></textarea>
+    <div class="row2">
+      <div><label>Bintang (1-5)</label><input name="starRating" type="number" min="1" max="5" value="<%= hotel ? hotel.starRating : 3 %>"></div>
+      <div><label>Rating (0-10)</label><input name="rating" type="number" step="0.1" value="<%= hotel ? hotel.rating : 8 %>"></div>
+    </div>
+    <label>URL Gambar</label>
+    <input name="imageUrl" value="<%= hotel ? hotel.imageUrl : '' %>" placeholder="https://...">
+    <div class="row2">
+      <div>
+        <label>Mitra Pemilik</label>
+        <select name="ownerId">
+          <option value="">— Tanpa mitra —</option>
+          <% users.forEach(function(u){ %>
+            <option value="<%= u.id %>" <%= hotel && hotel.owner && hotel.owner.id===u.id ? 'selected':'' %>><%= u.name %> (<%= u.email %>)</option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label>Promo</label>
+        <select name="isPromo">
+          <option value="false" <%= hotel && !hotel.isPromo ? 'selected':'' %>>Tidak</option>
+          <option value="true" <%= hotel && hotel.isPromo ? 'selected':'' %>>Ya</option>
+        </select>
+      </div>
+    </div>
+    <label>Label Promo (opsional)</label>
+    <input name="promoLabel" value="<%= hotel && hotel.promoLabel ? hotel.promoLabel : '' %>">
+    <div style="margin-top:22px" class="actions">
+      <button class="btn"><%= hotel ? 'Simpan Perubahan' : 'Tambah Hotel' %></button>
+      <a class="btn ghost" href="/admin/hotels">Batal</a>
+    </div>
+  </form>
+</div>
+
+<%- include('../partials/bottom') %>

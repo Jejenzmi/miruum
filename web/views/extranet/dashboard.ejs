@@ -1,0 +1,38 @@
+<%- include('../partials/top', { title:'Ringkasan', heading:'Ringkasan Mitra', section:'extranet', active:'dashboard', me }) %>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="icon" style="background:var(--green-s);color:var(--green-d)">🏨</div>
+    <div class="label">Hotel Anda</div><div class="value"><%= overview.hotels.length %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:#E5EEFF;color:#2563EB">🧾</div>
+    <div class="label">Total Pesanan</div><div class="value"><%= overview.totalBookings %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--orange-s);color:#b8791a">💰</div>
+    <div class="label">Pendapatan</div><div class="value" style="font-size:20px"><%= rupiah(overview.revenue) %></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Hotel yang Anda Kelola</h2>
+  <table>
+    <thead><tr><th></th><th>Nama</th><th>Kota</th><th>Kamar</th><th>Pesanan</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% overview.hotels.forEach(function(h){ %>
+        <tr>
+          <td><img class="thumb" src="<%= h.imageUrl %>" alt=""></td>
+          <td><b><%= h.name %></b></td>
+          <td><%= h.city %></td>
+          <td><%= h._count.rooms %></td>
+          <td><%= h._count.bookings %></td>
+          <td><a class="btn ghost sm" href="/extranet/hotels/<%= h.id %>">Kelola Kamar</a></td>
+        </tr>
+      <% }) %>
+      <% if (!overview.hotels.length) { %><tr><td colspan="6" class="empty">Belum ada hotel terhubung ke akun Anda</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>
