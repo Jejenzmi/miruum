@@ -63,6 +63,10 @@ class Api {
   Future<AppUser> updateMe(Map<String, dynamic> data) async =>
       AppUser.fromJson((await _put('/auth/me', data))['user']);
 
+  /// Upload a base64 data URL to MinIO via the backend; returns the public URL.
+  Future<String> uploadImage(String dataUrl, {String folder = 'avatars'}) async =>
+      (await _post('/uploads', {'dataUrl': dataUrl, 'folder': folder}))['url'] as String;
+
   Future<void> requestOtp() async => _post('/auth/otp/request');
   Future<void> verifyOtp(String code) async => _post('/auth/otp/verify', {'code': code});
 

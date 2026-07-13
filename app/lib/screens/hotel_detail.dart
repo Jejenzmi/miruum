@@ -84,6 +84,18 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                           const SizedBox(height: 6),
                           Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
                               style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700)),
+                          if (h.channel != null) ...[
+                            const SizedBox(height: 10),
+                            Row(children: [
+                              SourceBadge(h.channel!),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(
+                                  h.channel!.isDirect
+                                      ? 'Dikelola langsung via Channel Manager Miruum'
+                                      : 'Inventori dari mitra OTA ${h.channel!.name}',
+                                  style: const TextStyle(color: MC.inkFaint, fontSize: 11.5))),
+                            ]),
+                          ],
                           const SizedBox(height: 20),
                           const Text('Fasilitas', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),

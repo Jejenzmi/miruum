@@ -49,6 +49,19 @@ class Room {
       );
 }
 
+/// Supply source of a hotel: Miruum's own Channel Manager (DIRECT) or an OTA.
+class SupplyChannel {
+  final String code, name, type;
+  final String? color;
+  final double commissionPct;
+  SupplyChannel({required this.code, required this.name, required this.type, this.color, this.commissionPct = 0});
+  bool get isDirect => type == 'DIRECT';
+  factory SupplyChannel.fromJson(Map<String, dynamic> j) => SupplyChannel(
+        code: j['code'] ?? '', name: j['name'] ?? '', type: j['type'] ?? 'OTA',
+        color: j['color'], commissionPct: (j['commissionPct'] ?? 0).toDouble(),
+      );
+}
+
 class Hotel {
   final String id, name, city, address, imageUrl;
   final double rating;
@@ -59,6 +72,7 @@ class Hotel {
   final List<Facility> facilities;
   final List<Room> rooms;
   final List<Review> reviews;
+  final SupplyChannel? channel;
 
   Hotel({
     required this.id, required this.name, required this.city, required this.address,
@@ -66,6 +80,7 @@ class Hotel {
     required this.priceFrom, required this.starRating, required this.isPromo,
     this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo,
     this.photos = const [], this.facilities = const [], this.rooms = const [], this.reviews = const [],
+    this.channel,
   });
 
   factory Hotel.fromJson(Map<String, dynamic> j) => Hotel(
@@ -79,6 +94,7 @@ class Hotel {
         facilities: (j['facilities'] as List?)?.map((f) => Facility.fromJson(f)).toList() ?? [],
         rooms: (j['rooms'] as List?)?.map((r) => Room.fromJson(r)).toList() ?? [],
         reviews: (j['reviews'] as List?)?.map((r) => Review.fromJson(r)).toList() ?? [],
+        channel: j['channel'] != null ? SupplyChannel.fromJson(j['channel']) : null,
       );
 }
 

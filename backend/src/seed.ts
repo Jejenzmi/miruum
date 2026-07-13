@@ -97,8 +97,44 @@ const PARTNERS = [
   { name: "Mandarin Hospitality", email: "partner@mandarin.id", owns: ["hotel-mandarin", "hotel-tulip"] },
 ];
 
+// Supply channels — Miruum's own Channel Manager (DIRECT) + OTA sub-agent sources.
+const CHANNELS = [
+  { code: "DIRECT",    name: "Direct (Channel Manager)", type: "DIRECT" as const, commissionPct: 0,  color: "#2FA84F", sortOrder: 0 },
+  { code: "TIKETCOM",  name: "Tiket.com",                type: "OTA" as const,    commissionPct: 8,  color: "#0064D2", sortOrder: 1 },
+  { code: "AGODA",     name: "Agoda",                    type: "OTA" as const,    commissionPct: 10, color: "#5A34A5", sortOrder: 2 },
+  { code: "TRAVELOKA", name: "Traveloka",                type: "OTA" as const,    commissionPct: 9,  color: "#1BA0E2", sortOrder: 3 },
+];
+// Which source each demo hotel comes from (rest default to DIRECT).
+const HOTEL_CHANNEL: Record<string, string> = {
+  "hotel-tulip": "TRAVELOKA",
+  "hotel-mandarin": "AGODA",
+  "hotel-ambacang": "TIKETCOM",
+  "penginapan-rio": "TIKETCOM",
+};
+
+async function ensureChannels() {
+  for (const c of CHANNELS) {
+    await prisma.supplyChannel.upsert({ where: { code: c.code }, create: c, update: c });
+  }
+}
+
+// Idempotent + non-destructive: assign existing hotels to a supply channel.
+async function assignChannels() {
+  const channels = await prisma.supplyChannel.findMany();
+  const byCode: Record<string, string> = Object.fromEntries(channels.map((c) => [c.code, c.id]));
+  for (const [slug, code] of Object.entries(HOTEL_CHANNEL)) {
+    await prisma.hotel.updateMany({ where: { slug }, data: { channelId: byCode[code] } });
+  }
+  // any hotel still without a channel → DIRECT (own Channel Manager)
+  await prisma.hotel.updateMany({ where: { channelId: null }, data: { channelId: byCode["DIRECT"] } });
+}
+
 async function main() {
   console.log("[seed] start");
+
+  // Supply channels are always (re)ensured — additive & non-destructive, so they
+  // apply even on live DBs where the catalog reseed below is skipped.
+  await ensureChannels();
 
   // Idempotent restart guard: the hotel/room/review/package block below is
   // DESTRUCTIVE (deleteMany then recreate). Once seeded, re-running it on every
@@ -108,7 +144,8 @@ async function main() {
   //  after clearing dependent rows, or reset the DB volume.)
   const force = process.argv.includes("--force");
   if (!force && (await prisma.hotel.count()) > 0) {
-    console.log("[seed] catalog already present — skipping reseed (idempotent restart)");
+    await assignChannels();
+    console.log("[seed] catalog already present — channels ensured, skipping reseed");
     return;
   }
 
@@ -311,7 +348,9 @@ async function main() {
     ],
   });
 
-  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners`);
+  await assignChannels();
+
+  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels`);
   console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
 }
 

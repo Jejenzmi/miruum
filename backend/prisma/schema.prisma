@@ -52,9 +52,12 @@ model Hotel {
   isPromo     Boolean  @default(false)
   promoLabel  String?
   ownerId     String?
+  channelId   String?  // supply source: own Channel Manager (DIRECT) or an OTA
+  externalId  String?  // hotel id / deeplink at the source OTA
   createdAt   DateTime @default(now())
 
-  owner       User?    @relation("HotelOwner", fields: [ownerId], references: [id])
+  owner       User?          @relation("HotelOwner", fields: [ownerId], references: [id])
+  channel     SupplyChannel? @relation(fields: [channelId], references: [id])
   photos      HotelPhoto[]
   facilities  HotelFacility[]
   rooms       Room[]
@@ -62,6 +65,29 @@ model Hotel {
   favorites   Favorite[]
   bookings    Booking[]
   packages    HotelPackage[]
+}
+
+// Supply source for hotel inventory. Miruum aggregates two kinds:
+//  • DIRECT — connected hotels managed through Miruum's own Channel Manager (Extranet).
+//  • OTA    — resold as a sub-agent of another OTA (Tiket.com, Agoda, Traveloka…).
+enum ChannelType {
+  DIRECT
+  OTA
+}
+
+model SupplyChannel {
+  id            String      @id @default(cuid())
+  code          String      @unique // DIRECT, TIKETCOM, AGODA, TRAVELOKA…
+  name          String
+  type          ChannelType @default(OTA)
+  commissionPct Float       @default(0) // sub-agent margin / markup
+  logoUrl       String?
+  color         String?     // badge color (hex)
+  active        Boolean     @default(true)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  hotels        Hotel[]
 }
 
 model HotelPhoto {

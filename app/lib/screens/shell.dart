@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../image_upload.dart';
 import '../theme.dart';
 import 'home.dart';
 import 'pesanan.dart';
@@ -17,6 +18,13 @@ class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
 
   final _tabs = const [HomeScreen(), PesananScreen(), JelajahScreen(), FavoritScreen(), ProfileScreen()];
+
+  @override
+  void initState() {
+    super.initState();
+    // Ask for notification permission once the app is up (Android 13+ / iOS).
+    WidgetsBinding.instance.addPostFrameCallback((_) => ensureNotificationPermission());
+  }
 
   @override
   Widget build(BuildContext context) {

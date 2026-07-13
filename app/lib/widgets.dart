@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'models.dart';
 import 'theme.dart';
 
 final _rp = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -198,6 +199,36 @@ Widget cardBox({required Widget child, EdgeInsets? padding}) => Container(
       decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(18), boxShadow: [softShadow]),
       child: child,
     );
+
+/// Supply-source chip: "Direct" (own Channel Manager) or "via <OTA>".
+class SourceBadge extends StatelessWidget {
+  final SupplyChannel channel;
+  final bool compact;
+  const SourceBadge(this.channel, {super.key, this.compact = false});
+  @override
+  Widget build(BuildContext context) {
+    final c = _hex(channel.color) ?? (channel.isDirect ? MC.success : MC.blue);
+    final label = channel.isDirect ? 'Direct' : 'via ${channel.name}';
+    final icon = channel.isDirect ? Icons.verified_rounded : Icons.storefront_rounded;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: compact ? 2.5 : 4),
+      decoration: BoxDecoration(color: c.withOpacity(0.12), borderRadius: BorderRadius.circular(7)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: compact ? 11 : 13, color: c),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(fontSize: compact ? 10 : 11, fontWeight: FontWeight.w600, color: c)),
+      ]),
+    );
+  }
+
+  static Color? _hex(String? h) {
+    if (h == null) return null;
+    var s = h.replaceFirst('#', '');
+    if (s.length == 6) s = 'FF$s';
+    final v = int.tryParse(s, radix: 16);
+    return v == null ? null : Color(v);
+  }
+}
 
 IconData facilityIcon(String key) {
   switch (key) {

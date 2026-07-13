@@ -132,6 +132,7 @@ const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
   reviewCount: true, priceFrom: true, starRating: true, imageUrl: true,
   isPromo: true, promoLabel: true,
+  channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
 
 app.get("/api/hotels", async (req, res) => {
@@ -176,6 +177,7 @@ app.get("/api/hotels/:id", async (req, res) => {
       facilities: { include: { facility: true } },
       rooms: true,
       reviews: { orderBy: { createdAt: "desc" }, take: 5 },
+      channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
     },
   });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
@@ -247,6 +249,13 @@ app.get("/api/packages/:id", async (req, res) => {
       hotel: { ...pkg.hotel, facilities: pkg.hotel.facilities.map((f) => f.facility) },
     },
   });
+});
+
+// ─────────────────────────── Supply channels ───────────────────────────
+app.get("/api/channels", async (_req, res) => {
+  const channels = await cached("miruum:channels:all", 300, () =>
+    prisma.supplyChannel.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }));
+  res.json({ channels });
 });
 
 // ─────────────────────────── Promos & static ───────────────────────────
@@ -455,7 +464,7 @@ app.get("/api/admin/stats", requireRole("ADMIN"), async (_req, res) => {
 app.get("/api/admin/hotels", requireRole("ADMIN"), async (_req, res) => {
   const hotels = await prisma.hotel.findMany({
     orderBy: { createdAt: "desc" },
-    include: { owner: { select: { id: true, name: true, email: true } }, _count: { select: { rooms: true, bookings: true } } },
+    include: { owner: { select: { id: true, name: true, email: true } }, channel: true, _count: { select: { rooms: true, bookings: true } } },
   });
   res.json({ hotels });
 });
@@ -467,6 +476,7 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
     starRating: z.coerce.number().int().min(1).max(5).default(3), rating: z.coerce.number().default(8),
     imageUrl: z.string().default(""), isPromo: z.coerce.boolean().default(false),
     promoLabel: z.string().optional(), ownerId: z.string().optional(),
+    channelId: z.string().optional(), externalId: z.string().optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data hotel tidak valid", details: p.error.issues });
@@ -483,11 +493,13 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
     starRating: z.coerce.number().int().optional(), rating: z.coerce.number().optional(),
     imageUrl: z.string().optional(), isPromo: z.coerce.boolean().optional(),
     promoLabel: z.string().optional(), ownerId: z.string().optional(),
+    channelId: z.string().optional(), externalId: z.string().optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
   const data: any = { ...p.data };
   if (data.ownerId === "") data.ownerId = null;
+  if (data.channelId === "") data.channelId = null;
   const hotel = await prisma.hotel.update({ where: { id: req.params.id }, data });
   await invalidate("miruum:");
   res.json({ hotel });

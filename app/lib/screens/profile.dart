@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
+import '../image_upload.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
@@ -45,15 +47,7 @@ class ProfileScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 children: [
                   Row(children: [
-                    Stack(children: [
-                      CircleAvatar(radius: 32, backgroundColor: MC.primarySoft,
-                          child: Text(session.user!.name.characters.first.toUpperCase(),
-                              style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 26))),
-                      Positioned(right: 0, bottom: 0, child: Container(
-                        width: 14, height: 14,
-                        decoration: BoxDecoration(color: MC.primary, shape: BoxShape.circle, border: Border.all(color: MC.bg, width: 2)),
-                      )),
-                    ]),
+                    const _EditableAvatar(),
                     const SizedBox(width: 16),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Text('Selamat Datang', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
@@ -105,6 +99,69 @@ class ProfileScreen extends StatelessWidget {
           Text('Kamar refundable dapat dibatalkan sesuai ketentuan hotel.', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
         ]),
       ),
+    );
+  }
+}
+
+/// Profile avatar that shows the uploaded photo (or the name initial) and lets
+/// the user replace it via camera/gallery → MinIO upload.
+class _EditableAvatar extends StatefulWidget {
+  const _EditableAvatar();
+  @override
+  State<_EditableAvatar> createState() => _EditableAvatarState();
+}
+
+class _EditableAvatarState extends State<_EditableAvatar> {
+  bool _busy = false;
+
+  Future<void> _change() async {
+    if (_busy) return;
+    final url = await pickAndUploadImage(context, folder: 'avatars');
+    if (url == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final user = await context.read<Api>().updateMe({'avatarUrl': url});
+      if (!mounted) return;
+      context.read<AuthBloc>().add(AuthUserUpdated(user));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto profil diperbarui'), backgroundColor: MC.primary));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menyimpan foto'), backgroundColor: MC.danger));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<AuthBloc>().state.user!;
+    final hasPhoto = (user.avatarUrl ?? '').isNotEmpty;
+    return GestureDetector(
+      onTap: _change,
+      child: Stack(children: [
+        CircleAvatar(
+          radius: 32,
+          backgroundColor: MC.primarySoft,
+          backgroundImage: hasPhoto ? NetworkImage(user.avatarUrl!) : null,
+          child: hasPhoto
+              ? null
+              : Text(user.name.characters.first.toUpperCase(),
+                  style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 26)),
+        ),
+        Positioned(
+          right: 0, bottom: 0,
+          child: Container(
+            width: 22, height: 22,
+            decoration: BoxDecoration(color: MC.primary, shape: BoxShape.circle, border: Border.all(color: MC.bg, width: 2)),
+            child: _busy
+                ? const Padding(padding: EdgeInsets.all(4), child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.photo_camera_rounded, color: Colors.white, size: 12),
+          ),
+        ),
+      ]),
     );
   }
 }
