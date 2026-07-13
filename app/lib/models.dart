@@ -62,6 +62,26 @@ class SupplyChannel {
       );
 }
 
+/// One price/availability offer for a hotel from a single supply source.
+class HotelOffer {
+  final String id, channelId;
+  final int basePrice, price, roomsLeft;
+  final double markupPct;
+  final bool available;
+  final String? deeplink;
+  final SupplyChannel? channel;
+  HotelOffer({
+    required this.id, required this.channelId, required this.basePrice, required this.price,
+    required this.roomsLeft, required this.markupPct, required this.available, this.deeplink, this.channel,
+  });
+  factory HotelOffer.fromJson(Map<String, dynamic> j) => HotelOffer(
+        id: j['id'], channelId: j['channelId'] ?? '', basePrice: j['basePrice'] ?? 0,
+        price: j['price'] ?? 0, roomsLeft: j['roomsLeft'] ?? 0, markupPct: (j['markupPct'] ?? 0).toDouble(),
+        available: j['available'] ?? true, deeplink: j['deeplink'],
+        channel: j['channel'] != null ? SupplyChannel.fromJson(j['channel']) : null,
+      );
+}
+
 class Hotel {
   final String id, name, city, address, imageUrl;
   final double rating;
@@ -73,6 +93,7 @@ class Hotel {
   final List<Room> rooms;
   final List<Review> reviews;
   final SupplyChannel? channel;
+  final List<HotelOffer> offers;
 
   Hotel({
     required this.id, required this.name, required this.city, required this.address,
@@ -80,7 +101,7 @@ class Hotel {
     required this.priceFrom, required this.starRating, required this.isPromo,
     this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo,
     this.photos = const [], this.facilities = const [], this.rooms = const [], this.reviews = const [],
-    this.channel,
+    this.channel, this.offers = const [],
   });
 
   factory Hotel.fromJson(Map<String, dynamic> j) => Hotel(
@@ -95,6 +116,7 @@ class Hotel {
         rooms: (j['rooms'] as List?)?.map((r) => Room.fromJson(r)).toList() ?? [],
         reviews: (j['reviews'] as List?)?.map((r) => Review.fromJson(r)).toList() ?? [],
         channel: j['channel'] != null ? SupplyChannel.fromJson(j['channel']) : null,
+        offers: (j['offers'] as List?)?.map((o) => HotelOffer.fromJson(o)).toList() ?? const [],
       );
 }
 

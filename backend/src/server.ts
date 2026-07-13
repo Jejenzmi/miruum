@@ -7,6 +7,7 @@ import { signToken, requireAuth, optionalAuth, type AuthRequest } from "./auth.j
 import { config } from "./config.js";
 import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
+import { syncOffers } from "./connectors.js";
 
 const app = express();
 app.use(cors());
@@ -178,6 +179,10 @@ app.get("/api/hotels/:id", async (req, res) => {
       rooms: true,
       reviews: { orderBy: { createdAt: "desc" }, take: 5 },
       channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
+      offers: {
+        orderBy: { price: "asc" },
+        include: { channel: { select: { code: true, name: true, type: true, color: true } } },
+      },
     },
   });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
@@ -200,6 +205,17 @@ app.get("/api/hotels/:id/reviews", async (req, res) => {
 app.get("/api/hotels/:id/rooms", async (req, res) => {
   const rooms = await prisma.room.findMany({ where: { hotelId: req.params.id } });
   res.json({ rooms });
+});
+
+// Price comparison across every supply source for a hotel (cheapest first).
+app.get("/api/hotels/:id/offers", async (req, res) => {
+  const offers = await prisma.hotelOffer.findMany({
+    where: { hotelId: req.params.id },
+    orderBy: [{ available: "desc" }, { price: "asc" }],
+    include: { channel: { select: { code: true, name: true, type: true, color: true } } },
+  });
+  const cheapest = offers.find((o) => o.available);
+  res.json({ offers, bestOfferId: cheapest?.id ?? null });
 });
 
 // ─────────────────────────── Hotel Packages ───────────────────────────
@@ -322,6 +338,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     hotelId: z.string().optional(),
     roomId: z.string().optional(),
     packageId: z.string().optional(), // when set, booking is a Hotel Package bundle
+    channelId: z.string().optional(), // supply source the guest chose (compare-prices)
     checkIn: z.string(),
     checkOut: z.string().optional(),
     guests: z.number().int().min(1).default(2),
@@ -368,6 +385,20 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
 
   const taxFee = Math.round(baseAmount * 0.11); // 11% tax & service
   const totalPrice = baseAmount + taxFee;
+
+  // Booking routing: DIRECT → commit to our own Channel Manager inventory.
+  // OTA → route to the source (mock: allocate a supplier reference). Real
+  // connectors would call the OTA booking API here.
+  let channelId = d.channelId ?? null;
+  let supplierRef: string | null = null;
+  if (channelId) {
+    const channel = await prisma.supplyChannel.findUnique({ where: { id: channelId } });
+    if (!channel) channelId = null;
+    else if (channel.type === "OTA") {
+      supplierRef = `${channel.code}-${makeCode().slice(4)}`;
+    }
+  }
+
   const booking = await prisma.booking.create({
     data: {
       code: makeCode(),
@@ -375,6 +406,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       hotelId: hotelId!,
       roomId: roomId!,
       packageId, packageTitle,
+      channelId, supplierRef,
       checkIn, checkOut, nights,
       guests: d.guests, rooms: d.rooms,
       bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
@@ -382,7 +414,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       roomPrice: baseAmount, taxFee, totalPrice,
       status: "PENDING",
     },
-    include: { hotel: { select: hotelCard }, room: true },
+    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
   });
   res.json({ booking });
 });
@@ -393,7 +425,7 @@ app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   if (status) where.status = status;
   const bookings = await prisma.booking.findMany({
     where, orderBy: { createdAt: "desc" },
-    include: { hotel: { select: hotelCard }, room: true },
+    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
   });
   res.json({ bookings });
 });
@@ -401,7 +433,7 @@ app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
 app.get("/api/bookings/:id", requireAuth, async (req: AuthRequest, res) => {
   const booking = await prisma.booking.findFirst({
     where: { id: req.params.id, userId: req.userId },
-    include: { hotel: { select: hotelCard }, room: true },
+    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
   });
   if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
   res.json({ booking });
@@ -416,7 +448,7 @@ app.post("/api/bookings/:id/pay", requireAuth, async (req: AuthRequest, res) => 
   const updated = await prisma.booking.update({
     where: { id: booking.id },
     data: { status: "PAID", paymentMethod: parsed.data.method, bank: parsed.data.bank, paidAt: new Date() },
-    include: { hotel: { select: hotelCard }, room: true },
+    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
   });
   // fire a success notification
   await prisma.notification.create({
@@ -509,6 +541,30 @@ app.delete("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   await prisma.hotel.delete({ where: { id: req.params.id } });
   await invalidate("miruum:");
   res.json({ ok: true });
+});
+
+// Re-pull rate & availability from every supply source (mock connectors for now).
+app.post("/api/admin/offers/sync", requireRole("ADMIN"), async (_req, res) => {
+  const stats = await syncOffers(prisma);
+  await invalidate("miruum:");
+  res.json({ ok: true, ...stats });
+});
+
+// Channel Manager overview: hotels with their per-source offers (cheapest first).
+app.get("/api/admin/channel-manager", requireRole("ADMIN"), async (_req, res) => {
+  const hotels = await prisma.hotel.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, city: true, priceFrom: true, channelId: true,
+      offers: {
+        orderBy: { price: "asc" },
+        select: { id: true, basePrice: true, markupPct: true, price: true, available: true, roomsLeft: true,
+          channel: { select: { code: true, name: true, type: true, color: true } } },
+      },
+    },
+  });
+  const channels = await prisma.supplyChannel.findMany({ orderBy: { sortOrder: "asc" } });
+  res.json({ hotels, channels });
 });
 
 app.get("/api/admin/bookings", requireRole("ADMIN"), async (_req, res) => {

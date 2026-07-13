@@ -8,7 +8,8 @@ import 'rincian_pesanan.dart';
 
 class PilihKamarScreen extends StatefulWidget {
   final Hotel hotel;
-  const PilihKamarScreen({super.key, required this.hotel});
+  final String? channelId; // supply source chosen on the detail screen
+  const PilihKamarScreen({super.key, required this.hotel, this.channelId});
   @override
   State<PilihKamarScreen> createState() => _PilihKamarScreenState();
 }
@@ -154,7 +155,8 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
     if (!await ensureLoggedIn(context)) return;
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => RincianPesananScreen(
-          hotel: h, room: room, checkIn: _checkIn, checkOut: _checkOut, nights: _nights, rooms: _rooms, adults: _adults,
+          hotel: h, room: room, channelId: widget.channelId,
+          checkIn: _checkIn, checkOut: _checkOut, nights: _nights, rooms: _rooms, adults: _adults,
         )));
   }
 }

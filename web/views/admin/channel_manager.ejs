@@ -1,0 +1,58 @@
+<%- include('../partials/top', { title:'Channel Manager', heading:'Channel Manager', section:'admin', active:'channels', me }) %>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <% channels.forEach(function(c){ %>
+      <span class="pill" style="background:<%= (c.color||'#888') %>1f;color:<%= c.color||'#555' %>">
+        <%= c.name %> · <%= c.type %><%= c.type==='OTA' ? ' · +'+c.commissionPct+'%' : '' %>
+      </span>
+    <% }) %>
+  </div>
+  <form method="post" action="/admin/channels/sync">
+    <button class="btn">🔄 Sync harga & ketersediaan</button>
+  </form>
+</div>
+
+<% if (synced) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f;margin-bottom:16px">✓ Sinkronisasi selesai — <%= synced %> penawaran diperbarui.</div><% } %>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Hotel</th><th>Kota</th><th>Harga terbaik</th><th>Penawaran per sumber (termurah → termahal)</th></tr></thead>
+    <tbody>
+      <% hotels.forEach(function(h){
+           var best = (h.offers||[]).filter(function(o){return o.available}).sort(function(a,b){return a.price-b.price})[0]; %>
+        <tr>
+          <td><b><%= h.name %></b></td>
+          <td><%= h.city %></td>
+          <td>
+            <% if (best) { %>
+              <b style="color:#E07C17"><%= rupiah(best.price) %></b>
+              <br><span class="muted" style="font-size:11px">via <%= best.channel.name %></span>
+            <% } else { %><span class="muted">—</span><% } %>
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <% (h.offers||[]).forEach(function(o){
+                   var isBest = best && o.channel.code === best.channel.code; %>
+                <span class="pill" title="nett <%= rupiah(o.basePrice) %> + <%= o.markupPct %>% markup"
+                  style="<%= o.available ? '' : 'opacity:.5;text-decoration:line-through;' %>background:<%= (o.channel.color||'#888') %>1f;color:<%= o.channel.color||'#555' %>;<%= isBest ? 'outline:2px solid '+(o.channel.color||'#2FA84F')+';' : '' %>">
+                  <%= o.channel.name %>: <%= rupiah(o.price) %><%= o.available ? ' ('+o.roomsLeft+')' : ' — habis' %>
+                </span>
+              <% }) %>
+              <% if (!(h.offers||[]).length) { %><span class="muted">Belum ada penawaran</span><% } %>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!hotels.length) { %><tr><td colspan="4" class="empty">Belum ada hotel</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<p class="muted" style="font-size:12px;margin-top:14px">
+  <b>Direct</b> = inventori dikelola sendiri lewat Channel Manager Miruum (Extranet mitra).
+  <b>OTA</b> = Miruum sebagai sub-agent (Tiket.com / Agoda / Traveloka) — harga sudah termasuk markup Miruum.
+  Harga headline yang tampil ke tamu selalu penawaran <b>termurah yang tersedia</b>.
+</p>
+
+<%- include('../partials/bottom') %>

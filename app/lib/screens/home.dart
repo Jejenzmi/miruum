@@ -65,8 +65,6 @@ class _HomeView extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _recommendationGrid(context, data.recommended),
-                const SizedBox(height: 20),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _peduliLindungi()),
                 const SizedBox(height: 24),
               ],
             );
@@ -267,24 +265,6 @@ class _HomeView extends StatelessWidget {
         ),
       );
 
-  Widget _peduliLindungi() => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: MC.blueSoft, borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(color: MC.blue, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-            Text('PeduliLindungi', style: TextStyle(fontWeight: FontWeight.w700, color: MC.blue, fontSize: 14)),
-            SizedBox(height: 2),
-            Text('Menginap aman & terverifikasi', style: TextStyle(color: MC.inkMuted, fontSize: 11.5)),
-          ])),
-          const Icon(Icons.chevron_right_rounded, color: MC.blue),
-        ]),
-      );
 }
 
 class _VerticalHotelCard extends StatelessWidget {

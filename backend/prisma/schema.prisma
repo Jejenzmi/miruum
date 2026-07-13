@@ -65,6 +65,7 @@ model Hotel {
   favorites   Favorite[]
   bookings    Booking[]
   packages    HotelPackage[]
+  offers      HotelOffer[]
 }
 
 // Supply source for hotel inventory. Miruum aggregates two kinds:
@@ -88,6 +89,30 @@ model SupplyChannel {
   createdAt     DateTime    @default(now())
 
   hotels        Hotel[]
+  offers        HotelOffer[]
+  bookings      Booking[]
+}
+
+// A price/availability offer for a hotel from ONE supply source. The same
+// canonical hotel can have many offers (Direct + several OTAs) — Miruum picks
+// the cheapest available and shows the rest as a price comparison.
+model HotelOffer {
+  id          String   @id @default(cuid())
+  hotelId     String
+  channelId   String
+  basePrice   Int      // supplier price / night (rupiah)
+  markupPct   Float    @default(0) // Miruum margin on top of basePrice
+  price       Int      // customer-facing price = basePrice * (1 + markupPct/100)
+  available   Boolean  @default(true)
+  roomsLeft   Int      @default(0)
+  deeplink    String?  // listing URL at the source OTA
+  supplierRef String?  // id at the source
+  fetchedAt   DateTime @default(now())
+
+  hotel       Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  channel     SupplyChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelId, channelId])
 }
 
 model HotelPhoto {
@@ -200,6 +225,8 @@ model Booking {
   roomId         String
   packageId      String?       // set when the booking is a Hotel Package bundle
   packageTitle   String?
+  channelId      String?       // supply source this booking was routed to
+  supplierRef    String?       // reference at the OTA when routed to an external source
   checkIn        DateTime
   checkOut       DateTime
   nights         Int
@@ -223,6 +250,7 @@ model Booking {
   hotel          Hotel         @relation(fields: [hotelId], references: [id])
   room           Room          @relation(fields: [roomId], references: [id])
   package        HotelPackage? @relation(fields: [packageId], references: [id])
+  channel        SupplyChannel? @relation(fields: [channelId], references: [id])
 }
 
 model Promo {

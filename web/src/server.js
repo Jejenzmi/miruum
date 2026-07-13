@@ -109,6 +109,16 @@ app.post("/admin/hotels/:id/delete", adminGuard, async (req, res) => {
   res.redirect("/admin/hotels");
 });
 
+app.get("/admin/channels", adminGuard, async (req, res) => {
+  const { hotels, channels } = await api("/admin/channel-manager", { token: res.locals.token });
+  res.render("admin/channel_manager", { hotels, channels, active: "channels", synced: req.query.synced });
+});
+
+app.post("/admin/channels/sync", adminGuard, async (req, res) => {
+  const r = await api("/admin/offers/sync", { method: "POST", token: res.locals.token });
+  res.redirect(`/admin/channels?synced=${r.offers || 0}`);
+});
+
 app.get("/admin/bookings", adminGuard, async (req, res) => {
   const { bookings } = await api("/admin/bookings", { token: res.locals.token });
   res.render("admin/bookings", { bookings, active: "bookings" });

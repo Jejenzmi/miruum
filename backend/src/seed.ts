@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma.js";
+import { syncOffers } from "./connectors.js";
 
 const img = (id: string, w = 800) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&q=60`;
@@ -145,7 +146,8 @@ async function main() {
   const force = process.argv.includes("--force");
   if (!force && (await prisma.hotel.count()) > 0) {
     await assignChannels();
-    console.log("[seed] catalog already present — channels ensured, skipping reseed");
+    const s = await syncOffers(prisma);
+    console.log(`[seed] catalog already present — channels + ${s.offers} offers synced, skipping reseed`);
     return;
   }
 
@@ -349,8 +351,9 @@ async function main() {
   });
 
   await assignChannels();
+  const offerStats = await syncOffers(prisma);
 
-  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels`);
+  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels, ${offerStats.offers} offers`);
   console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
 }
 

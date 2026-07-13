@@ -12,10 +12,11 @@ class RincianPesananScreen extends StatefulWidget {
   final Hotel hotel;
   final Room? room;
   final HotelPackage? package; // set → this is a Hotel Package bundle booking
+  final String? channelId; // supply source to route this booking to
   final DateTime checkIn, checkOut;
   final int nights, rooms, adults;
   const RincianPesananScreen({
-    super.key, required this.hotel, this.room, this.package, required this.checkIn,
+    super.key, required this.hotel, this.room, this.package, this.channelId, required this.checkIn,
     required this.checkOut, required this.nights, required this.rooms, required this.adults,
   });
   @override
@@ -50,6 +51,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           'hotelId': widget.hotel.id,
           'roomId': widget.room!.id,
           'checkOut': widget.checkOut.toIso8601String(),
+          if (widget.channelId != null) 'channelId': widget.channelId,
         },
         'checkIn': widget.checkIn.toIso8601String(),
         'guests': widget.adults,
