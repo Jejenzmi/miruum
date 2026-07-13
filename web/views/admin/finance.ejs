@@ -1,0 +1,79 @@
+<%- include('../partials/top', { title:'Keuangan', heading:'Keuangan & Settlement', section:'admin', active:'finance', me }) %>
+
+<% if (paid) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f;margin-bottom:16px">✓ Payout dicatat.</div><% } %>
+
+<div class="stats" style="margin-bottom:20px">
+  <div class="stat"><div class="muted">Total Transaksi (paid)</div><b style="font-size:22px"><%= finance.totalBookings %></b></div>
+  <div class="stat"><div class="muted">Gross Value</div><b style="font-size:22px"><%= rupiah(finance.totalGross) %></b></div>
+  <div class="stat"><div class="muted">Pendapatan Miruum</div><b style="font-size:22px;color:#E07C17"><%= rupiah(finance.totalRevenue) %></b></div>
+  <div class="stat"><div class="muted">Payout ke Hotel (DIRECT)</div><b style="font-size:22px"><%= rupiah(finance.totalHotelPayout) %></b></div>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 12px">Pendapatan per Sumber</h3>
+  <table>
+    <thead><tr><th>Sumber</th><th>Tipe</th><th>Transaksi</th><th>Gross</th><th>Pendapatan Miruum</th></tr></thead>
+    <tbody>
+      <% finance.byChannel.forEach(function(c){ %>
+        <tr>
+          <td><b><%= c.name %></b></td>
+          <td><span class="pill" style="background:#eee;color:#555"><%= c.type %></span></td>
+          <td><%= c.bookings %></td>
+          <td><%= rupiah(c.gross) %></td>
+          <td><b style="color:#E07C17"><%= rupiah(c.revenue) %></b></td>
+        </tr>
+      <% }) %>
+      <% if (!finance.byChannel.length) { %><tr><td colspan="5" class="empty">Belum ada transaksi</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 6px">Payout ke Hotel DIRECT</h3>
+  <p class="muted" style="font-size:12px;margin:0 0 12px">Sisa yang harus dibayarkan ke hotel (harga kamar dikurangi komisi platform Miruum).</p>
+  <table>
+    <thead><tr><th>Hotel</th><th>Transaksi</th><th>Total Payout</th><th>Sudah Dibayar</th><th>Sisa (Due)</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% finance.payouts.forEach(function(p){ %>
+        <tr>
+          <td><b><%= p.name %></b></td>
+          <td><%= p.bookings %></td>
+          <td><%= rupiah(p.payout) %></td>
+          <td><%= rupiah(p.settled) %></td>
+          <td><b style="color:<%= p.due>0?'#b02a2a':'#1c7a3f' %>"><%= rupiah(p.due) %></b></td>
+          <td>
+            <% if (p.due>0){ %>
+              <form method="post" action="/admin/settlements/pay" onsubmit="return confirm('Catat payout <%= rupiah(p.due) %> ke <%= p.name %>?')">
+                <input type="hidden" name="hotelId" value="<%= p.hotelId %>">
+                <input type="hidden" name="amount" value="<%= p.due %>">
+                <input type="hidden" name="bookingsCount" value="<%= p.bookings %>">
+                <button class="btn sm">💸 Tandai Lunas</button>
+              </form>
+            <% } else { %><span class="muted">—</span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!finance.payouts.length) { %><tr><td colspan="6" class="empty">Belum ada payout</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 12px">Riwayat Payout</h3>
+  <table>
+    <thead><tr><th>Tanggal</th><th>Hotel</th><th>Jumlah</th><th>Transaksi</th></tr></thead>
+    <tbody>
+      <% settlements.forEach(function(s){ %>
+        <tr>
+          <td><%= new Date(s.createdAt).toLocaleDateString('id-ID') %></td>
+          <td><%= s.hotel.name %></td>
+          <td><b><%= rupiah(s.amount) %></b></td>
+          <td><%= s.bookingsCount %></td>
+        </tr>
+      <% }) %>
+      <% if (!settlements.length) { %><tr><td colspan="4" class="empty">Belum ada payout tercatat</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

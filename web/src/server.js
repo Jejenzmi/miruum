@@ -152,6 +152,22 @@ app.get("/admin/bookings", adminGuard, async (req, res) => {
   res.render("admin/bookings", { bookings, active: "bookings" });
 });
 
+app.get("/admin/finance", adminGuard, async (req, res) => {
+  const [finance, { settlements }] = await Promise.all([
+    api("/admin/finance", { token: res.locals.token }),
+    api("/admin/settlements", { token: res.locals.token }),
+  ]);
+  res.render("admin/finance", { finance, settlements, active: "finance", paid: req.query.paid });
+});
+
+app.post("/admin/settlements/pay", adminGuard, async (req, res) => {
+  await api("/admin/settlements", {
+    method: "POST", token: res.locals.token,
+    body: { hotelId: req.body.hotelId, amount: req.body.amount, bookingsCount: req.body.bookingsCount, note: req.body.note },
+  });
+  res.redirect("/admin/finance?paid=1");
+});
+
 app.get("/admin/users", adminGuard, async (req, res) => {
   const { users } = await api("/admin/users", { token: res.locals.token });
   res.render("admin/users", { users, active: "users" });

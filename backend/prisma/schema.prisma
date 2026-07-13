@@ -66,6 +66,19 @@ model Hotel {
   bookings    Booking[]
   packages    HotelPackage[]
   offers      HotelOffer[]
+  settlements Settlement[]
+}
+
+// A payout to a DIRECT hotel (own Channel Manager) for its confirmed bookings,
+// net of Miruum's platform commission. Recorded when the payout is disbursed.
+model Settlement {
+  id            String   @id @default(cuid())
+  hotelId       String
+  amount        Int      // rupiah paid out to the hotel
+  bookingsCount Int      @default(0)
+  note          String?
+  createdAt     DateTime @default(now())
+  hotel         Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
 }
 
 // Supply source for hotel inventory. Miruum aggregates two kinds:
@@ -158,6 +171,21 @@ model Room {
   hotel             Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   bookings          Booking[]
   packages          HotelPackage[]
+  availability      RoomAvailability[]
+}
+
+// Per-date rate & allotment for a room — the calendar behind availability and
+// dynamic pricing. Managed by the hotel (Extranet) for DIRECT inventory.
+model RoomAvailability {
+  id        String   @id @default(cuid())
+  roomId    String
+  date      DateTime @db.Date
+  price     Int      // rate for this night (rupiah)
+  allotment Int      @default(0) // rooms available to sell this night
+  closed    Boolean  @default(false)
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, date])
 }
 
 // A curated bundle: hotel stay + inclusions (breakfast, transfer, spa…) at one bundled price.

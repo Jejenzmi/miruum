@@ -9,6 +9,9 @@ import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
 import { syncOffers, getConnector } from "./connectors.js";
 import { PAYMENT_METHODS, methodByCode, activeProvider } from "./payments.js";
+import { computeFinance } from "./finance.js";
+import { dispatch } from "./notify.js";
+import { quote, consume } from "./availability.js";
 
 const app = express();
 app.use(cors());
@@ -16,6 +19,8 @@ app.use(express.json({ limit: "8mb" })); // allow base64 image uploads
 app.use(express.urlencoded({ extended: true })); // provider webhooks (form-encoded)
 
 const PORT = config.port;
+const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || "https://ota.gokar.id";
+const rupiah = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 
 const publicUser = (u: any) => ({
   id: u.id,
@@ -366,8 +371,11 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
     hotelId = room.hotelId;
     checkOut = new Date(d.checkOut);
-    nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
-    baseAmount = room.price * nights * d.rooms;
+    // Date-accurate availability & pricing from the room calendar.
+    const q = await quote(prisma, roomId, checkIn, checkOut, d.rooms);
+    if (!q.available) return res.status(409).json({ error: q.reason ?? "Kamar tidak tersedia untuk tanggal tersebut" });
+    nights = q.nights;
+    baseAmount = q.total;
   }
 
   const taxFee = Math.round(baseAmount * 0.11); // 11% tax & service
@@ -403,7 +411,48 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     },
     include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
   });
+  if (!packageId) await consume(prisma, roomId!, checkIn, checkOut, d.rooms); // decrement calendar allotment
   res.json({ booking });
+});
+
+// Per-date rate & availability for a room (calendar view).
+app.get("/api/rooms/:id/availability", async (req, res) => {
+  const { from, to } = req.query as Record<string, string>;
+  const where: any = { roomId: req.params.id };
+  if (from || to) where.date = { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) };
+  const availability = await prisma.roomAvailability.findMany({ where, orderBy: { date: "asc" }, take: 180 });
+  res.json({ availability });
+});
+
+// Bulk-set rate / allotment / closed for a room over a date range (Channel Manager).
+app.put("/api/partner/rooms/:id/availability", requireRole("PARTNER", "ADMIN"), async (req, res) => {
+  const schema = z.object({
+    from: z.string(), to: z.string(),
+    price: z.coerce.number().int().optional(),
+    allotment: z.coerce.number().int().optional(),
+    closed: z.coerce.boolean().optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const room = await prisma.room.findUnique({ where: { id: req.params.id } });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  const start = new Date(p.data.from), end = new Date(p.data.to);
+  let updated = 0;
+  for (let t = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()); t <= end.getTime(); t += 86400000) {
+    const date = new Date(t);
+    const data: any = {};
+    if (p.data.price != null) data.price = p.data.price;
+    if (p.data.allotment != null) data.allotment = p.data.allotment;
+    if (p.data.closed != null) data.closed = p.data.closed;
+    await prisma.roomAvailability.upsert({
+      where: { roomId_date: { roomId: room.id, date } },
+      create: { roomId: room.id, date, price: p.data.price ?? room.price, allotment: p.data.allotment ?? room.stock, closed: p.data.closed ?? false },
+      update: data,
+    });
+    updated++;
+  }
+  await invalidate("miruum:");
+  res.json({ ok: true, days: updated });
 });
 
 app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
@@ -471,13 +520,12 @@ async function markPaymentPaid(paymentId: string) {
     where: { id: payment.bookingId },
     data: { status: "PAID", paidAt: new Date(), paymentMethod: payment.methodLabel },
   });
-  await prisma.notification.create({
-    data: {
-      userId: payment.booking.userId,
-      title: `Pesanan ${payment.booking.hotel.name}`,
-      body: `Pembayaran berhasil (${payment.methodLabel}). No. Pesanan ${payment.booking.code}`,
-      type: "success", hotelName: payment.booking.hotel.name, orderCode: payment.booking.code,
-    },
+  await dispatch(prisma, {
+    userId: payment.booking.userId,
+    title: `Pesanan ${payment.booking.hotel.name}`,
+    body: `Pembayaran berhasil (${payment.methodLabel}). No. Pesanan ${payment.booking.code}. E-voucher: ${PUBLIC_ORIGIN}/api/vouchers/${payment.booking.code}`,
+    type: "success", hotelName: payment.booking.hotel.name, orderCode: payment.booking.code,
+    phone: payment.booking.bookerPhone, email: payment.booking.bookerEmail,
   });
   return updated;
 }
@@ -522,10 +570,74 @@ app.post("/api/payments/webhook", async (req, res) => {
 });
 
 app.post("/api/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
-  const booking = await prisma.booking.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  const booking = await prisma.booking.findFirst({
+    where: { id: req.params.id, userId: req.userId },
+    include: { room: true, hotel: { select: { name: true } } },
+  });
   if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
-  const updated = await prisma.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } });
-  res.json({ booking: updated });
+  if (["CANCELLED", "REFUNDED", "COMPLETED"].includes(booking.status))
+    return res.status(400).json({ error: "Pesanan tidak dapat dibatalkan" });
+
+  // Refund policy: free-cancellation room & >24h before check-in → full refund;
+  // otherwise refundable → 50%; non-refundable → 0.
+  const hoursToCheckIn = (booking.checkIn.getTime() - Date.now()) / 3600000;
+  let refundPct = 0;
+  if (booking.room.freeCancellation && hoursToCheckIn > 24) refundPct = 100;
+  else if (booking.room.refundable && hoursToCheckIn > 24) refundPct = 50;
+  const wasPaid = booking.status === "PAID";
+  const refundAmount = wasPaid ? Math.round((booking.totalPrice * refundPct) / 100) : 0;
+
+  const updated = await prisma.booking.update({
+    where: { id: booking.id },
+    data: { status: wasPaid && refundAmount > 0 ? "REFUNDED" : "CANCELLED" },
+  });
+  await dispatch(prisma, {
+    userId: req.userId,
+    title: `Pembatalan ${booking.hotel.name}`,
+    body: wasPaid
+      ? `Pesanan ${booking.code} dibatalkan. Refund ${refundPct}% = ${rupiah(refundAmount)} diproses.`
+      : `Pesanan ${booking.code} dibatalkan.`,
+    type: "cancel", hotelName: booking.hotel.name, orderCode: booking.code,
+    phone: booking.bookerPhone, email: booking.bookerEmail,
+  });
+  res.json({ booking: updated, refundPct, refundAmount });
+});
+
+// Public e-voucher (printable HTML), addressed by the booking code.
+app.get("/api/vouchers/:code", async (req, res) => {
+  const b = await prisma.booking.findUnique({
+    where: { code: req.params.code },
+    include: { hotel: true, room: true, channel: true },
+  });
+  if (!b) return res.status(404).send("<h1>Voucher tidak ditemukan</h1>");
+  const fmt = (d: Date) => d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const paid = b.status === "PAID" || b.status === "COMPLETED";
+  res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>E-Voucher ${b.code} — Miruum</title>
+<style>body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#f6f7fb;margin:0;padding:24px;color:#1b2430}
+.v{max-width:520px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.08)}
+.hd{background:linear-gradient(135deg,#f9a23c,#f2872a);color:#fff;padding:22px 24px}
+.hd h1{margin:0;font-size:20px}.hd .code{opacity:.9;font-size:13px;margin-top:4px}
+.bd{padding:22px 24px}.row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eef0f4;font-size:14px}
+.row .k{color:#6b7280}.row .v2{font-weight:600;text-align:right}
+.status{display:inline-block;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${paid ? "#EAF7EE;color:#1c7a3f" : "#FDECE0;color:#b8791a"}}
+.tot{margin-top:14px;padding-top:14px;border-top:2px dashed #e5e7eb;display:flex;justify-content:space-between;font-size:18px;font-weight:800;color:#E07C17}
+.src{font-size:11px;color:#9aa0a6;margin-top:16px;text-align:center}
+@media print{body{background:#fff;padding:0}.v{box-shadow:none}}</style></head><body>
+<div class="v"><div class="hd"><h1>🐾 Miruum E-Voucher</h1><div class="code">No. Pesanan: ${b.code}</div></div>
+<div class="bd">
+<div style="margin-bottom:14px"><span class="status">${paid ? "LUNAS / CONFIRMED" : b.status}</span></div>
+<div class="row"><span class="k">Hotel</span><span class="v2">${b.hotel.name}</span></div>
+<div class="row"><span class="k">Alamat</span><span class="v2">${b.hotel.address}</span></div>
+<div class="row"><span class="k">Kamar</span><span class="v2">${b.rooms}× ${b.room.name}</span></div>
+<div class="row"><span class="k">Tamu</span><span class="v2">${b.bookerName} · ${b.guests} dewasa</span></div>
+<div class="row"><span class="k">Check-in</span><span class="v2">${fmt(b.checkIn)}</span></div>
+<div class="row"><span class="k">Check-out</span><span class="v2">${fmt(b.checkOut)}</span></div>
+<div class="row"><span class="k">Durasi</span><span class="v2">${b.nights} malam</span></div>
+${b.channel ? `<div class="row"><span class="k">Sumber</span><span class="v2">${b.channel.type === "DIRECT" ? "Direct" : "via " + b.channel.name}</span></div>` : ""}
+<div class="tot"><span>Total</span><span>${rupiah(b.totalPrice)}</span></div>
+<div class="src">Tunjukkan e-voucher ini saat check-in · miruum.gokar.id</div>
+</div></div></body></html>`);
 });
 
 // ─────────────────────────── Notifications ───────────────────────────
@@ -665,6 +777,25 @@ app.get("/api/admin/channel-manager", requireRole("ADMIN"), async (_req, res) =>
   });
   const channels = await prisma.supplyChannel.findMany({ orderBy: { sortOrder: "asc" } });
   res.json({ hotels, channels });
+});
+
+// Finance summary: revenue, commission by source, payouts due to DIRECT hotels.
+app.get("/api/admin/finance", requireRole("ADMIN"), async (_req, res) => {
+  res.json(await computeFinance(prisma));
+});
+
+// Record a payout to a DIRECT hotel (marks its outstanding due as settled).
+app.post("/api/admin/settlements", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ hotelId: z.string(), amount: z.coerce.number().int().positive(), bookingsCount: z.coerce.number().int().default(0), note: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data settlement tidak valid" });
+  const settlement = await prisma.settlement.create({ data: p.data });
+  res.json({ settlement });
+});
+
+app.get("/api/admin/settlements", requireRole("ADMIN"), async (_req, res) => {
+  const settlements = await prisma.settlement.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { hotel: { select: { name: true } } } });
+  res.json({ settlements });
 });
 
 app.get("/api/admin/bookings", requireRole("ADMIN"), async (_req, res) => {
