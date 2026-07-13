@@ -187,6 +187,23 @@ class Booking {
       );
 }
 
+class Payment {
+  final String id, provider, method, methodLabel, status;
+  final int amount;
+  final String? vaNumber, qrString, payUrl, expiresAt;
+  Payment({
+    required this.id, required this.provider, required this.method, required this.methodLabel,
+    required this.status, required this.amount, this.vaNumber, this.qrString, this.payUrl, this.expiresAt,
+  });
+  bool get isMock => provider == 'MOCK';
+  bool get isPaid => status == 'PAID';
+  factory Payment.fromJson(Map<String, dynamic> j) => Payment(
+        id: j['id'], provider: j['provider'] ?? 'MOCK', method: j['method'] ?? '',
+        methodLabel: j['methodLabel'] ?? '', status: j['status'] ?? 'PENDING', amount: j['amount'] ?? 0,
+        vaNumber: j['vaNumber'], qrString: j['qrString'], payUrl: j['payUrl'], expiresAt: j['expiresAt'],
+      );
+}
+
 class AppNotification {
   final String id, title, body, type;
   final String? hotelName, orderCode, createdAt;

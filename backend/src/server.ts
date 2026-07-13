@@ -8,10 +8,12 @@ import { config } from "./config.js";
 import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
 import { syncOffers, getConnector } from "./connectors.js";
+import { PAYMENT_METHODS, methodByCode, activeProvider } from "./payments.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "8mb" })); // allow base64 image uploads
+app.use(express.urlencoded({ extended: true })); // provider webhooks (form-encoded)
 
 const PORT = config.port;
 
@@ -284,28 +286,10 @@ app.get("/api/promos", async (_req, res) => {
 });
 
 app.get("/api/payment-methods", (_req, res) => {
-  res.json({
-    methods: [
-      {
-        group: "Mobile Banking",
-        banks: [
-          { code: "mandiri", name: "Mandiri" },
-          { code: "bni", name: "BNI" },
-          { code: "bca", name: "BCA" },
-          { code: "bsi", name: "Bank Syariah Indonesia" },
-        ],
-      },
-      {
-        group: "Transfer Bank",
-        banks: [
-          { code: "mandiri", name: "Mandiri" },
-          { code: "bni", name: "BNI" },
-          { code: "bca", name: "BCA" },
-          { code: "bsi", name: "Bank Syariah Indonesia" },
-        ],
-      },
-    ],
-  });
+  // Group the gateway's method catalog for the app's picker.
+  const groups: Record<string, any[]> = {};
+  for (const m of PAYMENT_METHODS) (groups[m.group] ??= []).push({ code: m.code, name: m.label, type: m.type });
+  res.json({ methods: Object.entries(groups).map(([group, items]) => ({ group, items })) });
 });
 
 // ─────────────────────────── Favorites ───────────────────────────
@@ -442,29 +426,99 @@ app.get("/api/bookings/:id", requireAuth, async (req: AuthRequest, res) => {
   res.json({ booking });
 });
 
+// Create a payment for a booking → returns instructions (VA / QR / e-wallet URL).
+// The booking stays PENDING until the payment settles (webhook or mock settle).
 app.post("/api/bookings/:id/pay", requireAuth, async (req: AuthRequest, res) => {
-  const schema = z.object({ method: z.string(), bank: z.string().optional() });
+  const schema = z.object({ method: z.string() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Metode pembayaran tidak valid" });
+  const method = methodByCode(parsed.data.method);
+  if (!method) return res.status(400).json({ error: "Metode pembayaran tidak dikenal" });
   const booking = await prisma.booking.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
-  const updated = await prisma.booking.update({
-    where: { id: booking.id },
-    data: { status: "PAID", paymentMethod: parsed.data.method, bank: parsed.data.bank, paidAt: new Date() },
-    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
-  });
-  // fire a success notification
-  await prisma.notification.create({
+  if (booking.status === "PAID") return res.status(400).json({ error: "Pesanan sudah dibayar" });
+
+  const provider = activeProvider();
+  let ins;
+  try {
+    ins = await provider.create({
+      bookingCode: booking.code, amount: booking.totalPrice, method,
+      bookerName: booking.bookerName, bookerEmail: booking.bookerEmail, bookerPhone: booking.bookerPhone,
+    });
+  } catch (e: any) {
+    return res.status(502).json({ error: "Gagal membuat pembayaran: " + e.message });
+  }
+
+  const payment = await prisma.payment.create({
     data: {
-      userId: req.userId!,
-      title: `Pesanan ${updated.hotel.name}`,
-      body: `Pembayaran berhasil. No. Pesanan ${updated.code}`,
-      type: "success",
-      hotelName: updated.hotel.name,
-      orderCode: updated.code,
+      bookingId: booking.id, provider: ins.provider, method: method.code, methodLabel: method.label,
+      amount: booking.totalPrice, status: "PENDING", externalId: ins.externalId,
+      vaNumber: ins.vaNumber, qrString: ins.qrString, payUrl: ins.payUrl, expiresAt: ins.expiresAt,
+      raw: ins.raw as any,
     },
   });
-  res.json({ booking: updated });
+  await prisma.booking.update({ where: { id: booking.id }, data: { paymentMethod: method.label } });
+  res.json({ payment });
+});
+
+// Settle a payment as PAID and confirm its booking (+notification). Shared by the
+// provider webhook and the mock "I've paid" action.
+async function markPaymentPaid(paymentId: string) {
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId }, include: { booking: { include: { hotel: true } } } });
+  if (!payment || payment.status === "PAID") return payment;
+  const updated = await prisma.payment.update({ where: { id: paymentId }, data: { status: "PAID", paidAt: new Date() } });
+  await prisma.booking.update({
+    where: { id: payment.bookingId },
+    data: { status: "PAID", paidAt: new Date(), paymentMethod: payment.methodLabel },
+  });
+  await prisma.notification.create({
+    data: {
+      userId: payment.booking.userId,
+      title: `Pesanan ${payment.booking.hotel.name}`,
+      body: `Pembayaran berhasil (${payment.methodLabel}). No. Pesanan ${payment.booking.code}`,
+      type: "success", hotelName: payment.booking.hotel.name, orderCode: payment.booking.code,
+    },
+  });
+  return updated;
+}
+
+// Poll payment status (app checks after showing instructions).
+app.get("/api/payments/:id", requireAuth, async (req: AuthRequest, res) => {
+  const payment = await prisma.payment.findFirst({
+    where: { id: req.params.id, booking: { userId: req.userId } },
+  });
+  if (!payment) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+  // auto-expire
+  if (payment.status === "PENDING" && payment.expiresAt && payment.expiresAt < new Date()) {
+    const exp = await prisma.payment.update({ where: { id: payment.id }, data: { status: "EXPIRED" } });
+    return res.json({ payment: exp });
+  }
+  res.json({ payment });
+});
+
+// Mock/dev settle — simulates a successful payment (no real money). Only allowed
+// for MOCK-provider payments so it can't force-settle real ones.
+app.post("/api/payments/:id/settle", requireAuth, async (req: AuthRequest, res) => {
+  const payment = await prisma.payment.findFirst({ where: { id: req.params.id, booking: { userId: req.userId } } });
+  if (!payment) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+  if (payment.provider !== "MOCK") return res.status(403).json({ error: "Menunggu konfirmasi pembayaran dari penyedia" });
+  await markPaymentPaid(payment.id);
+  const booking = await prisma.booking.findUnique({
+    where: { id: payment.bookingId },
+    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
+  });
+  res.json({ booking });
+});
+
+// Provider webhook (Flip/etc.) — public, verified inside parseWebhook.
+app.post("/api/payments/webhook", async (req, res) => {
+  const provider = activeProvider();
+  const parsed = provider.parseWebhook(req.body, req.headers as any);
+  if (!parsed) return res.status(400).json({ error: "Webhook tidak valid" });
+  const payment = await prisma.payment.findFirst({ where: { externalId: parsed.externalId } });
+  if (!payment) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+  if (parsed.paid) await markPaymentPaid(payment.id);
+  res.json({ ok: true });
 });
 
 app.post("/api/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) => {

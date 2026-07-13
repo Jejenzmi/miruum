@@ -85,6 +85,11 @@ services:
       TIKETCOM_SECRET: ${TIKETCOM_SECRET:-}
       AGODA_AUTH: ${AGODA_AUTH:-}
       TRAVELOKA_API_KEY: ${TRAVELOKA_API_KEY:-}
+      # Payment gateway (MOCK until real credentials are set)
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-MOCK}
+      FLIP_SECRET_KEY: ${FLIP_SECRET_KEY:-}
+      FLIP_VALIDATION_TOKEN: ${FLIP_VALIDATION_TOKEN:-}
+      FLIP_BASE: ${FLIP_BASE:-}
     ports:
       - "127.0.0.1:5019:5013"   # nginx host → /api
     depends_on:

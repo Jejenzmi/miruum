@@ -4,7 +4,7 @@ import '../api.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'voucher.dart';
+import 'payment_instruction.dart';
 
 class PembayaranScreen extends StatefulWidget {
   final String bookingId;
@@ -13,9 +13,17 @@ class PembayaranScreen extends StatefulWidget {
   State<PembayaranScreen> createState() => _PembayaranScreenState();
 }
 
+  IconData _methodIcon(String type) {
+    switch (type) {
+      case 'QRIS': return Icons.qr_code_2_rounded;
+      case 'EWALLET': return Icons.account_balance_wallet_rounded;
+      default: return Icons.account_balance_rounded;
+    }
+  }
+
 class _PembayaranScreenState extends State<PembayaranScreen> {
   late Future<Booking> _future;
-  String? _method, _bank, _bankName;
+  String? _methodCode, _methodLabel;
   bool _paying = false;
 
   @override
@@ -47,21 +55,21 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                   for (final group in methods) ...[
                     Padding(padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(group['group'], style: const TextStyle(fontWeight: FontWeight.w700, color: MC.inkMuted, fontSize: 13))),
-                    for (final bank in group['banks'])
+                    for (final item in group['items'])
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: Container(
                           width: 42, height: 42,
                           decoration: BoxDecoration(color: MC.field, borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.account_balance_rounded, color: MC.primaryDark, size: 20),
+                          child: Icon(_methodIcon(item['type']), color: MC.primaryDark, size: 20),
                         ),
-                        title: Text('${group['group']} ${bank['name']}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                        trailing: const Icon(Icons.radio_button_off_rounded, color: MC.inkFaint),
+                        title: Text(item['name'], style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                        trailing: Icon(_methodCode == item['code'] ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                            color: _methodCode == item['code'] ? MC.primary : MC.inkFaint),
                         onTap: () {
                           setState(() {
-                            _method = '${group['group']} ${bank['name']}';
-                            _bank = bank['code'];
-                            _bankName = 'Bank ${bank['name']}';
+                            _methodCode = item['code'];
+                            _methodLabel = item['name'];
                           });
                           Navigator.pop(context);
                         },
@@ -77,15 +85,15 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   }
 
   Future<void> _pay(Booking b) async {
-    if (_method == null) {
+    if (_methodCode == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pilih metode pembayaran dulu'), backgroundColor: MC.danger));
       return;
     }
     setState(() => _paying = true);
     try {
-      final paid = await context.read<Api>().pay(b.id, _method!, bank: _bank);
+      final payment = await context.read<Api>().createPayment(b.id, _methodCode!);
       if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => VoucherScreen(booking: paid, bankName: _bankName ?? _method!)));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentInstructionScreen(payment: payment, bookingId: b.id)));
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: MC.danger));
     } finally {
@@ -142,8 +150,8 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       child: cardBox(child: Row(children: [
                         const Icon(Icons.account_balance_wallet_rounded, color: MC.primary),
                         const SizedBox(width: 12),
-                        Expanded(child: Text(_method ?? 'Metode Pembayaran',
-                            style: TextStyle(fontWeight: FontWeight.w600, color: _method == null ? MC.inkMuted : MC.ink))),
+                        Expanded(child: Text(_methodLabel ?? 'Metode Pembayaran',
+                            style: TextStyle(fontWeight: FontWeight.w600, color: _methodLabel == null ? MC.inkMuted : MC.ink))),
                         const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
                       ])),
                     ),

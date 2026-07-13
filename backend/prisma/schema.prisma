@@ -253,6 +253,37 @@ model Booking {
   room           Room          @relation(fields: [roomId], references: [id])
   package        HotelPackage? @relation(fields: [packageId], references: [id])
   channel        SupplyChannel? @relation(fields: [channelId], references: [id])
+  payments       Payment[]
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+  CANCELLED
+}
+
+// A payment attempt for a booking. Provider-agnostic (MOCK/FLIP/…) — the actual
+// integration lives in the payment gateway (backend/src/payments.ts).
+model Payment {
+  id           String        @id @default(cuid())
+  bookingId    String
+  provider     String        @default("MOCK") // MOCK | FLIP | MIDTRANS | XENDIT
+  method       String        // VA_BCA, EWALLET_GOPAY, QRIS, …
+  methodLabel  String
+  amount       Int
+  status       PaymentStatus @default(PENDING)
+  externalId   String?       // provider payment/bill id
+  vaNumber     String?       // virtual account number
+  qrString     String?       // QRIS payload
+  payUrl       String?       // redirect / deeplink (e-wallet)
+  expiresAt    DateTime?
+  paidAt       DateTime?
+  raw          Json?
+  createdAt    DateTime      @default(now())
+
+  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 }
 
 model Promo {

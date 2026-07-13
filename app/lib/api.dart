@@ -113,8 +113,17 @@ class Api {
 
   Future<Booking> booking(String id) async => Booking.fromJson((await _get('/bookings/$id'))['booking']);
 
-  Future<Booking> pay(String id, String method, {String? bank}) async =>
-      Booking.fromJson((await _post('/bookings/$id/pay', {'method': method, if (bank != null) 'bank': bank}))['booking']);
+  // ── Payments ──
+  /// Create a payment for a booking → returns instructions (VA/QR/e-wallet URL).
+  Future<Payment> createPayment(String bookingId, String method) async =>
+      Payment.fromJson((await _post('/bookings/$bookingId/pay', {'method': method}))['payment']);
+
+  Future<Payment> paymentStatus(String paymentId) async =>
+      Payment.fromJson((await _get('/payments/$paymentId'))['payment']);
+
+  /// Mock-only: simulate a successful payment (returns the confirmed booking).
+  Future<Booking> settlePayment(String paymentId) async =>
+      Booking.fromJson((await _post('/payments/$paymentId/settle'))['booking']);
 
   // ── Notifications ──
   Future<List<AppNotification>> notifications() async =>
