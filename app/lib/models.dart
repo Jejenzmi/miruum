@@ -92,11 +92,42 @@ class Promo {
       );
 }
 
+class HotelPackage {
+  final String id, slug, title, city, imageUrl;
+  final String? description, badge;
+  final int nights, days, guests, originalPrice, price, discountPct, reviewCount, starRating;
+  final double rating;
+  final bool isPopular;
+  final List<String> inclusions;
+  final Hotel? hotel; // present on detail fetch
+  final Room? room; // present on detail fetch
+
+  HotelPackage({
+    required this.id, required this.slug, required this.title, required this.city,
+    required this.imageUrl, this.description, this.badge, required this.nights,
+    required this.days, required this.guests, required this.originalPrice, required this.price,
+    required this.discountPct, required this.reviewCount, required this.starRating,
+    required this.rating, required this.isPopular, this.inclusions = const [], this.hotel, this.room,
+  });
+
+  factory HotelPackage.fromJson(Map<String, dynamic> j) => HotelPackage(
+        id: j['id'], slug: j['slug'] ?? '', title: j['title'] ?? '', city: j['city'] ?? '',
+        imageUrl: j['imageUrl'] ?? '', description: j['description'], badge: j['badge'],
+        nights: j['nights'] ?? 1, days: j['days'] ?? 2, guests: j['guests'] ?? 2,
+        originalPrice: j['originalPrice'] ?? 0, price: j['price'] ?? 0, discountPct: j['discountPct'] ?? 0,
+        reviewCount: j['reviewCount'] ?? 0, starRating: j['starRating'] ?? 4,
+        rating: (j['rating'] ?? 0).toDouble(), isPopular: j['isPopular'] ?? false,
+        inclusions: (j['inclusions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
+        room: j['room'] != null ? Room.fromJson(j['room']) : null,
+      );
+}
+
 class Booking {
   final String id, code, status;
   final int nights, guests, rooms, roomPrice, taxFee, totalPrice;
   final String checkIn, checkOut, bookerName, bookerEmail, bookerPhone;
-  final String? paymentMethod, bank;
+  final String? paymentMethod, bank, packageTitle;
   final Hotel? hotel;
   final Room? room;
   Booking({
@@ -104,7 +135,7 @@ class Booking {
     required this.guests, required this.rooms, required this.roomPrice, required this.taxFee,
     required this.totalPrice, required this.checkIn, required this.checkOut,
     required this.bookerName, required this.bookerEmail, required this.bookerPhone,
-    this.paymentMethod, this.bank, this.hotel, this.room,
+    this.paymentMethod, this.bank, this.packageTitle, this.hotel, this.room,
   });
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'], code: j['code'], status: j['status'] ?? 'PENDING',
@@ -112,7 +143,7 @@ class Booking {
         roomPrice: j['roomPrice'] ?? 0, taxFee: j['taxFee'] ?? 0, totalPrice: j['totalPrice'] ?? 0,
         checkIn: j['checkIn'] ?? '', checkOut: j['checkOut'] ?? '',
         bookerName: j['bookerName'] ?? '', bookerEmail: j['bookerEmail'] ?? '', bookerPhone: j['bookerPhone'] ?? '',
-        paymentMethod: j['paymentMethod'], bank: j['bank'],
+        paymentMethod: j['paymentMethod'], bank: j['bank'], packageTitle: j['packageTitle'],
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,
       );

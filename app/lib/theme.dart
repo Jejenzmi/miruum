@@ -3,13 +3,21 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Miruum brand tokens (extracted from the Figma "Mockup OTA Miruum").
 class MC {
-  static const primary = Color(0xFF2FA84F); // Miruum green
-  static const primaryDark = Color(0xFF1E7E38);
-  static const primarySoft = Color(0xFFE7F6EC);
-  static const accent = Color(0xFFF5A623); // Miruum orange
+  // Miruum is orange-forward (per Figma): warm orange header/actions, blue accents.
+  static const primary = Color(0xFFF59331); // Miruum orange
+  static const primaryDark = Color(0xFFE07C17);
+  static const primarySoft = Color(0xFFFDEED9);
+  static const accent = Color(0xFFF5A623); // golden orange (badges/promos)
   static const accentSoft = Color(0xFFFDF1DD);
 
-  static const ink = Color(0xFF04021D); // Text / Dark - 100%
+  // Orange header gradient.
+  static const headerTop = Color(0xFFF9A23C);
+  static const headerBottom = Color(0xFFF2872A);
+
+  static const blue = Color(0xFF2E6CB5); // brand blue (logo text, PeduliLindungi)
+  static const blueSoft = Color(0xFFE6EFF9);
+
+  static const ink = Color(0xFF1B2430);
   static const inkMuted = Color(0xFF6B7280);
   static const inkFaint = Color(0xFF9AA0A6);
 
@@ -19,6 +27,7 @@ class MC {
   static const line = Color(0xFFECEDF1);
 
   static const star = Color(0xFFF5A623);
+  static const success = Color(0xFF2FA84F);
   static const danger = Color(0xFFE5484D);
   static const coverDark = Color(0xFF2B2B2D);
 }

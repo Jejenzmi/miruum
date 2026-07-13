@@ -4,12 +4,15 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "./prisma.js";
 import { signToken, requireAuth, optionalAuth, type AuthRequest } from "./auth.js";
+import { config } from "./config.js";
+import { redis, cached, invalidate } from "./redis.js";
+import { ensureBucket, putObject, storageReady } from "./storage.js";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "8mb" })); // allow base64 image uploads
 
-const PORT = Number(process.env.PORT || 5013);
+const PORT = config.port;
 
 const publicUser = (u: any) => ({
   id: u.id,
@@ -35,7 +38,11 @@ function requireRole(...roles: string[]) {
 }
 
 // ─────────────────────────── Health ───────────────────────────
-app.get("/api/health", (_req, res) => res.json({ ok: true, service: "miruum", ts: Date.now() }));
+app.get("/api/health", async (_req, res) => {
+  let redisOk = false;
+  try { redisOk = (await redis().ping()) === "PONG"; } catch { redisOk = false; }
+  res.json({ ok: true, service: "miruum", ts: Date.now(), redis: redisOk, minio: storageReady() });
+});
 
 // ─────────────────────────── Auth ───────────────────────────
 app.post("/api/auth/register", async (req, res) => {
@@ -95,6 +102,31 @@ app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
   res.json({ user: publicUser(user) });
 });
 
+// ─────────────────────────── Uploads (MinIO) ───────────────────────────
+// Accepts a base64 data URL, stores the image in MinIO, returns its public URL.
+app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    dataUrl: z.string().regex(/^data:image\/(png|jpe?g|webp);base64,/, "Format gambar tidak didukung"),
+    folder: z.enum(["avatars", "hotels"]).default("avatars"),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Data tidak valid" });
+  if (!storageReady()) return res.status(503).json({ error: "Penyimpanan belum siap" });
+  const m = parsed.data.dataUrl.match(/^data:(image\/[a-z]+);base64,(.*)$/s);
+  if (!m) return res.status(400).json({ error: "Data gambar tidak valid" });
+  const [, contentType, b64] = m;
+  const buf = Buffer.from(b64, "base64");
+  if (buf.length > 6 * 1024 * 1024) return res.status(413).json({ error: "Ukuran gambar maksimal 6MB" });
+  const ext = contentType.split("/")[1].replace("jpeg", "jpg");
+  const key = `${parsed.data.folder}/${req.userId}-${Date.now()}.${ext}`;
+  try {
+    const url = await putObject(key, buf, contentType);
+    res.json({ url });
+  } catch (e: any) {
+    res.status(500).json({ error: "Gagal mengunggah gambar" });
+  }
+});
+
 // ─────────────────────────── Hotels ───────────────────────────
 const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
@@ -131,7 +163,8 @@ app.get("/api/hotels/promo", async (_req, res) => {
 });
 
 app.get("/api/hotels/recommended", async (_req, res) => {
-  const hotels = await prisma.hotel.findMany({ orderBy: { rating: "desc" }, take: 10, select: hotelCard });
+  const hotels = await cached("miruum:hotels:recommended", 120, () =>
+    prisma.hotel.findMany({ orderBy: { rating: "desc" }, take: 10, select: hotelCard }));
   res.json({ hotels });
 });
 
@@ -167,9 +200,58 @@ app.get("/api/hotels/:id/rooms", async (req, res) => {
   res.json({ rooms });
 });
 
+// ─────────────────────────── Hotel Packages ───────────────────────────
+const packageCard = {
+  id: true, slug: true, title: true, city: true, imageUrl: true, nights: true,
+  days: true, guests: true, originalPrice: true, price: true, discountPct: true,
+  rating: true, reviewCount: true, starRating: true, badge: true, isPopular: true, inclusions: true,
+} as const;
+
+app.get("/api/packages", async (req, res) => {
+  const { query, city, sort } = req.query as Record<string, string>;
+  const where: any = {};
+  if (query) where.OR = [
+    { title: { contains: query, mode: "insensitive" } },
+    { city: { contains: query, mode: "insensitive" } },
+  ];
+  if (city) where.city = { contains: city, mode: "insensitive" };
+  const orderBy =
+    sort === "price_asc" ? { price: "asc" as const } :
+    sort === "price_desc" ? { price: "desc" as const } :
+    sort === "rating" ? { rating: "desc" as const } :
+    { isPopular: "desc" as const };
+  const noFilter = !query && !city && !sort;
+  const fetch = () => prisma.hotelPackage.findMany({ where, orderBy, select: packageCard });
+  const packages = noFilter ? await cached("miruum:packages:all", 120, fetch) : await fetch();
+  res.json({ packages });
+});
+
+app.get("/api/packages/:id", async (req, res) => {
+  const pkg = await prisma.hotelPackage.findUnique({
+    where: { id: req.params.id },
+    include: {
+      hotel: {
+        include: {
+          photos: { orderBy: { sort: "asc" } },
+          facilities: { include: { facility: true } },
+          reviews: { orderBy: { createdAt: "desc" }, take: 5 },
+        },
+      },
+      room: true,
+    },
+  });
+  if (!pkg) return res.status(404).json({ error: "Paket tidak ditemukan" });
+  res.json({
+    package: {
+      ...pkg,
+      hotel: { ...pkg.hotel, facilities: pkg.hotel.facilities.map((f) => f.facility) },
+    },
+  });
+});
+
 // ─────────────────────────── Promos & static ───────────────────────────
 app.get("/api/promos", async (_req, res) => {
-  const promos = await prisma.promo.findMany();
+  const promos = await cached("miruum:promos:all", 300, () => prisma.promo.findMany());
   res.json({ promos });
 });
 
@@ -228,10 +310,11 @@ function makeCode() {
 
 app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
-    hotelId: z.string(),
-    roomId: z.string(),
+    hotelId: z.string().optional(),
+    roomId: z.string().optional(),
+    packageId: z.string().optional(), // when set, booking is a Hotel Package bundle
     checkIn: z.string(),
-    checkOut: z.string(),
+    checkOut: z.string().optional(),
     guests: z.number().int().min(1).default(2),
     rooms: z.number().int().min(1).default(1),
     bookerName: z.string().min(2),
@@ -243,25 +326,51 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Data pemesanan tidak valid", details: parsed.error.issues });
   const d = parsed.data;
-  const room = await prisma.room.findUnique({ where: { id: d.roomId } });
-  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+
+  let hotelId = d.hotelId;
+  let roomId = d.roomId;
+  let packageId: string | undefined;
+  let packageTitle: string | undefined;
+  let nights: number;
+  let baseAmount: number; // pre-tax room/package amount
   const checkIn = new Date(d.checkIn);
-  const checkOut = new Date(d.checkOut);
-  const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
-  const roomPrice = room.price * nights * d.rooms;
-  const taxFee = Math.round(roomPrice * 0.11); // 11% tax & service
-  const totalPrice = roomPrice + taxFee;
+  let checkOut: Date;
+
+  if (d.packageId) {
+    // Hotel Package: flat bundled price, nights taken from the package.
+    const pkg = await prisma.hotelPackage.findUnique({ where: { id: d.packageId } });
+    if (!pkg) return res.status(404).json({ error: "Paket tidak ditemukan" });
+    hotelId = pkg.hotelId;
+    roomId = pkg.roomId;
+    packageId = pkg.id;
+    packageTitle = pkg.title;
+    nights = pkg.nights;
+    checkOut = new Date(checkIn.getTime() + pkg.nights * 86400000);
+    baseAmount = pkg.price * d.rooms;
+  } else {
+    if (!roomId || !d.checkOut) return res.status(400).json({ error: "Data pemesanan tidak valid" });
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+    hotelId = room.hotelId;
+    checkOut = new Date(d.checkOut);
+    nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
+    baseAmount = room.price * nights * d.rooms;
+  }
+
+  const taxFee = Math.round(baseAmount * 0.11); // 11% tax & service
+  const totalPrice = baseAmount + taxFee;
   const booking = await prisma.booking.create({
     data: {
       code: makeCode(),
       userId: req.userId!,
-      hotelId: d.hotelId,
-      roomId: d.roomId,
+      hotelId: hotelId!,
+      roomId: roomId!,
+      packageId, packageTitle,
       checkIn, checkOut, nights,
       guests: d.guests, rooms: d.rooms,
       bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
       forSelf: d.forSelf, specialRequest: d.specialRequest,
-      roomPrice, taxFee, totalPrice,
+      roomPrice: baseAmount, taxFee, totalPrice,
       status: "PENDING",
     },
     include: { hotel: { select: hotelCard }, room: true },
@@ -363,6 +472,7 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
   if (!p.success) return res.status(400).json({ error: "Data hotel tidak valid", details: p.error.issues });
   const slug = p.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 9000 + 1000);
   const hotel = await prisma.hotel.create({ data: { ...p.data, slug, ownerId: p.data.ownerId || null } });
+  await invalidate("miruum:");
   res.json({ hotel });
 });
 
@@ -379,11 +489,13 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   const data: any = { ...p.data };
   if (data.ownerId === "") data.ownerId = null;
   const hotel = await prisma.hotel.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:");
   res.json({ hotel });
 });
 
 app.delete("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   await prisma.hotel.delete({ where: { id: req.params.id } });
+  await invalidate("miruum:");
   res.json({ ok: true });
 });
 
@@ -453,4 +565,8 @@ app.put("/api/partner/bookings/:id/status", requireRole("PARTNER", "ADMIN"), asy
   res.json({ booking: updated });
 });
 
-app.listen(PORT, () => console.log(`[miruum] API listening on :${PORT}`));
+app.listen(PORT, () => {
+  console.log(`[miruum] API listening on :${PORT}`);
+  redis().ping().then(() => console.log("[redis] ready")).catch(() => console.warn("[redis] unavailable"));
+  ensureBucket();
+});

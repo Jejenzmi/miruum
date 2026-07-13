@@ -10,11 +10,12 @@ import 'pembayaran.dart';
 
 class RincianPesananScreen extends StatefulWidget {
   final Hotel hotel;
-  final Room room;
+  final Room? room;
+  final HotelPackage? package; // set → this is a Hotel Package bundle booking
   final DateTime checkIn, checkOut;
   final int nights, rooms, adults;
   const RincianPesananScreen({
-    super.key, required this.hotel, required this.room, required this.checkIn,
+    super.key, required this.hotel, this.room, this.package, required this.checkIn,
     required this.checkOut, required this.nights, required this.rooms, required this.adults,
   });
   @override
@@ -29,7 +30,10 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   bool _forSelf = true, _loading = false;
   final _fmt = DateFormat('EEEE, d MMMM', 'id_ID');
 
-  int get _roomPrice => widget.room.price * widget.nights * widget.rooms;
+  bool get _isPackage => widget.package != null;
+  int get _roomPrice => _isPackage
+      ? widget.package!.price * widget.rooms
+      : widget.room!.price * widget.nights * widget.rooms;
   int get _tax => (_roomPrice * 0.11).round();
   int get _total => _roomPrice + _tax;
 
@@ -41,10 +45,13 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
     setState(() => _loading = true);
     try {
       final booking = await context.read<Api>().createBooking({
-        'hotelId': widget.hotel.id,
-        'roomId': widget.room.id,
+        if (_isPackage) 'packageId': widget.package!.id
+        else ...{
+          'hotelId': widget.hotel.id,
+          'roomId': widget.room!.id,
+          'checkOut': widget.checkOut.toIso8601String(),
+        },
         'checkIn': widget.checkIn.toIso8601String(),
-        'checkOut': widget.checkOut.toIso8601String(),
         'guests': widget.adults,
         'rooms': widget.rooms,
         'bookerName': _name.text.trim(),
@@ -102,12 +109,29 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
             ])),
           ]),
           const Divider(height: 24, color: MC.line),
-          _row('Kamar', '(${widget.rooms}x) ${widget.room.name}'),
+          if (_isPackage) _row('Paket', widget.package!.title),
+          _row('Kamar', _isPackage
+              ? (widget.package!.room?.name ?? '${widget.rooms}x Kamar')
+              : '(${widget.rooms}x) ${widget.room!.name}'),
           _row('Tamu', '${widget.adults} Dewasa'),
-          _row('Durasi', '${widget.nights} Malam'),
+          _row('Durasi', '${widget.nights} Malam / ${widget.nights + 1} Hari'),
           _row('Check-in', _fmt.format(widget.checkIn)),
           _row('Check-out', _fmt.format(widget.checkOut)),
-          _row('Tempat tidur', widget.room.bedInfo),
+          if (!_isPackage) _row('Tempat tidur', widget.room!.bedInfo),
+          if (_isPackage) ...[
+            const Divider(height: 24, color: MC.line),
+            const Text('Termasuk dalam paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            const SizedBox(height: 8),
+            for (final inc in widget.package!.inclusions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.check_circle_rounded, color: MC.primary, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(inc, style: const TextStyle(fontSize: 12.5))),
+                ]),
+              ),
+          ],
         ]),
       );
 

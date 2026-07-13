@@ -81,6 +81,13 @@ class Api {
   Future<List<Review>> reviews(String id) async =>
       ((await _get('/hotels/$id/reviews'))['reviews'] as List).map((r) => Review.fromJson(r)).toList();
 
+  // ── Hotel Packages ──
+  Future<List<HotelPackage>> packages({Map<String, dynamic>? q}) async =>
+      ((await _get('/packages', q))['packages'] as List).map((p) => HotelPackage.fromJson(p)).toList();
+
+  Future<HotelPackage> package(String id) async =>
+      HotelPackage.fromJson((await _get('/packages/$id'))['package']);
+
   Future<List<Promo>> promos() async =>
       ((await _get('/promos'))['promos'] as List).map((p) => Promo.fromJson(p)).toList();
 

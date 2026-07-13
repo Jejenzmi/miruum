@@ -61,6 +61,7 @@ model Hotel {
   reviews     Review[]
   favorites   Favorite[]
   bookings    Booking[]
+  packages    HotelPackage[]
 }
 
 model HotelPhoto {
@@ -103,6 +104,37 @@ model Room {
   stock             Int     @default(5)
   hotel             Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   bookings          Booking[]
+  packages          HotelPackage[]
+}
+
+// A curated bundle: hotel stay + inclusions (breakfast, transfer, spa…) at one bundled price.
+// The "Hotel Package" side of Miruum, alongside plain "Hotel" room booking.
+model HotelPackage {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         String
+  city          String
+  description   String
+  imageUrl      String
+  hotelId       String
+  roomId        String
+  nights        Int      @default(2)
+  days          Int      @default(3)
+  guests        Int      @default(2)
+  inclusions    String[] // e.g. ["Sarapan 2 orang", "Antar-jemput bandara", "Spa 60 menit"]
+  originalPrice Int      // sum of à-la-carte value (rupiah, whole bundle)
+  price         Int      // bundled price (rupiah, whole bundle)
+  discountPct   Int      @default(0)
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0)
+  starRating    Int      @default(4)
+  badge         String?  // e.g. "Best Seller", "Staycation"
+  isPopular     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  hotel         Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room          Room     @relation(fields: [roomId], references: [id])
+  bookings      Booking[]
 }
 
 model Review {
@@ -140,6 +172,8 @@ model Booking {
   userId         String
   hotelId        String
   roomId         String
+  packageId      String?       // set when the booking is a Hotel Package bundle
+  packageTitle   String?
   checkIn        DateTime
   checkOut       DateTime
   nights         Int
@@ -162,6 +196,7 @@ model Booking {
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   hotel          Hotel         @relation(fields: [hotelId], references: [id])
   room           Room          @relation(fields: [roomId], references: [id])
+  package        HotelPackage? @relation(fields: [packageId], references: [id])
 }
 
 model Promo {

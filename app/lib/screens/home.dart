@@ -4,13 +4,14 @@ import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
-import '../hotel_card.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
+import 'hotel_detail.dart';
 import 'menu_hotel.dart';
 import 'notifikasi.dart';
+import 'package_list.dart';
 import 'results.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -31,224 +32,319 @@ class _HomeView extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthBloc>().state;
     return Scaffold(
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => context.read<HomeCubit>().load(),
-          child: BlocBuilder<HomeCubit, ViewState<HomeData>>(
-            builder: (context, state) {
-              if (state.isLoading) {
-                return const Center(child: CircularProgressIndicator(color: MC.primary));
-              }
-              if (state.isFailure) {
-                return _ErrorState(onRetry: () => context.read<HomeCubit>().load());
-              }
-              final data = state.data!;
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                children: [
-                  _header(context, auth),
-                  const SizedBox(height: 16),
-                  _searchBar(context),
-                  const SizedBox(height: 16),
-                  if (!auth.isLoggedIn) ...[_guestBanner(context), const SizedBox(height: 16)],
-                  _promoHero(),
-                  const SizedBox(height: 22),
-                  _categories(context),
-                  const SizedBox(height: 24),
-                  SectionHeader('Promo Terbaru', action: 'Lihat semua', onAction: () {}),
-                  const SizedBox(height: 12),
-                  _promoCarousel(data.promos),
-                  const SizedBox(height: 24),
-                  SectionHeader('Rekomendasi Hotel', action: 'Lihat semua',
+      backgroundColor: MC.bg,
+      body: RefreshIndicator(
+        onRefresh: () => context.read<HomeCubit>().load(),
+        child: BlocBuilder<HomeCubit, ViewState<HomeData>>(
+          builder: (context, state) {
+            if (state.isLoading) {
+              return const Center(child: CircularProgressIndicator(color: MC.primary));
+            }
+            if (state.isFailure) {
+              return _ErrorState(onRetry: () => context.read<HomeCubit>().load());
+            }
+            final data = state.data!;
+            return ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _header(context, auth),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SectionHeader('Promo Terbaru', action: 'Lihat semua', onAction: () {}),
+                ),
+                const SizedBox(height: 12),
+                _promoCarousel(data.promos),
+                const SizedBox(height: 20),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _categoryTiles(context)),
+                const SizedBox(height: 22),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SectionHeader('Rekomendasi Hotel', action: 'Lihat semua',
                       onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen(title: 'Rekomendasi Hotel')))),
-                  const SizedBox(height: 12),
-                  ...data.recommended.map((h) => Padding(padding: const EdgeInsets.only(bottom: 12), child: HotelCard(h))),
-                ],
-              );
-            },
-          ),
+                ),
+                const SizedBox(height: 12),
+                _recommendationGrid(context, data.recommended),
+                const SizedBox(height: 20),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _peduliLindungi()),
+                const SizedBox(height: 24),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
+  // ── Orange rounded header ──
   Widget _header(BuildContext context, AuthState auth) {
-    final greeting = auth.isLoggedIn ? 'Selamat datang,' : 'Selamat datang di';
-    final name = auth.isLoggedIn ? '${auth.user!.name}!' : 'Miruum';
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(greeting, style: const TextStyle(color: MC.inkMuted, fontSize: 13)),
-              Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [MC.headerTop, MC.headerBottom]),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    auth.isLoggedIn ? 'Halo, ${auth.user!.name} 👋' : 'Selamat datang di Miruum',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    if (await ensureLoggedIn(context)) {
+                      if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifikasiScreen()));
+                    }
+                  },
+                  child: Container(
+                    width: 38, height: 38,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.22), borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.notifications_none_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Text('Yuk pilih hotel\nsesukamu',
+                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.15)),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen())),
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [softShadow]),
+                child: Row(children: const [
+                  Icon(Icons.search_rounded, color: MC.primary),
+                  SizedBox(width: 10),
+                  Text('Cari hotel', style: TextStyle(color: MC.inkFaint, fontSize: 15)),
+                ]),
+              ),
+            ),
+            if (!auth.isLoggedIn) ...[
+              const SizedBox(height: 14),
+              Row(children: [
+                Expanded(child: _headerBtn(context, 'Login', Icons.login_rounded, false, const SignInScreen())),
+                const SizedBox(width: 12),
+                Expanded(child: _headerBtn(context, 'Registrasi', Icons.person_add_alt_1_rounded, true, const SignUpScreen())),
+              ]),
             ],
-          ),
+          ],
         ),
-        _iconBtn(Icons.notifications_none_rounded, () async {
-          if (await ensureLoggedIn(context)) {
-            if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifikasiScreen()));
-          }
-        }),
-      ],
+      ),
     );
   }
 
-  Widget _iconBtn(IconData icon, VoidCallback onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 44, height: 44,
-          decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(14), boxShadow: [softShadow]),
-          child: Icon(icon, color: MC.ink),
-        ),
-      );
+  Widget _headerBtn(BuildContext context, String label, IconData icon, bool filled, Widget page) {
+    return SizedBox(
+      height: 40,
+      child: filled
+          ? ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+              icon: Icon(icon, size: 17),
+              label: Text(label),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white, foregroundColor: MC.primaryDark, elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+            )
+          : OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+              icon: Icon(icon, size: 17, color: Colors.white),
+              label: Text(label, style: const TextStyle(color: Colors.white)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.white70),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              ),
+            ),
+    );
+  }
 
-  Widget _searchBar(BuildContext context) => GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen())),
+  // ── Category tiles: Hotel + Hotel Package (per mockup) ──
+  Widget _categoryTiles(BuildContext context) => Row(children: [
+        Expanded(
+          child: _categoryTile(
+            context, 'Hotel', Icons.apartment_rounded, MC.blue,
+            const MenuHotelScreen(),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: _categoryTile(
+            context, 'Hotel Package', Icons.card_giftcard_rounded, MC.primary,
+            const PackageListScreen(),
+          ),
+        ),
+      ]);
+
+  Widget _categoryTile(BuildContext context, String label, IconData icon, Color color, Widget page) =>
+      GestureDetector(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
         child: Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
-          child: Row(children: const [
-            Icon(Icons.search_rounded, color: MC.inkFaint),
-            SizedBox(width: 10),
-            Text('Cari hotel', style: TextStyle(color: MC.inkFaint, fontSize: 15)),
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
+          child: Row(children: [
+            Container(
+              width: 38, height: 38,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5, height: 1.1)),
+            ),
           ]),
         ),
       );
 
-  Widget _guestBanner(BuildContext context) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [MC.primaryDark, MC.primary]),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Login sekarang dan dapatkan promo terbaik !',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: SizedBox(
-                  height: 42,
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
-                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                    label: const Text('Registrasi'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white, foregroundColor: MC.primaryDark, elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SizedBox(
-                  height: 42,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen())),
-                    icon: const Icon(Icons.login_rounded, size: 18, color: Colors.white),
-                    label: const Text('Login', style: TextStyle(color: Colors.white)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.white70),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-                    ),
-                  ),
-                ),
-              ),
-            ]),
-          ],
-        ),
-      );
-
-  Widget _promoHero() => Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFFF5A623), Color(0xFFF6B94D)]),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('Save up to', style: TextStyle(color: Colors.white, fontSize: 14)),
-                Text('30%', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w900, height: 1)),
-                SizedBox(height: 4),
-                Text('Yuk pilih hotel sesukamu', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-          Container(
-            width: 66, height: 66,
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.25), shape: BoxShape.circle),
-            child: const Icon(Icons.local_offer_rounded, color: Colors.white, size: 32),
-          ),
-        ]),
-      );
-
-  Widget _categories(BuildContext context) => Row(children: [
-        _catTile(context, 'Hotel', Icons.hotel_rounded, MC.primary, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen()))),
-        const SizedBox(width: 14),
-        _catTile(context, 'Hotel Package', Icons.card_travel_rounded, MC.accent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen(package: true)))),
-      ]);
-
-  Widget _catTile(BuildContext context, String label, IconData icon, Color color, VoidCallback onTap) => Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: cardBox(
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            child: Column(children: [
-              Container(
-                width: 48, height: 48,
-                decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, color: color, size: 26),
-              ),
-              const SizedBox(height: 10),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-            ]),
-          ),
-        ),
-      );
-
+  // ── Promo Terbaru (Newest Promo) ──
   Widget _promoCarousel(List<Promo> promos) => SizedBox(
         height: 150,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: promos.length,
           separatorBuilder: (_, __) => const SizedBox(width: 12),
           itemBuilder: (context, i) {
             final p = promos[i];
             return Container(
-              width: 260,
+              width: 290,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: [softShadow]),
               child: Stack(fit: StackFit.expand, children: [
                 NetImage(p.imageUrl),
                 Container(decoration: BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.65)]))),
+                    gradient: LinearGradient(colors: [Colors.black.withOpacity(0.55), Colors.black.withOpacity(0.05)]))),
                 Positioned(
-                  left: 14, right: 14, bottom: 12,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: MC.accent, borderRadius: BorderRadius.circular(6)),
-                      child: Text('${p.discountPct}% OFF', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(p.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                  left: 14, top: 14, bottom: 14, right: 90,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Text('Newest Promo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text(p.description, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
                   ]),
+                ),
+                Positioned(
+                  right: 14, top: 0, bottom: 0,
+                  child: Center(
+                    child: Container(
+                      width: 60, height: 60,
+                      decoration: const BoxDecoration(color: MC.accent, shape: BoxShape.circle),
+                      child: Center(child: Text('${p.discountPct}%',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18))),
+                    ),
+                  ),
                 ),
               ]),
             );
           },
         ),
       );
+
+  // ── Rekomendasi Hotel (2-column vertical cards) ──
+  Widget _recommendationGrid(BuildContext context, List<Hotel> hotels) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 0.68),
+          itemCount: hotels.length,
+          itemBuilder: (context, i) => _VerticalHotelCard(hotels[i]),
+        ),
+      );
+
+  Widget _peduliLindungi() => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: MC.blueSoft, borderRadius: BorderRadius.circular(16)),
+        child: Row(children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(color: MC.blue, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+            Text('PeduliLindungi', style: TextStyle(fontWeight: FontWeight.w700, color: MC.blue, fontSize: 14)),
+            SizedBox(height: 2),
+            Text('Menginap aman & terverifikasi', style: TextStyle(color: MC.inkMuted, fontSize: 11.5)),
+          ])),
+          const Icon(Icons.chevron_right_rounded, color: MC.blue),
+        ]),
+      );
+}
+
+class _VerticalHotelCard extends StatelessWidget {
+  final Hotel hotel;
+  const _VerticalHotelCard(this.hotel);
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthBloc>().state;
+    final fav = auth.isFavorite(hotel.id);
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(hotel.id))),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Stack(children: [
+            NetImage(hotel.imageUrl, width: double.infinity, height: 104),
+            if (auth.isLoggedIn)
+              Positioned(
+                right: 8, top: 8,
+                child: GestureDetector(
+                  onTap: () => context.read<AuthBloc>().add(AuthFavoriteToggled(hotel.id)),
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle),
+                    child: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        size: 15, color: fav ? MC.danger : MC.inkFaint),
+                  ),
+                ),
+              ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(hotel.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+              const SizedBox(height: 3),
+              Row(children: [
+                const Icon(Icons.location_on_rounded, size: 12, color: MC.inkFaint),
+                const SizedBox(width: 2),
+                Expanded(child: Text(hotel.city, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: MC.inkMuted, fontSize: 11))),
+              ]),
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.star_rounded, color: MC.star, size: 14),
+                const SizedBox(width: 2),
+                Text(hotel.rating.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ]),
+              const SizedBox(height: 4),
+              RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
+                TextSpan(text: rupiah(hotel.priceFrom), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                const TextSpan(text: '/mlm', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
+              ])),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
 }
 
 class _ErrorState extends StatelessWidget {

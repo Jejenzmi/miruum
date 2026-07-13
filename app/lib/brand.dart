@@ -19,7 +19,7 @@ class MiruumLogo extends StatelessWidget {
           style: TextStyle(
             fontSize: size * 0.86,
             fontWeight: FontWeight.w800,
-            color: onDark ? Colors.white : MC.primary,
+            color: onDark ? Colors.white : MC.blue,
             letterSpacing: -0.5,
           )),
     ]);

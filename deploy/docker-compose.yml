@@ -1,8 +1,9 @@
-name: miruum
+name: ota
 
-# Deploy Miruum (OTA booking hotel) di VPS → https://miruum.gokar.id
-#   /        → web portal (landing + Back Office + Extranet)  [Node/Express/EJS]
-#   /api     → backend core API (dipakai mobile app + portal)
+# Deploy Miruum (OTA booking hotel) di VPS → https://ota.gokar.id
+#   /         → web portal (landing + Back Office + Extranet)  [Node/Express/EJS]
+#   /api      → backend core API (dipakai mobile app + portal)
+#   /storage  → MinIO object storage (avatar/foto upload, public-read)
 # Kredensial diisi lewat file .env (lihat .env.example).
 services:
   db:
@@ -12,13 +13,58 @@ services:
       POSTGRES_USER: miruum
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - miruum_pgdata:/var/lib/postgresql/data
+      - ota_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U miruum"]
       interval: 5s
       timeout: 3s
       retries: 10
     restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ota_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ota_miniodata:/data
+    ports:
+      - "127.0.0.1:9002:9000"   # nginx host → /storage (public object read)
+      - "127.0.0.1:9003:9001"   # MinIO console (admin only, via SSH tunnel)
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: create the bucket + set public-read policy (backend also self-heals).
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+      mc mb -p local/miruum || true;
+      mc anonymous set download local/miruum;
+      echo "[createbuckets] done";
+      '
+    restart: "no"
 
   backend:
     build: ../backend
@@ -27,10 +73,22 @@ services:
       NODE_ENV: production
       PORT: "5013"
       JWT_SECRET: ${JWT_SECRET}
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: miruum
+      PUBLIC_STORAGE_URL: ${PUBLIC_STORAGE_URL:-https://ota.gokar.id/storage}
     ports:
-      - "127.0.0.1:5013:5013"   # nginx host → /api
+      - "127.0.0.1:5019:5013"   # nginx host → /api
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     restart: unless-stopped
 
@@ -42,7 +100,7 @@ services:
       APK_URL: ${APK_URL:-}
       PORT: "4101"
     ports:
-      - "127.0.0.1:8095:4101"   # nginx host → /
+      - "127.0.0.1:8101:4101"   # nginx host → /
     depends_on:
       - backend
     restart: unless-stopped
@@ -53,7 +111,7 @@ services:
     environment:
       PGPASSWORD: ${DB_PASSWORD}
     volumes:
-      - miruum_backups:/backups
+      - ota_backups:/backups
     entrypoint: >
       sh -c 'while true; do
         ts=$$(date +%Y-%m-%d_%H-%M-%S);
@@ -68,5 +126,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  miruum_pgdata:
-  miruum_backups:
+  ota_pgdata:
+  ota_redisdata:
+  ota_miniodata:
+  ota_backups:

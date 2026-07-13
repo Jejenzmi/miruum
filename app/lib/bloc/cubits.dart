@@ -39,6 +39,34 @@ class HotelsCubit extends Cubit<ViewState<List<Hotel>>> {
   }
 }
 
+class PackagesCubit extends Cubit<ViewState<List<HotelPackage>>> {
+  final Api api;
+  PackagesCubit(this.api) : super(const ViewState.loading());
+
+  Future<void> load({Map<String, dynamic>? query}) async {
+    emit(const ViewState.loading());
+    try {
+      emit(ViewState.success(await api.packages(q: query)));
+    } catch (e) {
+      emit(ViewState.failure(e.toString()));
+    }
+  }
+}
+
+class PackageDetailCubit extends Cubit<ViewState<HotelPackage>> {
+  final Api api;
+  PackageDetailCubit(this.api) : super(const ViewState.loading());
+
+  Future<void> load(String id) async {
+    emit(const ViewState.loading());
+    try {
+      emit(ViewState.success(await api.package(id)));
+    } catch (e) {
+      emit(ViewState.failure(e.toString()));
+    }
+  }
+}
+
 class HotelDetailCubit extends Cubit<ViewState<Hotel>> {
   final Api api;
   HotelDetailCubit(this.api) : super(const ViewState.loading());

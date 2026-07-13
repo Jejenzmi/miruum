@@ -186,6 +186,88 @@ async function main() {
     });
   }
 
+  // ── Hotel Packages (bundled staycation deals tied to a hotel + base room) ──
+  interface PkgSeed {
+    slug: string; title: string; hotelSlug: string; nights: number; days: number;
+    guests: number; inclusions: string[]; originalPrice: number; price: number;
+    badge?: string; isPopular?: boolean; image: string;
+  }
+  const PACKAGES: PkgSeed[] = [
+    {
+      slug: "panji-staycation-2n3d", title: "Staycation Santai 2N3D",
+      hotelSlug: "hotel-panji", nights: 2, days: 3, guests: 2,
+      inclusions: ["Menginap 2 malam Deluxe Room", "Sarapan 2 orang / hari", "Antar-jemput bandara", "Welcome drink"],
+      originalPrice: 1560000, price: 1180000, badge: "Best Seller", isPopular: true,
+      image: img("1566073771259-6a8506099945"),
+    },
+    {
+      slug: "hillside-honeymoon-2n3d", title: "Honeymoon Escape 2N3D",
+      hotelSlug: "hillside-hotel", nights: 2, days: 3, guests: 2,
+      inclusions: ["Menginap 2 malam Deluxe", "Sarapan romantis in-room", "Spa couple 60 menit", "Dekorasi kamar bunga"],
+      originalPrice: 1740000, price: 1290000, badge: "Romantic", isPopular: true,
+      image: img("1520250497591-112f2f40a3f4"),
+    },
+    {
+      slug: "mandarin-family-3n4d", title: "Family Getaway 3N4D",
+      hotelSlug: "hotel-mandarin", nights: 3, days: 4, guests: 4,
+      inclusions: ["Menginap 3 malam Family Room", "Sarapan 4 orang / hari", "Tiket wisata Malioboro", "Late check-out 15.00"],
+      originalPrice: 1650000, price: 1290000, badge: "Family",
+      image: img("1445019980597-93fa8acb246c"),
+    },
+    {
+      slug: "broto-workation-3n4d", title: "Workation Produktif 3N4D",
+      hotelSlug: "hotel-broto", nights: 3, days: 4, guests: 1,
+      inclusions: ["Menginap 3 malam Deluxe", "Sarapan tiap hari", "High-speed Wi-Fi & meja kerja", "Akses gym & kolam renang"],
+      originalPrice: 1620000, price: 1240000, badge: "Staycation",
+      image: img("1618773928121-c32242e63f39"),
+    },
+    {
+      slug: "ambacang-weekend-1n2d", title: "Weekend Gateway 1N2D",
+      hotelSlug: "hotel-ambacang", nights: 1, days: 2, guests: 2,
+      inclusions: ["Menginap 1 malam Deluxe", "Sarapan 2 orang", "Voucher kuliner Rp100.000", "Free cancellation"],
+      originalPrice: 820000, price: 640000, badge: "Weekend",
+      image: img("1582719478250-c89cae4dc85b"),
+    },
+    {
+      slug: "tulip-city-2n3d", title: "City Break Jakarta 2N3D",
+      hotelSlug: "hotel-tulip", nights: 2, days: 3, guests: 2,
+      inclusions: ["Menginap 2 malam", "Sarapan 2 orang / hari", "Antar-jemput stasiun", "Diskon laundry 20%"],
+      originalPrice: 1200000, price: 940000, badge: "City Break",
+      image: img("1571896349842-33c89424de2d"),
+    },
+  ];
+
+  let pkgCount = 0;
+  for (const p of PACKAGES) {
+    const hotel = await prisma.hotel.findUnique({ where: { slug: p.hotelSlug } });
+    if (!hotel) continue;
+    // base room: prefer the breakfast room, else the first
+    const room =
+      (await prisma.room.findFirst({ where: { hotelId: hotel.id, breakfast: true } })) ??
+      (await prisma.room.findFirst({ where: { hotelId: hotel.id } }));
+    if (!room) continue;
+    const discountPct = Math.round((1 - p.price / p.originalPrice) * 100);
+    await prisma.hotelPackage.upsert({
+      where: { slug: p.slug },
+      create: {
+        slug: p.slug, title: p.title, city: hotel.city, description: LOREM,
+        imageUrl: p.image, hotelId: hotel.id, roomId: room.id,
+        nights: p.nights, days: p.days, guests: p.guests, inclusions: p.inclusions,
+        originalPrice: p.originalPrice, price: p.price, discountPct,
+        rating: hotel.rating, reviewCount: hotel.reviewCount, starRating: hotel.starRating,
+        badge: p.badge, isPopular: p.isPopular ?? false,
+      },
+      update: {
+        title: p.title, city: hotel.city, imageUrl: p.image, hotelId: hotel.id, roomId: room.id,
+        nights: p.nights, days: p.days, guests: p.guests, inclusions: p.inclusions,
+        originalPrice: p.originalPrice, price: p.price, discountPct,
+        rating: hotel.rating, reviewCount: hotel.reviewCount, starRating: hotel.starRating,
+        badge: p.badge, isPopular: p.isPopular ?? false,
+      },
+    });
+    pkgCount++;
+  }
+
   // Promos / vouchers
   const PROMOS = [
     { code: "MIRUUM30", title: "Save up to 30%", description: "Yuk pilih hotel sesukamu. Diskon hingga 30% untuk hotel pilihan.", discountPct: 30, imageUrl: img("1571896349842-33c89424de2d") },
@@ -217,7 +299,7 @@ async function main() {
     ],
   });
 
-  console.log(`[seed] done — ${HOTELS.length} hotels, ${PROMOS.length} promos, ${PARTNERS.length} partners`);
+  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners`);
   console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
 }
 
