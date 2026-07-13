@@ -86,6 +86,8 @@ model SupplyChannel {
   color         String?     // badge color (hex)
   active        Boolean     @default(true)
   sortOrder     Int         @default(0)
+  connectorType String      @default("MOCK") // MOCK | HTTP | DIRECT — how offers are fetched
+  config        Json?       // gateway config for HTTP connectors (baseUrl/auth/request/map)
   createdAt     DateTime    @default(now())
 
   hotels        Hotel[]

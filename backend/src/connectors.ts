@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { httpConnector, type GatewayConfig } from "./gateway.js";
 
 // ─────────────────────────── OTA connectors ───────────────────────────
 // Miruum aggregates rate & availability from multiple supply sources. Each
@@ -20,6 +21,8 @@ export interface HotelRef {
   slug: string;
   name: string;
   priceFrom: number;
+  city?: string;
+  externalId?: string | null;
 }
 
 export interface OtaConnector {
@@ -82,6 +85,15 @@ function listsHotel(slug: string, channelCode: string): boolean {
   return hash(`${slug}:${channelCode}:list`) % 3 !== 0; // ~2 of 3
 }
 
+// Resolve the connector for a channel from its stored config. HTTP → real B2B
+// API via the gateway; otherwise a built-in mock (so demos always work).
+export function getConnector(channel: { code: string; connectorType?: string | null; config?: unknown }): OtaConnector {
+  if (channel.connectorType === "HTTP" && channel.config && typeof channel.config === "object") {
+    return httpConnector(channel.code, channel.config as GatewayConfig);
+  }
+  return CONNECTORS[channel.code] ?? otaConnector(channel.code, 1.0, 0.05, `${channel.code.toLowerCase()}.example`);
+}
+
 /**
  * Pull offers from every relevant source for every hotel, apply Miruum's markup,
  * upsert HotelOffer rows, then cache the cheapest available offer back onto the
@@ -101,9 +113,19 @@ export async function syncOffers(prisma: PrismaClient): Promise<{ hotels: number
     );
 
     for (const ch of sources) {
-      const conn = CONNECTORS[ch.code];
-      if (!conn) continue;
-      const r = await conn.fetchOffer(hotel);
+      const conn = getConnector(ch);
+      let r: OfferResult;
+      try {
+        r = await conn.fetchOffer(hotel);
+      } catch (e: any) {
+        // A real B2B API failed → keep any last-known offer, just mark it stale/unavailable.
+        console.warn(`[connector] ${ch.code} fetch failed for ${hotel.slug}: ${e.message}`);
+        await prisma.hotelOffer.updateMany({
+          where: { hotelId: hotel.id, channelId: ch.id },
+          data: { available: false, fetchedAt: new Date() },
+        });
+        continue;
+      }
       const markupPct = ch.commissionPct; // Miruum margin on top of nett
       const price = round1k(r.basePrice * (1 + markupPct / 100));
       await prisma.hotelOffer.upsert({

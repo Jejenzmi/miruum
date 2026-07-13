@@ -7,7 +7,7 @@ import { signToken, requireAuth, optionalAuth, type AuthRequest } from "./auth.j
 import { config } from "./config.js";
 import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
-import { syncOffers } from "./connectors.js";
+import { syncOffers, getConnector } from "./connectors.js";
 
 const app = express();
 app.use(cors());
@@ -270,7 +270,10 @@ app.get("/api/packages/:id", async (req, res) => {
 // ─────────────────────────── Supply channels ───────────────────────────
 app.get("/api/channels", async (_req, res) => {
   const channels = await cached("miruum:channels:all", 300, () =>
-    prisma.supplyChannel.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }));
+    prisma.supplyChannel.findMany({
+      where: { active: true }, orderBy: { sortOrder: "asc" },
+      select: { id: true, code: true, name: true, type: true, color: true, commissionPct: true },
+    }));
   res.json({ channels });
 });
 
@@ -543,11 +546,54 @@ app.delete("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   res.json({ ok: true });
 });
 
-// Re-pull rate & availability from every supply source (mock connectors for now).
+// Re-pull rate & availability from every supply source.
 app.post("/api/admin/offers/sync", requireRole("ADMIN"), async (_req, res) => {
   const stats = await syncOffers(prisma);
   await invalidate("miruum:");
   res.json({ ok: true, ...stats });
+});
+
+// ── Connector gateway config (admin) — plug in any B2B API via JSON config ──
+app.get("/api/admin/channels", requireRole("ADMIN"), async (_req, res) => {
+  const channels = await prisma.supplyChannel.findMany({ orderBy: { sortOrder: "asc" } });
+  res.json({ channels });
+});
+
+app.put("/api/admin/channels/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({
+    name: z.string().optional(),
+    commissionPct: z.coerce.number().optional(),
+    active: z.coerce.boolean().optional(),
+    connectorType: z.enum(["MOCK", "HTTP", "DIRECT"]).optional(),
+    config: z.any().optional(), // gateway config JSON (or null to clear)
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data channel tidak valid" });
+  const data: any = { ...p.data };
+  if (typeof data.config === "string") {
+    try { data.config = data.config.trim() ? JSON.parse(data.config) : null; }
+    catch { return res.status(400).json({ error: "Config JSON tidak valid" }); }
+  }
+  const channel = await prisma.supplyChannel.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:");
+  res.json({ channel });
+});
+
+// Test a channel's connector against one hotel — returns the mapped offer or error.
+app.post("/api/admin/channels/:id/test", requireRole("ADMIN"), async (req, res) => {
+  const channel = await prisma.supplyChannel.findUnique({ where: { id: req.params.id } });
+  if (!channel) return res.status(404).json({ error: "Channel tidak ditemukan" });
+  const hotel = req.body?.hotelId
+    ? await prisma.hotel.findUnique({ where: { id: req.body.hotelId } })
+    : await prisma.hotel.findFirst();
+  if (!hotel) return res.status(404).json({ error: "Tidak ada hotel untuk diuji" });
+  try {
+    const offer = await getConnector(channel).fetchOffer(hotel);
+    const price = Math.round(offer.basePrice * (1 + channel.commissionPct / 100));
+    res.json({ ok: true, hotel: hotel.name, offer: { ...offer, price } });
+  } catch (e: any) {
+    res.json({ ok: false, error: e.message });
+  }
 });
 
 // Channel Manager overview: hotels with their per-source offers (cheapest first).

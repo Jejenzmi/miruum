@@ -15,6 +15,49 @@
 
 <% if (synced) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f;margin-bottom:16px">✓ Sinkronisasi selesai — <%= synced %> penawaran diperbarui.</div><% } %>
 
+<h3 style="margin:18px 0 10px">🔌 Konektor Gateway</h3>
+<p class="muted" style="font-size:12px;margin-bottom:14px">
+  Colok API B2B OTA mana pun tanpa deploy ulang: set <b>connectorType = HTTP</b> lalu isi <b>config</b> (baseUrl, auth, request, map).
+  Rahasia (token/API key) simpan sebagai <b>ENV var</b> di server dan rujuk lewat <code>tokenEnv</code>/<code>valueEnv</code> — jangan taruh di config.
+  <b>MOCK</b> = data contoh, <b>DIRECT</b> = Channel Manager sendiri.
+</p>
+
+<div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-bottom:26px">
+  <% channels.forEach(function(c){ var tr = (testResult && testResult.id===c.id) ? testResult : null; %>
+    <div class="card" style="margin:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b style="color:<%= c.color||'#333' %>"><%= c.name %></b>
+        <span class="pill" style="background:#eee;color:#555"><%= c.connectorType %></span>
+      </div>
+      <form method="post" action="/admin/channels/<%= c.id %>/config">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <select name="connectorType" style="flex:1">
+            <% ['MOCK','HTTP','DIRECT'].forEach(function(t){ %>
+              <option value="<%= t %>" <%= c.connectorType===t?'selected':'' %>><%= t %></option>
+            <% }) %>
+          </select>
+          <input name="commissionPct" type="number" step="0.1" value="<%= c.commissionPct %>" title="markup %" style="width:90px" placeholder="markup %">
+        </div>
+        <textarea name="config" rows="8" spellcheck="false"
+          style="width:100%;font-family:monospace;font-size:11px;box-sizing:border-box"
+          placeholder='{"baseUrl":"https://api...","auth":{"type":"bearer","tokenEnv":"X_TOKEN"},"request":{"method":"GET","path":"/rates/{externalId}"},"map":{"basePrice":"data.price","available":"data.avail"}}'><%= c.config ? JSON.stringify(c.config, null, 2) : '' %></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn sm" type="submit">💾 Simpan</button>
+          <button class="btn ghost sm" type="submit" formaction="/admin/channels/<%= c.id %>/test">▶ Test</button>
+        </div>
+      </form>
+      <% if (tr) { %>
+        <div style="margin-top:10px;font-size:11.5px;padding:8px 10px;border-radius:8px;background:<%= tr.ok?'#EAF7EE':'#FDE7E7' %>;color:<%= tr.ok?'#1c7a3f':'#b02a2a' %>">
+          <% if (tr.saved) { %>✓ Konfigurasi disimpan.
+          <% } else if (tr.ok) { %>✓ <b><%= tr.hotel %></b> → base Rp<%= tr.offer.basePrice.toLocaleString('id-ID') %> · +<%= c.commissionPct %>% → <b>Rp<%= tr.offer.price.toLocaleString('id-ID') %></b> · <%= tr.offer.available?'tersedia':'habis' %>
+          <% } else { %>✗ <%= tr.error %><% } %>
+        </div>
+      <% } %>
+    </div>
+  <% }) %>
+</div>
+
+<h3 style="margin:0 0 10px">💰 Harga per sumber</h3>
 <div class="card">
   <table>
     <thead><tr><th>Hotel</th><th>Kota</th><th>Harga terbaik</th><th>Penawaran per sumber (termurah → termahal)</th></tr></thead>

@@ -110,13 +110,41 @@ app.post("/admin/hotels/:id/delete", adminGuard, async (req, res) => {
 });
 
 app.get("/admin/channels", adminGuard, async (req, res) => {
-  const { hotels, channels } = await api("/admin/channel-manager", { token: res.locals.token });
-  res.render("admin/channel_manager", { hotels, channels, active: "channels", synced: req.query.synced });
+  const [{ hotels }, { channels }] = await Promise.all([
+    api("/admin/channel-manager", { token: res.locals.token }),
+    api("/admin/channels", { token: res.locals.token }),
+  ]);
+  res.render("admin/channel_manager", { hotels, channels, active: "channels", synced: req.query.synced, testResult: null });
 });
 
 app.post("/admin/channels/sync", adminGuard, async (req, res) => {
   const r = await api("/admin/offers/sync", { method: "POST", token: res.locals.token });
   res.redirect(`/admin/channels?synced=${r.offers || 0}`);
+});
+
+async function renderChannels(res, extra = {}) {
+  const [{ hotels }, { channels }] = await Promise.all([
+    api("/admin/channel-manager", { token: res.locals.token }),
+    api("/admin/channels", { token: res.locals.token }),
+  ]);
+  res.render("admin/channel_manager", { hotels, channels, active: "channels", synced: null, testResult: null, ...extra });
+}
+
+app.post("/admin/channels/:id/config", adminGuard, async (req, res) => {
+  try {
+    await api(`/admin/channels/${req.params.id}`, {
+      method: "PUT", token: res.locals.token,
+      body: { connectorType: req.body.connectorType, config: req.body.config, commissionPct: req.body.commissionPct },
+    });
+    await renderChannels(res, { testResult: { id: req.params.id, ok: true, saved: true } });
+  } catch (e) {
+    await renderChannels(res, { testResult: { id: req.params.id, ok: false, error: e.message } });
+  }
+});
+
+app.post("/admin/channels/:id/test", adminGuard, async (req, res) => {
+  const r = await api(`/admin/channels/${req.params.id}/test`, { method: "POST", token: res.locals.token, body: {} });
+  await renderChannels(res, { testResult: { id: req.params.id, ...r } });
 });
 
 app.get("/admin/bookings", adminGuard, async (req, res) => {
