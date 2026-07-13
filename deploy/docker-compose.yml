@@ -81,6 +81,10 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: miruum
       PUBLIC_STORAGE_URL: ${PUBLIC_STORAGE_URL:-https://ota.gokar.id/storage}
+      # OTA connector secrets (referenced by channel gateway configs via *Env)
+      TIKETCOM_SECRET: ${TIKETCOM_SECRET:-}
+      AGODA_AUTH: ${AGODA_AUTH:-}
+      TRAVELOKA_API_KEY: ${TRAVELOKA_API_KEY:-}
     ports:
       - "127.0.0.1:5019:5013"   # nginx host → /api
     depends_on:

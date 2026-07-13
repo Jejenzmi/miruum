@@ -113,9 +113,85 @@ const HOTEL_CHANNEL: Record<string, string> = {
   "penginapan-rio": "TIKETCOM",
 };
 
+// Ready-to-use gateway config templates per OTA, modeled on each provider's
+// common B2B pattern. Preloaded so Back Office shows a starting point — adjust
+// endpoint/field paths to the real API docs, set the token ENV var, then flip
+// connectorType to HTTP. Secrets go in the server .env (referenced by *Env).
+const CONNECTOR_TEMPLATES: Record<string, unknown> = {
+  TIKETCOM: {
+    baseUrl: "https://api.tiket.com",
+    auth: { type: "header", header: "Authorization", valueEnv: "TIKETCOM_SECRET" },
+    request: {
+      method: "GET",
+      path: "/v2/hotels/{externalId}/rates",
+      query: { checkin: "{checkIn}", checkout: "{checkOut}", night: "1", room: "1", adult: "2", currency: "IDR" },
+      headers: { Accept: "application/json" },
+    },
+    map: {
+      basePrice: "data.rooms.0.rates.0.fare.rateWithTax",
+      available: "data.rooms.0.available",
+      roomsLeft: "data.rooms.0.availableRoom",
+      deeplink: "data.detailUrl",
+      supplierRef: "data.rooms.0.rates.0.rateCode",
+      priceMultiplier: 1,
+    },
+  },
+  AGODA: {
+    baseUrl: "https://affiliateapi7643.agoda.com",
+    auth: { type: "header", header: "Authorization", valueEnv: "AGODA_AUTH" }, // value = "{siteId}:{apiKey}"
+    request: {
+      method: "POST",
+      path: "/affiliateservice/lt_v1",
+      headers: { "Content-Type": "application/json" },
+      body: {
+        criteria: {
+          checkInDate: "{checkIn}", checkOutDate: "{checkOut}", hotelId: ["{externalId}"],
+          additional: { currency: "IDR", language: "id-id", maxResult: 1, occupancy: { numberOfAdult: 2, numberOfChildren: 0 } },
+        },
+      },
+    },
+    map: {
+      basePrice: "results.0.dailyRate",
+      available: "results.0.available",
+      roomsLeft: "results.0.roomsLeft",
+      deeplink: "results.0.landingURL",
+      supplierRef: "results.0.hotelId",
+      priceMultiplier: 1,
+    },
+  },
+  TRAVELOKA: {
+    baseUrl: "https://api.traveloka.com",
+    auth: { type: "header", header: "X-API-Key", valueEnv: "TRAVELOKA_API_KEY" },
+    request: {
+      method: "POST",
+      path: "/v2/hotel/search/rooms",
+      headers: { "Content-Type": "application/json" },
+      body: {
+        hotelId: "{externalId}", checkInDate: "{checkIn}", checkOutDate: "{checkOut}",
+        numOfNights: 1, numOfRooms: 1, numOfAdults: 2, currency: "IDR",
+      },
+    },
+    map: {
+      basePrice: "data.rooms.0.rateDisplay.nightlyPrice.amount",
+      available: "data.rooms.0.isAvailable",
+      roomsLeft: "data.rooms.0.remainingRooms",
+      deeplink: "data.redirectUrl",
+      supplierRef: "data.rooms.0.roomId",
+      priceMultiplier: 1,
+    },
+  },
+};
+
 async function ensureChannels() {
   for (const c of CHANNELS) {
     await prisma.supplyChannel.upsert({ where: { code: c.code }, create: c, update: c });
+  }
+  // Preload a starter config template where none is set yet (keeps user edits).
+  for (const [code, template] of Object.entries(CONNECTOR_TEMPLATES)) {
+    const ch = await prisma.supplyChannel.findUnique({ where: { code } });
+    if (ch && ch.config == null) {
+      await prisma.supplyChannel.update({ where: { code }, data: { config: template as any } });
+    }
   }
 }
 
