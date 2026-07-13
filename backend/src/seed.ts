@@ -100,6 +100,18 @@ const PARTNERS = [
 async function main() {
   console.log("[seed] start");
 
+  // Idempotent restart guard: the hotel/room/review/package block below is
+  // DESTRUCTIVE (deleteMany then recreate). Once seeded, re-running it on every
+  // container start would fail on FK from HotelPackage/Booking → Room, and would
+  // wipe real customer bookings. So if the catalog already exists, skip reseed.
+  // (To force a refresh: `docker compose run --rm backend node dist/seed.js --force`
+  //  after clearing dependent rows, or reset the DB volume.)
+  const force = process.argv.includes("--force");
+  if (!force && (await prisma.hotel.count()) > 0) {
+    console.log("[seed] catalog already present — skipping reseed (idempotent restart)");
+    return;
+  }
+
   // Admin (Back Office)
   await prisma.user.upsert({
     where: { email: "admin@miruum.id" },
