@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../image_upload.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 import 'auth.dart';
 import 'personal_data.dart';
 import 'setting.dart';
+import 'shell.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -15,72 +18,87 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final session = context.watch<AuthBloc>().state;
+    if (!session.isLoggedIn) {
+      return Scaffold(backgroundColor: MC.bg, body: _GuestProfile());
+    }
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Menu'),
-        centerTitle: false,
-        titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
-        actions: [
-          if (session.isLoggedIn)
-            IconButton(
-              icon: const Icon(Icons.power_settings_new_rounded, color: MC.danger),
-              onPressed: () async {
-                final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-                  title: const Text('Keluar'),
-                  content: const Text('Yakin ingin keluar dari akun?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Keluar', style: TextStyle(color: MC.danger))),
-                  ],
-                ));
-                if (ok == true && context.mounted) context.read<AuthBloc>().add(const AuthLoggedOut());
-              },
-            ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: !session.isLoggedIn
-            ? _GuestProfile()
-            : ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  Row(children: [
-                    const _EditableAvatar(),
-                    const SizedBox(width: 16),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Selamat Datang', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
-                      Text(session.user!.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                      Text(session.user!.email, style: const TextStyle(color: MC.inkMuted, fontSize: 12.5)),
-                    ])),
-                  ]),
-                  const SizedBox(height: 24),
-                  _menuTile(context, Icons.person_outline_rounded, 'Data Pribadi',
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDataScreen()))),
-                  _menuTile(context, Icons.help_outline_rounded, 'FAQ', () => _faq(context)),
-                  _menuTile(context, Icons.settings_outlined, 'Pengaturan',
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingScreen()))),
-                  const SizedBox(height: 30),
-                  const Center(child: Text('Miruum 2022, Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
-                ],
+      backgroundColor: MC.bg,
+      body: Column(children: [
+        HeroHeader(
+          height: 220,
+          showBack: false,
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+            Row(children: [
+              const Text('Akun Saya', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.logout_rounded, color: Colors.white),
+                onPressed: () async {
+                  final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    title: const Text('Keluar'),
+                    content: const Text('Yakin ingin keluar dari akun?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Keluar', style: TextStyle(color: MC.danger))),
+                    ],
+                  ));
+                  if (ok == true && context.mounted) context.read<AuthBloc>().add(const AuthLoggedOut());
+                },
               ),
-      ),
+            ]),
+            const SizedBox(height: 6),
+            Row(children: [
+              const _EditableAvatar(),
+              const SizedBox(width: 16),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(session.user!.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
+                const SizedBox(height: 2),
+                Text(session.user!.email, style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
+              ])),
+            ]).animate().fadeIn(delay: 120.ms).slideY(begin: 0.2, end: 0),
+          ]),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            children: [
+              ...stagger([
+                _menuTile(context, Icons.person_outline_rounded, 'Data Pribadi', MC.blue,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDataScreen()))),
+                _menuTile(context, Icons.receipt_long_outlined, 'Pesanan Saya', MC.primary,
+                    () => goToTab(context, 1)),
+                _menuTile(context, Icons.favorite_border_rounded, 'Hotel Favorit', MC.danger,
+                    () => goToTab(context, 3)),
+                _menuTile(context, Icons.help_outline_rounded, 'FAQ & Bantuan', MC.success, () => _faq(context)),
+                _menuTile(context, Icons.settings_outlined, 'Pengaturan', MC.inkMuted,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingScreen()))),
+              ]),
+              const SizedBox(height: 20),
+              const Center(child: Text('Miruum · Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+            ],
+          ),
+        ),
+      ]),
     );
   }
 
-  Widget _menuTile(BuildContext context, IconData icon, String label, VoidCallback onTap) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(14), boxShadow: [softShadow]),
-        child: ListTile(
-          leading: Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: MC.primaryDark, size: 20),
-          ),
-          title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
-          trailing: const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
-          onTap: onTap,
+  Widget _menuTile(BuildContext context, IconData icon, String label, Color color, VoidCallback onTap) => Pressable(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
+          child: Row(children: [
+            Container(
+              width: 42, height: 42,
+              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: color, size: 21),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5))),
+            const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
+          ]),
         ),
       );
 

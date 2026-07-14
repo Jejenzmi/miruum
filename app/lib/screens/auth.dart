@@ -1,32 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../brand.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 
-class _AuthField extends StatelessWidget {
-  final String hint;
-  final IconData icon;
-  final TextEditingController controller;
-  final bool obscure;
-  final Widget? suffix;
-  final TextInputType? keyboard;
-  const _AuthField(this.hint, this.icon, this.controller, {this.obscure = false, this.suffix, this.keyboard});
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboard,
-      decoration: InputDecoration(hintText: hint, prefixIcon: Icon(icon, color: MC.inkFaint, size: 20), suffixIcon: suffix),
-    );
-  }
-}
-
 void _toast(BuildContext c, String m, {bool err = true}) {
-  ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(m), backgroundColor: err ? MC.danger : MC.primary));
+  ScaffoldMessenger.of(c).showSnackBar(SnackBar(
+    content: Text(m),
+    backgroundColor: err ? MC.danger : MC.primary,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  ));
 }
 
 // ─────────────────────────── Sign In ───────────────────────────
@@ -58,35 +46,36 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(child: MiruumLogo(size: 40)),
-              const SizedBox(height: 32),
-              const Text('Sign In', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 6),
-              const Text('Halo Sahabat Miruum!', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-              const SizedBox(height: 2),
-              const Text('Ayo login dulu untuk menikmati fasilitas & layanan dari kami',
-                  style: TextStyle(color: MC.inkMuted, fontSize: 13)),
-              const SizedBox(height: 28),
-              _AuthField('Enter email', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+      backgroundColor: MC.bg,
+      body: Column(children: [
+        HeroHeader(
+          height: 210,
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const MiruumLogo(size: 34, onDark: true).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
+            const SizedBox(height: 14),
+            const Text('Sign In', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
+                .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
+            const SizedBox(height: 4),
+            const Text('Halo Sahabat Miruum! Ayo login dulu 👋',
+                    style: TextStyle(color: Colors.white70, fontSize: 13.5))
+                .animate().fadeIn(delay: 220.ms),
+          ]),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
+              AuthTextField('Enter email', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 14),
-              _AuthField('Enter Password', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField('Enter Password', Icons.lock_outline_rounded, _pass, obscure: _obscure,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   )),
-              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(onPressed: () {}, child: const Text('Forgot Password ?', style: TextStyle(color: MC.primary, fontSize: 12.5))),
               ),
-              const SizedBox(height: 8),
               PrimaryButton('Sign In', loading: _loading, onPressed: _submit),
               const SizedBox(height: 20),
               Row(children: const [
@@ -126,10 +115,10 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ),
               ),
-            ],
+            ], startMs: 260)),
           ),
         ),
-      ),
+      ]),
     );
   }
 }
@@ -170,22 +159,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(child: MiruumLogo(size: 40)),
-              const SizedBox(height: 30),
-              const Text('Registrasi', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 24),
-              _AuthField('Nama Lengkap', Icons.person_outline_rounded, _name),
+      backgroundColor: MC.bg,
+      body: Column(children: [
+        HeroHeader(
+          height: 200,
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const MiruumLogo(size: 34, onDark: true).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
+            const SizedBox(height: 14),
+            const Text('Registrasi', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
+                .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
+            const SizedBox(height: 4),
+            const Text('Buat akun & nikmati promo terbaik ✨', style: TextStyle(color: Colors.white70, fontSize: 13.5))
+                .animate().fadeIn(delay: 220.ms),
+          ]),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
+              AuthTextField('Nama Lengkap', Icons.person_outline_rounded, _name),
               const SizedBox(height: 14),
-              _AuthField('Email', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField('Email', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 14),
-              _AuthField('Kata Sandi', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField('Kata Sandi', Icons.lock_outline_rounded, _pass, obscure: _obscure,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
@@ -207,10 +203,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
               ),
-            ],
+            ], startMs: 240)),
           ),
         ),
-      ),
+      ]),
     );
   }
 }

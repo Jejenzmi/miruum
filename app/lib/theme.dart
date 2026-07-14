@@ -46,6 +46,11 @@ class MiruumTheme {
         secondary: MC.accent,
         surface: MC.surface,
       ),
+      // Smooth shared-axis-style transitions on every navigation.
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      }),
       textTheme: text,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,

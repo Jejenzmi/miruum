@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
@@ -54,9 +55,10 @@ class _HomeView extends StatelessWidget {
                   child: SectionHeader('Promo Terbaru', action: 'Lihat semua', onAction: () {}),
                 ),
                 const SizedBox(height: 12),
-                _promoCarousel(data.promos),
+                _promoCarousel(data.promos).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideX(begin: 0.1, end: 0),
                 const SizedBox(height: 20),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _categoryTiles(context)),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _categoryTiles(context))
+                    .animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(begin: 0.15, end: 0),
                 const SizedBox(height: 22),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -64,7 +66,7 @@ class _HomeView extends StatelessWidget {
                       onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen(title: 'Rekomendasi Hotel')))),
                 ),
                 const SizedBox(height: 12),
-                _recommendationGrid(context, data.recommended),
+                _recommendationGrid(context, data.recommended).animate().fadeIn(delay: 300.ms, duration: 450.ms),
                 const SizedBox(height: 24),
               ],
             );
