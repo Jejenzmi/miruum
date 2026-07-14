@@ -211,7 +211,7 @@ class _HomeView extends StatelessWidget {
       );
 
   // ── Promo Terbaru (admin-managed banners) ──
-  Widget _promoCarousel(List<Banner> banners) => SizedBox(
+  Widget _promoCarousel(List<PromoBanner> banners) => SizedBox(
         height: 150,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,

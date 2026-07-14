@@ -163,11 +163,11 @@ class HotelPackage {
       );
 }
 
-class Banner {
+class PromoBanner {
   final String id, title, subtitle, imageUrl;
   final String? badge;
-  Banner({required this.id, required this.title, required this.subtitle, required this.imageUrl, this.badge});
-  factory Banner.fromJson(Map<String, dynamic> j) => Banner(
+  PromoBanner({required this.id, required this.title, required this.subtitle, required this.imageUrl, this.badge});
+  factory PromoBanner.fromJson(Map<String, dynamic> j) => PromoBanner(
         id: j['id'], title: j['title'] ?? '', subtitle: j['subtitle'] ?? '',
         imageUrl: j['imageUrl'] ?? '', badge: j['badge'],
       );

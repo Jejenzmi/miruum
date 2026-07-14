@@ -121,8 +121,8 @@ class Api {
   Future<List<Promo>> promos() async =>
       ((await _get('/promos'))['promos'] as List).map((p) => Promo.fromJson(p)).toList();
 
-  Future<List<Banner>> banners() async =>
-      ((await _get('/banners'))['banners'] as List).map((b) => Banner.fromJson(b)).toList();
+  Future<List<PromoBanner>> banners() async =>
+      ((await _get('/banners'))['banners'] as List).map((b) => PromoBanner.fromJson(b)).toList();
 
   Future<List<dynamic>> paymentMethods() async => (await _get('/payment-methods'))['methods'] as List;
 
