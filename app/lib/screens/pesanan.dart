@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../api.dart';
@@ -7,6 +8,7 @@ import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 import 'auth.dart';
 import 'pembayaran.dart';
@@ -56,7 +58,7 @@ class _PesananTabs extends StatelessWidget {
           child: BlocBuilder<BookingsCubit, ViewState<List<Booking>>>(
             builder: (context, state) {
               if (state.isLoading) {
-                return const Center(child: CircularProgressIndicator(color: MC.primary));
+                return const SkeletonList();
               }
               final all = state.data ?? [];
               final active = all.where((b) => b.status == 'PENDING' || b.status == 'PAID').toList();
@@ -74,11 +76,8 @@ class _PesananTabs extends StatelessWidget {
 
   Widget _list(BuildContext context, List<Booking> items, {required String empty}) {
     if (items.isEmpty) {
-      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.receipt_long_rounded, size: 48, color: MC.inkFaint),
-        const SizedBox(height: 12),
-        Text(empty, style: const TextStyle(color: MC.inkMuted)),
-      ]));
+      return EmptyState(icon: Icons.receipt_long_rounded, title: empty,
+          subtitle: 'Pesananmu akan muncul di sini', color: MC.primary);
     }
     return RefreshIndicator(
       onRefresh: () => context.read<BookingsCubit>().load(),
@@ -86,7 +85,8 @@ class _PesananTabs extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, i) => _OrderCard(items[i], onChanged: () => context.read<BookingsCubit>().load()),
+        itemBuilder: (context, i) => _OrderCard(items[i], onChanged: () => context.read<BookingsCubit>().load())
+            .animate().fadeIn(delay: (i * 60).ms, duration: 350.ms).slideY(begin: 0.12, end: 0),
       ),
     );
   }
@@ -161,16 +161,10 @@ class _LoginPrompt extends StatelessWidget {
   final VoidCallback onLogin;
   const _LoginPrompt({required this.onLogin});
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.lock_outline_rounded, size: 52, color: MC.inkFaint),
-            const SizedBox(height: 14),
-            const Text('Masuk untuk melihat pesananmu', style: TextStyle(fontWeight: FontWeight.w600), textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            PrimaryButton('Masuk / Daftar', expand: false, onPressed: onLogin),
-          ]),
-        ),
+  Widget build(BuildContext context) => EmptyState(
+        icon: Icons.lock_outline_rounded,
+        title: 'Masuk untuk melihat pesananmu',
+        subtitle: 'Kelola & lanjutkan pembayaran pesananmu',
+        action: PrimaryButton('Masuk / Daftar', expand: false, onPressed: onLogin),
       );
 }

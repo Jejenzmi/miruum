@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 
 class NotifikasiScreen extends StatelessWidget {
@@ -27,11 +29,15 @@ class NotifikasiScreen extends StatelessWidget {
           child: BlocBuilder<NotificationsCubit, ViewState<List<AppNotification>>>(
             builder: (context, state) {
               if (state.isLoading) {
-                return const Center(child: CircularProgressIndicator(color: MC.primary));
+                return const SkeletonList();
               }
               final items = state.data ?? [];
               if (items.isEmpty) {
-                return const Center(child: Text('Belum ada notifikasi', style: TextStyle(color: MC.inkMuted)));
+                return const EmptyState(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'Belum ada notifikasi',
+                  subtitle: 'Info pesanan & promo akan muncul di sini',
+                );
               }
               return ListView.separated(
                 padding: const EdgeInsets.all(20),
@@ -52,7 +58,7 @@ class NotifikasiScreen extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(n.body, style: const TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.4)),
                     ])),
-                  ]));
+                  ])).animate().fadeIn(delay: (i * 60).ms, duration: 350.ms).slideX(begin: 0.1, end: 0);
                 },
               );
             },

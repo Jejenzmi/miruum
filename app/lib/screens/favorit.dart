@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
@@ -7,6 +8,7 @@ import '../bloc/view_state.dart';
 import '../hotel_card.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 import 'auth.dart';
 
@@ -35,18 +37,12 @@ class FavoritScreen extends StatelessWidget {
     );
   }
 
-  Widget _guestPrompt(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.favorite_border_rounded, size: 52, color: MC.inkFaint),
-            const SizedBox(height: 14),
-            const Text('Isi list favoritmu dengan hotel kesukaanmu',
-                textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            PrimaryButton('Masuk / Daftar', expand: false, onPressed: () => ensureLoggedIn(context)),
-          ]),
-        ),
+  Widget _guestPrompt(BuildContext context) => EmptyState(
+        icon: Icons.favorite_rounded,
+        color: MC.danger,
+        title: 'Isi list favoritmu',
+        subtitle: 'Simpan hotel kesukaanmu di sini',
+        action: PrimaryButton('Masuk / Daftar', expand: false, onPressed: () => ensureLoggedIn(context)),
       );
 }
 
@@ -72,16 +68,15 @@ class _FavListState extends State<_FavList> {
     return BlocBuilder<FavoritesCubit, ViewState<List<Hotel>>>(
       builder: (context, state) {
         if (state.isLoading) {
-          return const Center(child: CircularProgressIndicator(color: MC.primary));
+          return const SkeletonList();
         }
         final hotels = (state.data ?? []).where((h) => widget.favoriteIds.contains(h.id)).toList();
         if (hotels.isEmpty) {
-          return Center(child: Column(mainAxisSize: MainAxisSize.min, children: const [
-            Icon(Icons.favorite_border_rounded, size: 52, color: MC.inkFaint),
-            SizedBox(height: 14),
-            Text('Isi list favoritmu dengan hotel kesukaanmu',
-                textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted)),
-          ]));
+          return const EmptyState(
+            icon: Icons.favorite_border_rounded, color: MC.danger,
+            title: 'Belum ada favorit',
+            subtitle: 'Ketuk ikon hati pada hotel untuk menyimpannya',
+          );
         }
         return RefreshIndicator(
           onRefresh: () => context.read<FavoritesCubit>().load(),
@@ -89,7 +84,8 @@ class _FavListState extends State<_FavList> {
             padding: const EdgeInsets.all(20),
             itemCount: hotels.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) => HotelCard(hotels[i], showBook: true),
+            itemBuilder: (context, i) => HotelCard(hotels[i], showBook: true)
+                .animate().fadeIn(delay: (i * 60).ms, duration: 350.ms).slideY(begin: 0.12, end: 0),
           ),
         );
       },

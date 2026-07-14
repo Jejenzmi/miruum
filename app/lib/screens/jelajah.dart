@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 import 'hotel_detail.dart';
 import 'results.dart';
@@ -29,7 +31,7 @@ class JelajahScreen extends StatelessWidget {
           child: BlocBuilder<HotelsCubit, ViewState<List<Hotel>>>(
             builder: (context, state) {
               if (state.isLoading) {
-                return const Center(child: CircularProgressIndicator(color: MC.primary));
+                return const SkeletonList();
               }
               final hotels = state.data ?? [];
               return ListView(
@@ -62,7 +64,8 @@ class JelajahScreen extends StatelessWidget {
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 0.74),
                     itemCount: hotels.length,
-                    itemBuilder: (context, i) => _ExploreCard(hotels[i]),
+                    itemBuilder: (context, i) => _ExploreCard(hotels[i])
+                        .animate().fadeIn(delay: (i * 60).ms, duration: 350.ms).scale(begin: const Offset(0.9, 0.9)),
                   ),
                 ],
               );

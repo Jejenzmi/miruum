@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 import '../api.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../hotel_card.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import 'filter.dart';
 
 class ResultsScreen extends StatelessWidget {
@@ -88,24 +90,22 @@ class _ResultsViewState extends State<_ResultsView> {
               child: BlocBuilder<HotelsCubit, ViewState<List<Hotel>>>(
                 builder: (context, state) {
                   if (state.isLoading) {
-                    return const Center(child: CircularProgressIndicator(color: MC.primary));
+                    return const SkeletonList();
                   }
                   final hotels = state.data ?? [];
                   if (hotels.isEmpty) {
-                    return const Center(child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.search_off_rounded, size: 48, color: MC.inkFaint),
-                        SizedBox(height: 12),
-                        Text('Hotel tidak ditemukan', style: TextStyle(color: MC.inkMuted)),
-                      ]),
-                    ));
+                    return const EmptyState(
+                      icon: Icons.search_off_rounded,
+                      title: 'Hotel tidak ditemukan',
+                      subtitle: 'Coba ubah kata kunci atau filter pencarian',
+                    );
                   }
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                     itemCount: hotels.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) => HotelCard(hotels[i], showBook: true),
+                    itemBuilder: (context, i) => HotelCard(hotels[i], showBook: true)
+                        .animate().fadeIn(delay: (i * 55).ms, duration: 350.ms).slideY(begin: 0.1, end: 0),
                   );
                 },
               ),

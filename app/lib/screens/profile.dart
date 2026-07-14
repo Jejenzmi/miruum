@@ -185,22 +185,67 @@ class _EditableAvatarState extends State<_EditableAvatar> {
 }
 
 class _GuestProfile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const CircleAvatar(radius: 40, backgroundColor: MC.primarySoft, child: Icon(Icons.person_rounded, size: 44, color: MC.primaryDark)),
-            const SizedBox(height: 16),
-            const Text('Belum masuk', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-            const SizedBox(height: 4),
-            const Text('Masuk untuk mengelola akun & pesananmu', textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted)),
-            const SizedBox(height: 20),
-            PrimaryButton('Masuk', expand: false, onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen()))),
-            const SizedBox(height: 10),
-            TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
-                child: const Text('Belum punya akun? Daftar', style: TextStyle(color: MC.primary))),
-          ]),
-        ),
+  Widget _benefit(IconData icon, Color color, String title, String sub) => Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Row(children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(13)),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            const SizedBox(height: 2),
+            Text(sub, style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+          ])),
+        ]),
       );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      HeroHeader(
+        height: 210,
+        showBack: false,
+        child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 60, height: 60,
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.22), borderRadius: BorderRadius.circular(18)),
+            child: const Icon(Icons.person_rounded, color: Colors.white, size: 34),
+          ).animate().scale(begin: const Offset(0.6, 0.6), duration: 500.ms, curve: Curves.elasticOut),
+          const SizedBox(height: 14),
+          const Text('Hai, Sahabat Miruum 👋', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))
+              .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
+          const SizedBox(height: 4),
+          const Text('Masuk untuk pengalaman terbaik', style: TextStyle(color: Colors.white70, fontSize: 13.5))
+              .animate().fadeIn(delay: 220.ms),
+        ]),
+      ),
+      Expanded(
+        child: ListView(padding: const EdgeInsets.fromLTRB(24, 26, 24, 24), children: [
+          ...stagger([
+            _benefit(Icons.receipt_long_rounded, MC.primary, 'Kelola Pesanan', 'Lihat & lanjutkan pembayaran pesananmu'),
+            _benefit(Icons.favorite_rounded, MC.danger, 'Simpan Favorit', 'Bookmark hotel kesukaanmu'),
+            _benefit(Icons.local_offer_rounded, MC.accent, 'Promo Eksklusif', 'Dapatkan penawaran & diskon khusus member'),
+            _benefit(Icons.verified_user_rounded, MC.blue, 'Aman & Terverifikasi', 'Transaksi & e-voucher tersimpan rapi'),
+          ], startMs: 250),
+          const SizedBox(height: 10),
+          PrimaryButton('Masuk', icon: Icons.login_rounded,
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen())))
+              .animate().fadeIn(delay: 560.ms).slideY(begin: 0.2, end: 0),
+          const SizedBox(height: 10),
+          Center(
+            child: GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
+              child: RichText(text: const TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
+                TextSpan(text: 'Belum punya akun? '),
+                TextSpan(text: 'Daftar', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+              ])),
+            ),
+          ).animate().fadeIn(delay: 640.ms),
+        ]),
+      ),
+    ]);
+  }
 }

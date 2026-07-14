@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../brand.dart';
 import '../theme.dart';
 import 'shell.dart';
@@ -40,7 +41,14 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
           ),
-          const Center(child: MiruumLogo(size: 54)),
+          Center(
+            child: const MiruumLogo(size: 54)
+                .animate()
+                .scale(begin: const Offset(0.7, 0.7), end: const Offset(1, 1), duration: 700.ms, curve: Curves.easeOutBack)
+                .fadeIn(duration: 500.ms)
+                .then(delay: 200.ms)
+                .shimmer(duration: 900.ms, color: MC.primary.withOpacity(0.3)),
+          ),
         ],
       ),
     );
