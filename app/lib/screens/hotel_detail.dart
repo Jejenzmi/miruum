@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/cubits.dart';
@@ -62,6 +63,9 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                     backgroundColor: MC.surface,
                     leading: _circleBtn(Icons.arrow_back_rounded, () => Navigator.pop(context)),
                     actions: [
+                      _circleBtn(Icons.share_rounded, () => Share.share(
+                          'Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://ota.gokar.id')),
+                      const SizedBox(width: 8),
                       if (auth.isLoggedIn)
                         _circleBtn(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                             () => context.read<AuthBloc>().add(AuthFavoriteToggled(h.id)), color: fav ? MC.danger : MC.ink),

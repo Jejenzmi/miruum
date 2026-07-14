@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../brand.dart';
 import '../theme.dart';
+import 'onboarding.dart';
 import 'shell.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,10 +15,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1700), () {
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()));
-      }
+    Future.delayed(const Duration(milliseconds: 1700), () async {
+      final onboarded = await hasOnboarded();
+      if (!mounted) return;
+      Navigator.pushReplacement(context, MaterialPageRoute(
+          builder: (_) => onboarded ? const MainShell() : const OnboardingScreen()));
     });
   }
 

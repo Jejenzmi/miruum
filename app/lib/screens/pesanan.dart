@@ -13,6 +13,7 @@ import '../widgets.dart';
 import 'auth.dart';
 import 'pembayaran.dart';
 import 'hotel_detail.dart';
+import 'booking_detail.dart';
 import 'review_sheet.dart';
 
 class PesananScreen extends StatelessWidget {
@@ -143,8 +144,8 @@ class _OrderCard extends StatelessWidget {
       const SizedBox(height: 12),
       if (b.status == 'PENDING')
         Row(children: [
-          Expanded(child: OutlineButtonX('Rincian', onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => HotelDetailScreen(b.hotel!.id))))),
+          Expanded(child: OutlineButtonX('Detail', onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => BookingDetailScreen(b))))),
           const SizedBox(width: 10),
           Expanded(child: PrimaryButton('Bayar', onPressed: () async {
             await Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id)));

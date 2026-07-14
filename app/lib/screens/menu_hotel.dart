@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'results.dart';
@@ -18,7 +19,31 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
   DateTime _checkOut = DateTime.now().add(const Duration(days: 2));
   int _rooms = 1, _adults = 2, _children = 0;
   FilterResult _filter = const FilterResult();
+  List<String> _recent = [];
+  static const _recentKey = 'miruum_recent_search';
   final _fmt = DateFormat('EEE, d MMM', 'id_ID');
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) => setState(() => _recent = p.getStringList(_recentKey) ?? []));
+  }
+
+  Future<void> _saveRecent(String q) async {
+    if (q.isEmpty) return;
+    final p = await SharedPreferences.getInstance();
+    final list = [q, ..._recent.where((e) => e.toLowerCase() != q.toLowerCase())].take(6).toList();
+    await p.setStringList(_recentKey, list);
+    if (mounted) setState(() => _recent = list);
+  }
+
+  void _search(String query) {
+    _saveRecent(query.trim());
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(
+          title: query.trim().isEmpty ? 'Hasil Pencarian' : query.trim(),
+          query: query.trim(), checkIn: _checkIn, checkOut: _checkOut, rooms: _rooms, initialFilter: _filter,
+        )));
+  }
 
   Future<void> _pickDate(bool checkIn) async {
     final res = await showDatePicker(
@@ -91,8 +116,40 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
               const SizedBox(height: 16),
               _field(Icons.location_on_rounded, 'Lokasi', TextField(
                 controller: _loc,
+                textInputAction: TextInputAction.search,
+                onSubmitted: _search,
                 decoration: const InputDecoration(hintText: 'Kota / nama hotel', border: InputBorder.none, isDense: true),
               )),
+              if (_recent.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(children: [
+                  const Text('Pencarian terakhir', style: TextStyle(fontSize: 12.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () async {
+                      (await SharedPreferences.getInstance()).remove(_recentKey);
+                      setState(() => _recent = []);
+                    },
+                    child: const Text('Hapus', style: TextStyle(fontSize: 12, color: MC.primary, fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final q in _recent)
+                    GestureDetector(
+                      onTap: () { _loc.text = q; _search(q); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(color: MC.field, borderRadius: BorderRadius.circular(20)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.history_rounded, size: 14, color: MC.inkFaint),
+                          const SizedBox(width: 5),
+                          Text(q, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
+                        ]),
+                      ),
+                    ),
+                ]),
+              ],
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: _dateBox('Check-in', _checkIn, () => _pickDate(true))),
@@ -118,16 +175,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
                         style: TextStyle(color: _filter.star > 0 || _filter.minPrice > 0 || _filter.maxPrice < 5000000 ? MC.primary : MC.inkMuted, fontWeight: FontWeight.w600))),
               ),
               const SizedBox(height: 24),
-              PrimaryButton('Cari Hotel', icon: Icons.search_rounded, onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(
-                      title: 'Hasil Pencarian',
-                      query: _loc.text.trim(),
-                      checkIn: _checkIn,
-                      checkOut: _checkOut,
-                      rooms: _rooms,
-                      initialFilter: _filter,
-                    )));
-              }),
+              PrimaryButton('Cari Hotel', icon: Icons.search_rounded, onPressed: () => _search(_loc.text)),
             ],
           ),
         ),

@@ -23,10 +23,19 @@ dependencies:
   url_launcher: ^6.3.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
+  share_plus: ^10.0.2
 
 dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/icon.png
+  android_12:
+    color: "#FFFFFF"
+    image: assets/icon.png
 
 flutter_launcher_icons:
   android: true
