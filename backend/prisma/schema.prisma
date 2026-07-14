@@ -269,6 +269,8 @@ model Booking {
   specialRequest String?
   roomPrice      Int
   taxFee         Int
+  discount       Int           @default(0)
+  promoCode      String?
   totalPrice     Int
   status         BookingStatus @default(PENDING)
   paymentMethod  String?

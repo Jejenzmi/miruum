@@ -7,6 +7,7 @@ import '../bloc/view_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'gallery_screen.dart';
 import 'reviews.dart';
 import 'pilih_kamar.dart';
 
@@ -67,7 +68,28 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                       const SizedBox(width: 8),
                     ],
                     flexibleSpace: FlexibleSpaceBar(
-                      background: PageView(children: [for (final p in photos) NetImage(p)]),
+                      background: Stack(fit: StackFit.expand, children: [
+                        PageView.builder(
+                          itemCount: photos.length,
+                          itemBuilder: (_, i) => GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => GalleryScreen(photos: photos, initialIndex: i))),
+                            child: NetImage(photos[i]),
+                          ),
+                        ),
+                        Positioned(
+                          right: 14, bottom: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(20)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.photo_library_rounded, color: Colors.white, size: 14),
+                              const SizedBox(width: 5),
+                              Text('${photos.length} foto', style: const TextStyle(color: Colors.white, fontSize: 11.5)),
+                            ]),
+                          ),
+                        ),
+                      ]),
                     ),
                   ),
                   SliverToBoxAdapter(

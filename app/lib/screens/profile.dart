@@ -70,6 +70,8 @@ class ProfileScreen extends StatelessWidget {
                     () => goToTab(context, 1)),
                 _menuTile(context, Icons.favorite_border_rounded, 'Hotel Favorit', MC.danger,
                     () => goToTab(context, 3)),
+                _menuTile(context, Icons.lock_outline_rounded, 'Ganti Password', MC.accent,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen()))),
                 _menuTile(context, Icons.help_outline_rounded, 'FAQ & Bantuan', MC.success, () => _faq(context)),
                 _menuTile(context, Icons.settings_outlined, 'Pengaturan', MC.inkMuted,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingScreen()))),

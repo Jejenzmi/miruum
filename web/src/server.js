@@ -202,6 +202,16 @@ app.post("/extranet/rooms/:id", partnerGuard, async (req, res) => {
   res.redirect("back");
 });
 
+// Bulk-set rate / allotment / closed over a date range (Channel Manager calendar).
+app.post("/extranet/rooms/:id/availability", partnerGuard, async (req, res) => {
+  await api(`/partner/rooms/${req.params.id}/availability`, {
+    method: "PUT", token: res.locals.token,
+    body: { from: req.body.from, to: req.body.to, price: req.body.price || undefined,
+      allotment: req.body.allotment || undefined, closed: req.body.closed === "on" },
+  });
+  res.redirect("back");
+});
+
 app.get("/extranet/bookings", partnerGuard, async (req, res) => {
   const { bookings } = await api("/partner/bookings", { token: res.locals.token });
   res.render("extranet/bookings", { bookings, active: "bookings" });

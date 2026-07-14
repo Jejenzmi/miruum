@@ -297,6 +297,69 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 }
 
+// ─────────────────────────── Change Password ───────────────────────────
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({super.key});
+  @override
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+}
+
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  bool _loading = false, _o1 = true, _o2 = true;
+
+  Future<void> _submit() async {
+    if (_next.text.length < 6) { _toast(context, 'Kata sandi baru minimal 6 karakter'); return; }
+    setState(() => _loading = true);
+    try {
+      await context.read<Api>().changePassword(_current.text, _next.text);
+      if (!mounted) return;
+      _toast(context, 'Kata sandi berhasil diubah', err: false);
+      Navigator.pop(context);
+    } on ApiException catch (e) {
+      if (mounted) _toast(context, e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: MC.bg,
+      body: Column(children: [
+        HeroHeader(
+          height: 180,
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.password_rounded, color: Colors.white, size: 38)
+                .animate().scale(begin: const Offset(0.6, 0.6), duration: 500.ms, curve: Curves.elasticOut),
+            const SizedBox(height: 10),
+            const Text('Ganti Password', style: TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w800))
+                .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
+          ]),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
+              AuthTextField('Kata sandi saat ini', Icons.lock_outline_rounded, _current, obscure: _o1,
+                  suffix: IconButton(icon: Icon(_o1 ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
+                      onPressed: () => setState(() => _o1 = !_o1))),
+              const SizedBox(height: 14),
+              AuthTextField('Kata sandi baru', Icons.lock_reset_rounded, _next, obscure: _o2,
+                  suffix: IconButton(icon: Icon(_o2 ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
+                      onPressed: () => setState(() => _o2 = !_o2))),
+              const SizedBox(height: 22),
+              PrimaryButton('Simpan Kata Sandi', loading: _loading, onPressed: _submit),
+            ], startMs: 240)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 // ─────────────────────────── OTP ───────────────────────────
 class OtpScreen extends StatefulWidget {
   final String email;

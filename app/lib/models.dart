@@ -165,9 +165,9 @@ class HotelPackage {
 
 class Booking {
   final String id, code, status;
-  final int nights, guests, rooms, roomPrice, taxFee, totalPrice;
+  final int nights, guests, rooms, roomPrice, taxFee, totalPrice, discount;
   final String checkIn, checkOut, bookerName, bookerEmail, bookerPhone;
-  final String? paymentMethod, bank, packageTitle;
+  final String? paymentMethod, bank, packageTitle, promoCode;
   final Hotel? hotel;
   final Room? room;
   Booking({
@@ -175,15 +175,16 @@ class Booking {
     required this.guests, required this.rooms, required this.roomPrice, required this.taxFee,
     required this.totalPrice, required this.checkIn, required this.checkOut,
     required this.bookerName, required this.bookerEmail, required this.bookerPhone,
-    this.paymentMethod, this.bank, this.packageTitle, this.hotel, this.room,
+    this.paymentMethod, this.bank, this.packageTitle, this.promoCode, this.discount = 0, this.hotel, this.room,
   });
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'], code: j['code'], status: j['status'] ?? 'PENDING',
         nights: j['nights'] ?? 1, guests: j['guests'] ?? 2, rooms: j['rooms'] ?? 1,
         roomPrice: j['roomPrice'] ?? 0, taxFee: j['taxFee'] ?? 0, totalPrice: j['totalPrice'] ?? 0,
+        discount: j['discount'] ?? 0,
         checkIn: j['checkIn'] ?? '', checkOut: j['checkOut'] ?? '',
         bookerName: j['bookerName'] ?? '', bookerEmail: j['bookerEmail'] ?? '', bookerPhone: j['bookerPhone'] ?? '',
-        paymentMethod: j['paymentMethod'], bank: j['bank'], packageTitle: j['packageTitle'],
+        paymentMethod: j['paymentMethod'], bank: j['bank'], packageTitle: j['packageTitle'], promoCode: j['promoCode'],
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,
       );

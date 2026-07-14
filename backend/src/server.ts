@@ -116,6 +116,19 @@ app.get("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
   res.json({ user: publicUser(user) });
 });
 
+// Change password (while logged in).
+app.post("/api/auth/change-password", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({ currentPassword: z.string(), newPassword: z.string().min(6) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Kata sandi baru minimal 6 karakter" });
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user) return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+  if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash)))
+    return res.status(400).json({ error: "Kata sandi saat ini salah" });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(parsed.data.newPassword, 10) } });
+  res.json({ ok: true });
+});
+
 app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
     name: z.string().min(2).optional(),
@@ -350,6 +363,17 @@ app.get("/api/promos", async (_req, res) => {
   res.json({ promos });
 });
 
+// Validate a promo code against an amount → returns the discount.
+app.post("/api/promos/validate", async (req, res) => {
+  const schema = z.object({ code: z.string(), amount: z.coerce.number().int().min(0) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Data tidak valid" });
+  const promo = await prisma.promo.findUnique({ where: { code: parsed.data.code.toUpperCase() } });
+  if (!promo) return res.status(404).json({ valid: false, error: "Kode promo tidak ditemukan" });
+  const discount = Math.round((parsed.data.amount * promo.discountPct) / 100);
+  res.json({ valid: true, code: promo.code, title: promo.title, discountPct: promo.discountPct, discount });
+});
+
 app.get("/api/payment-methods", (_req, res) => {
   // Group the gateway's method catalog for the app's picker.
   const groups: Record<string, any[]> = {};
@@ -391,6 +415,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     roomId: z.string().optional(),
     packageId: z.string().optional(), // when set, booking is a Hotel Package bundle
     channelId: z.string().optional(), // supply source the guest chose (compare-prices)
+    promoCode: z.string().optional(),
     checkIn: z.string(),
     checkOut: z.string().optional(),
     guests: z.number().int().min(1).default(2),
@@ -439,7 +464,14 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const taxFee = Math.round(baseAmount * 0.11); // 11% tax & service
-  const totalPrice = baseAmount + taxFee;
+  // Apply promo code (discount off the accommodation subtotal).
+  let discount = 0;
+  let promoCode: string | null = null;
+  if (d.promoCode) {
+    const promo = await prisma.promo.findUnique({ where: { code: d.promoCode.toUpperCase() } });
+    if (promo) { discount = Math.round((baseAmount * promo.discountPct) / 100); promoCode = promo.code; }
+  }
+  const totalPrice = baseAmount + taxFee - discount;
 
   // Booking routing: DIRECT → commit to our own Channel Manager inventory.
   // OTA → route to the source (mock: allocate a supplier reference). Real
@@ -466,7 +498,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       guests: d.guests, rooms: d.rooms,
       bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
       forSelf: d.forSelf, specialRequest: d.specialRequest,
-      roomPrice: baseAmount, taxFee, totalPrice,
+      roomPrice: baseAmount, taxFee, discount, promoCode, totalPrice,
       status: "PENDING",
     },
     include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },

@@ -98,6 +98,12 @@ class Api {
   Future<void> forgotPassword(String email) async => _post('/auth/forgot', {'email': email});
   Future<void> resetPassword(String email, String code, String password) async =>
       _post('/auth/reset', {'email': email, 'code': code, 'password': password});
+  Future<void> changePassword(String current, String next) async =>
+      _post('/auth/change-password', {'currentPassword': current, 'newPassword': next});
+
+  /// Validate a promo code for an amount → {discount, discountPct, title}.
+  Future<Map<String, dynamic>> validatePromo(String code, int amount) async =>
+      (await _post('/promos/validate', {'code': code, 'amount': amount})) as Map<String, dynamic>;
 
   /// Public e-voucher URL for a booking code (opens the printable HTML page).
   String voucherUrl(String code) {

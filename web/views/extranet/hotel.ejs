@@ -34,6 +34,27 @@
   </table>
 </div>
 
+<div class="card">
+  <h2>🗓️ Kalender Rate & Ketersediaan</h2>
+  <p class="muted" style="margin-top:-8px">Atur harga & jatah kamar (allotment) per rentang tanggal. Kosongkan harga/jatah jika tidak ingin mengubahnya.</p>
+  <% hotel.rooms.forEach(function(r){ %>
+    <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px">
+      <b><%= r.name %></b>
+      <form method="post" action="/extranet/rooms/<%= r.id %>/availability"
+        style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px">
+        <div><label style="margin:0 0 4px">Dari</label><input name="from" type="date" required style="max-width:160px"></div>
+        <div><label style="margin:0 0 4px">Sampai</label><input name="to" type="date" required style="max-width:160px"></div>
+        <div><label style="margin:0 0 4px">Harga/malam</label><input name="price" type="number" placeholder="<%= r.price %>" style="max-width:140px"></div>
+        <div><label style="margin:0 0 4px">Jatah kamar</label><input name="allotment" type="number" placeholder="<%= r.stock %>" style="max-width:110px"></div>
+        <label style="display:flex;align-items:center;gap:6px;margin:0 0 10px;font-size:12.5px">
+          <input type="checkbox" name="closed" style="width:auto"> Tutup penjualan
+        </label>
+        <button class="btn sm" style="margin-bottom:2px">Terapkan</button>
+      </form>
+    </div>
+  <% }) %>
+</div>
+
 <a class="btn ghost" href="/extranet">← Kembali</a>
 
 <%- include('../partials/bottom') %>

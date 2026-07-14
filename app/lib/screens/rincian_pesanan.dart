@@ -28,7 +28,10 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   late final _email = TextEditingController(text: context.read<AuthBloc>().state.user?.email ?? '');
   late final _phone = TextEditingController(text: context.read<AuthBloc>().state.user?.phone ?? '');
   final _request = TextEditingController();
-  bool _forSelf = true, _loading = false;
+  final _promo = TextEditingController();
+  bool _forSelf = true, _loading = false, _checkingPromo = false;
+  int _discount = 0;
+  String? _appliedPromo;
   final _fmt = DateFormat('EEEE, d MMMM', 'id_ID');
 
   bool get _isPackage => widget.package != null;
@@ -36,7 +39,24 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
       ? widget.package!.price * widget.rooms
       : widget.room!.price * widget.nights * widget.rooms;
   int get _tax => (_roomPrice * 0.11).round();
-  int get _total => _roomPrice + _tax;
+  int get _total => _roomPrice + _tax - _discount;
+
+  Future<void> _applyPromo() async {
+    final code = _promo.text.trim();
+    if (code.isEmpty) return;
+    setState(() => _checkingPromo = true);
+    try {
+      final r = await context.read<Api>().validatePromo(code, _roomPrice);
+      setState(() { _discount = (r['discount'] ?? 0) as int; _appliedPromo = r['code'] as String?; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Promo diterapkan: hemat ${rupiah(_discount)}'), backgroundColor: MC.primary));
+    } on ApiException catch (e) {
+      setState(() { _discount = 0; _appliedPromo = null; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: MC.danger));
+    } finally {
+      if (mounted) setState(() => _checkingPromo = false);
+    }
+  }
 
   Future<void> _submit() async {
     if (_name.text.trim().isEmpty || !_email.text.contains('@') || _phone.text.trim().length < 5) {
@@ -56,6 +76,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         'checkIn': widget.checkIn.toIso8601String(),
         'guests': widget.adults,
         'rooms': widget.rooms,
+        if (_appliedPromo != null) 'promoCode': _appliedPromo,
         'bookerName': _name.text.trim(),
         'bookerEmail': _email.text.trim(),
         'bookerPhone': _phone.text.trim(),
@@ -89,6 +110,8 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                   _dataPemesan(),
                   const SizedBox(height: 16),
                   _specialRequest(),
+                  const SizedBox(height: 16),
+                  _promoCard(),
                 ],
               ),
             ),
@@ -176,6 +199,40 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           Text(label, style: const TextStyle(fontSize: 12, color: MC.inkMuted)),
           const SizedBox(height: 6),
           TextField(controller: c, keyboardType: keyboard, decoration: const InputDecoration(isDense: true)),
+        ]),
+      );
+
+  Widget _promoCard() => cardBox(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Kode Promo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: TextField(
+              controller: _promo,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(hintText: 'mis. MIRUUM30', isDense: true),
+            )),
+            const SizedBox(width: 10),
+            SizedBox(height: 44, child: ElevatedButton(
+              onPressed: _checkingPromo ? null : _applyPromo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _checkingPromo
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Terapkan'),
+            )),
+          ]),
+          if (_appliedPromo != null) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              const Icon(Icons.check_circle_rounded, color: MC.success, size: 16),
+              const SizedBox(width: 6),
+              Text('$_appliedPromo diterapkan — hemat ${rupiah(_discount)}',
+                  style: const TextStyle(color: MC.success, fontSize: 12.5, fontWeight: FontWeight.w600)),
+            ]),
+          ],
         ]),
       );
 
