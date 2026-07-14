@@ -123,8 +123,8 @@ class _HomeView extends StatelessWidget {
                 height: 50,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [softShadow]),
-                child: Row(children: const [
-                  Icon(Icons.search_rounded, color: MC.primary),
+                child: Row(children: [
+                  const Icon(Icons.search_rounded, color: MC.primary),
                   SizedBox(width: 10),
                   Text('Cari hotel', style: TextStyle(color: MC.inkFaint, fontSize: 15)),
                 ]),

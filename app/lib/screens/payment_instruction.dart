@@ -152,7 +152,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
           ]),
         ),
         const SizedBox(height: 8),
-        const Text('Transfer tepat sesuai nominal total ke nomor VA di atas melalui m-banking / ATM.',
+        Text('Transfer tepat sesuai nominal total ke nomor VA di atas melalui m-banking / ATM.',
             style: TextStyle(fontSize: 11.5, color: MC.inkMuted)),
       ]);
 
@@ -167,7 +167,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        const Text('Scan dengan aplikasi e-wallet / m-banking apa pun yang mendukung QRIS.',
+        Text('Scan dengan aplikasi e-wallet / m-banking apa pun yang mendukung QRIS.',
             style: TextStyle(fontSize: 11.5, color: MC.inkMuted), textAlign: TextAlign.center),
       ]);
 
@@ -180,7 +180,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
           child: SelectableText(url, style: const TextStyle(fontSize: 12.5, color: MC.blue)),
         ),
         const SizedBox(height: 8),
-        const Text('Buka tautan pembayaran untuk menyelesaikan transaksi.',
+        Text('Buka tautan pembayaran untuk menyelesaikan transaksi.',
             style: TextStyle(fontSize: 11.5, color: MC.inkMuted)),
       ]);
 }

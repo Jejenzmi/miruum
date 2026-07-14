@@ -188,13 +188,13 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
     );
   }
 
-  Widget _circleBtn(IconData icon, VoidCallback onTap, {Color color = MC.ink}) => Padding(
+  Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) => Padding(
         padding: const EdgeInsets.all(8),
         child: GestureDetector(
           onTap: onTap,
           child: Container(
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: color ?? MC.ink, size: 22),
           ),
         ),
       );

@@ -35,7 +35,7 @@ class VoucherScreen extends StatelessWidget {
                   const SizedBox(height: 18),
                   const Center(child: Text('Pembayaran Berhasil', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
                   const SizedBox(height: 6),
-                  const Center(child: Text('E-Voucher akan dikirim ke email kamu',
+                  Center(child: Text('E-Voucher akan dikirim ke email kamu',
                       textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 13))),
                   const SizedBox(height: 24),
                   cardBox(child: Column(children: [

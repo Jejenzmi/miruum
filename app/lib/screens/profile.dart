@@ -107,8 +107,8 @@ class ProfileScreen extends StatelessWidget {
   void _faq(BuildContext context) {
     showModalBottomSheet(context: context, backgroundColor: MC.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => const Padding(
-        padding: EdgeInsets.all(24),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('FAQ', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           SizedBox(height: 12),

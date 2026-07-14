@@ -80,9 +80,9 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               PrimaryButton('Sign In', loading: _loading, onPressed: _submit),
               const SizedBox(height: 20),
-              Row(children: const [
+              Row(children: [
                 Expanded(child: Divider(color: MC.line)),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('or continue with', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or continue with', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
                 Expanded(child: Divider(color: MC.line)),
               ]),
               const SizedBox(height: 16),
@@ -189,7 +189,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     onPressed: () => setState(() => _obscure = !_obscure),
                   )),
               const SizedBox(height: 14),
-              const Text('Dengan mendaftar, Anda menyetujui Syarat & Ketentuan dan Kebijakan Privasi Miruum',
+              Text('Dengan mendaftar, Anda menyetujui Syarat & Ketentuan dan Kebijakan Privasi Miruum',
                   style: TextStyle(color: MC.inkMuted, fontSize: 12)),
               const SizedBox(height: 20),
               PrimaryButton('Daftar', loading: _loading, onPressed: _submit),

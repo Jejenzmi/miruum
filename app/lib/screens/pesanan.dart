@@ -49,12 +49,12 @@ class _PesananTabs extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Column(children: [
-        const TabBar(
+        TabBar(
           labelColor: MC.primaryDark,
           unselectedLabelColor: MC.inkFaint,
           indicatorColor: MC.primary,
-          labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-          tabs: [Tab(text: 'Aktif'), Tab(text: 'Riwayat Transaksi')],
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+          tabs: const [Tab(text: 'Aktif'), Tab(text: 'Riwayat Transaksi')],
         ),
         Expanded(
           child: BlocBuilder<BookingsCubit, ViewState<List<Booking>>>(
