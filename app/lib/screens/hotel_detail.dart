@@ -30,9 +30,9 @@ class _HotelDetailView extends StatefulWidget {
 
 class _HotelDetailViewState extends State<_HotelDetailView> {
   bool _descExpanded = false;
-  String? _selectedChannelId; // chosen supply source for booking
 
-  /// Cheapest available offer, or null.
+  /// Cheapest available offer — used to silently route the booking to the best
+  /// supply source (the source is never surfaced to the customer).
   HotelOffer? _bestOffer(Hotel h) {
     final avail = h.offers.where((o) => o.available).toList()..sort((a, b) => a.price.compareTo(b.price));
     return avail.isEmpty ? null : avail.first;
@@ -91,18 +91,6 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                           const SizedBox(height: 6),
                           Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
                               style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700)),
-                          if (h.channel != null) ...[
-                            const SizedBox(height: 10),
-                            Row(children: [
-                              SourceBadge(h.channel!),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(
-                                  h.channel!.isDirect
-                                      ? 'Dikelola langsung via Channel Manager Miruum'
-                                      : 'Inventori dari mitra OTA ${h.channel!.name}',
-                                  style: const TextStyle(color: MC.inkFaint, fontSize: 11.5))),
-                            ]),
-                          ],
                           const SizedBox(height: 20),
                           const Text('Fasilitas', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),
@@ -124,10 +112,6 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                                   style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13)),
                             ),
                           ),
-                          if (h.offers.length > 1) ...[
-                            const SizedBox(height: 22),
-                            _compareSources(h),
-                          ],
                           const SizedBox(height: 22),
                           SectionHeader('Ulasan Tamu', action: 'Tampilkan semua',
                               onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewsScreen(hotel: h)))),
@@ -165,7 +149,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                       Expanded(child: PrimaryButton('Pilih Kamar', onPressed: () =>
                           Navigator.push(context, MaterialPageRoute(builder: (_) => PilihKamarScreen(
                                 hotel: h,
-                                channelId: _selectedChannelId ?? _bestOffer(h)?.channelId,
+                                channelId: _bestOffer(h)?.channelId,
                               ))))),
                     ]),
                   ),
@@ -188,69 +172,6 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
           ),
         ),
       );
-
-  // Price comparison across supply sources; tap to pick which source to book.
-  Widget _compareSources(Hotel h) {
-    final offers = [...h.offers]..sort((a, b) {
-        if (a.available != b.available) return a.available ? -1 : 1;
-        return a.price.compareTo(b.price);
-      });
-    final best = _bestOffer(h);
-    final selectedId = _selectedChannelId ?? best?.channelId;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Bandingkan harga', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-      const SizedBox(height: 2),
-      const Text('Dari berbagai sumber — pilih yang termurah',
-          style: TextStyle(color: MC.inkFaint, fontSize: 12)),
-      const SizedBox(height: 12),
-      for (final o in offers)
-        GestureDetector(
-          onTap: o.available ? () => setState(() => _selectedChannelId = o.channelId) : null,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: MC.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: o.channelId == selectedId ? MC.primary : MC.line,
-                width: o.channelId == selectedId ? 1.6 : 1,
-              ),
-            ),
-            child: Row(children: [
-              Icon(
-                o.channelId == selectedId ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                color: o.available ? (o.channelId == selectedId ? MC.primary : MC.inkFaint) : MC.line,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    if (o.channel != null) SourceBadge(o.channel!, compact: true),
-                    if (best != null && o.id == best.id) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: MC.success.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                        child: const Text('Termurah', style: TextStyle(color: MC.success, fontSize: 9.5, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ]),
-                  const SizedBox(height: 4),
-                  Text(o.available ? 'Sisa ${o.roomsLeft} kamar' : 'Tidak tersedia',
-                      style: TextStyle(fontSize: 11, color: o.available ? MC.inkMuted : MC.danger)),
-                ]),
-              ),
-              Text(o.available ? rupiah(o.price) : '—',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 15,
-                      color: o.available ? MC.primaryDark : MC.inkFaint)),
-            ]),
-          ),
-        ),
-    ]);
-  }
 
   Widget _facility(Facility f) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

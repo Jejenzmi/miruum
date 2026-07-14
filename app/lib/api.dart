@@ -133,6 +133,12 @@ class Api {
 
   Future<Booking> booking(String id) async => Booking.fromJson((await _get('/bookings/$id'))['booking']);
 
+  /// Cancel a booking → returns (booking, refundPct, refundAmount).
+  Future<(Booking, int, int)> cancelBooking(String id) async {
+    final j = await _post('/bookings/$id/cancel');
+    return (Booking.fromJson(j['booking']), (j['refundPct'] ?? 0) as int, (j['refundAmount'] ?? 0) as int);
+  }
+
   // ── Payments ──
   /// Create a payment for a booking → returns instructions (VA/QR/e-wallet URL).
   Future<Payment> createPayment(String bookingId, String method) async =>

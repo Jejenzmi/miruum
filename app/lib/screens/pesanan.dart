@@ -167,7 +167,53 @@ class _OrderCard extends StatelessWidget {
             }
           })),
         ]),
+      if (b.status == 'PENDING' || b.status == 'PAID')
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: MC.danger, padding: EdgeInsets.zero),
+            icon: const Icon(Icons.cancel_outlined, size: 16),
+            label: const Text('Batalkan Pesanan', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+            onPressed: () => _cancel(context),
+          ),
+        ),
     ]));
+  }
+
+  String _refundNote() {
+    if (b.status != 'PAID') return 'Pesanan yang belum dibayar akan dibatalkan tanpa biaya.';
+    final room = b.room;
+    final checkIn = DateTime.tryParse(b.checkIn);
+    final hrs = checkIn == null ? 0 : checkIn.difference(DateTime.now()).inHours;
+    if (room != null && room.freeCancellation && hrs > 24) return 'Kamu akan mendapat refund 100% (gratis pembatalan).';
+    if (room != null && room.refundable && hrs > 24) return 'Kamu akan mendapat refund 50% sesuai kebijakan.';
+    return 'Kamar ini non-refundable — tidak ada pengembalian dana.';
+  }
+
+  Future<void> _cancel(BuildContext context) async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Batalkan Pesanan?'),
+      content: Text('${_refundNote()}\n\nNo. Pesanan ${b.code}'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Kembali')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ya, Batalkan', style: TextStyle(color: MC.danger))),
+      ],
+    ));
+    if (ok != true || !context.mounted) return;
+    try {
+      final (_, refundPct, refundAmount) = await context.read<Api>().cancelBooking(b.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: MC.primary,
+        content: Text(refundAmount > 0
+            ? 'Pesanan dibatalkan. Refund $refundPct% = ${rupiah(refundAmount)} diproses.'
+            : 'Pesanan dibatalkan.'),
+      ));
+      onChanged();
+    } on ApiException catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: MC.danger));
+    }
   }
 }
 

@@ -284,14 +284,6 @@ class _VerticalHotelCard extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Stack(children: [
             NetImage(hotel.imageUrl, width: double.infinity, height: 104),
-            if (hotel.channel != null)
-              Positioned(
-                left: 8, top: 8,
-                child: Container(
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.92), borderRadius: BorderRadius.circular(7)),
-                  child: SourceBadge(hotel.channel!, compact: true),
-                ),
-              ),
             if (auth.isLoggedIn)
               Positioned(
                 right: 8, top: 8,
