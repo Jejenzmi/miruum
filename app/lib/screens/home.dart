@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
 import 'hotel_detail.dart';
+import 'chat_screen.dart';
 import 'menu_hotel.dart';
 import 'notifikasi.dart';
 import 'package_list.dart';
@@ -97,6 +98,19 @@ class _HomeView extends StatelessWidget {
                     auth.isLoggedIn ? 'Halo, ${auth.user!.name} 👋' : 'Selamat datang di Miruum',
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    if (await ensureLoggedIn(context)) {
+                      if (context.mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
+                    }
+                  },
+                  child: Container(
+                    width: 38, height: 38,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.22), borderRadius: BorderRadius.circular(12)),
+                    child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 19),
                   ),
                 ),
                 GestureDetector(

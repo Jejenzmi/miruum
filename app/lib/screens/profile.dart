@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
 import 'auth.dart';
+import 'chat_screen.dart';
 import 'personal_data.dart';
 import 'setting.dart';
 import 'shell.dart';
@@ -72,6 +73,8 @@ class ProfileScreen extends StatelessWidget {
                     () => goToTab(context, 3)),
                 _menuTile(context, Icons.lock_outline_rounded, 'Ganti Password', MC.accent,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen()))),
+                _menuTile(context, Icons.support_agent_rounded, 'Live Chat CS', MC.blue,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()))),
                 _menuTile(context, Icons.help_outline_rounded, 'FAQ & Bantuan', MC.success, () => _faq(context)),
                 _menuTile(context, Icons.settings_outlined, 'Pengaturan', MC.inkMuted,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingScreen()))),

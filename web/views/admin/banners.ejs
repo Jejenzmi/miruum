@@ -4,10 +4,10 @@
 
 <div class="card">
   <h3>Tambah Banner</h3>
-  <form method="post" action="/admin/banners">
+  <form method="post" action="/admin/banners" enctype="multipart/form-data">
     <label>Judul</label><input name="title" placeholder="Newest Promo" required>
     <label>Subjudul</label><input name="subtitle" placeholder="Diskon hingga 30% hotel pilihan">
-    <label>URL Gambar</label><input name="imageUrl" placeholder="https://..." required>
+    <label>Gambar (unggah file)</label><input type="file" name="image" accept="image/*" required>
     <div class="row2">
       <div><label>Badge (opsional)</label><input name="badge" placeholder="30%"></div>
       <div><label>Urutan</label><input name="sortOrder" type="number" value="0"></div>

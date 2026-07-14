@@ -31,6 +31,39 @@ model User {
   notifications Notification[]
   reviews      Review[]
   ownedHotels  Hotel[]  @relation("HotelOwner")
+  chats        ChatConversation[]
+}
+
+enum ChatSender {
+  USER
+  BOT
+  AGENT
+}
+
+enum ChatStatus {
+  BOT
+  WAITING_AGENT
+  AGENT
+  CLOSED
+}
+
+model ChatConversation {
+  id            String     @id @default(cuid())
+  userId        String
+  status        ChatStatus @default(BOT)
+  createdAt     DateTime   @default(now())
+  lastMessageAt DateTime   @default(now())
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      ChatMessage[]
+}
+
+model ChatMessage {
+  id             String     @id @default(cuid())
+  conversationId String
+  sender         ChatSender
+  body           String
+  createdAt      DateTime   @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
 model Hotel {

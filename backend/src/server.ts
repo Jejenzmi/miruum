@@ -12,6 +12,7 @@ import { PAYMENT_METHODS, methodByCode, activeProvider } from "./payments.js";
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { pushDistribution } from "./distribution.js";
+import { botReply } from "./chatbot.js";
 import { dispatch } from "./notify.js";
 import { quote, consume } from "./availability.js";
 
@@ -752,6 +753,95 @@ ${b.channel ? `<div class="row"><span class="k">Sumber</span><span class="v2">${
 <div class="tot"><span>Total</span><span>${rupiah(b.totalPrice)}</span></div>
 <div class="src">Tunjukkan e-voucher ini saat check-in · miruum.gokar.id</div>
 </div></div></body></html>`);
+});
+
+// ─────────────────────────── CS Chat (bot + live agent) ───────────────────────────
+async function getOrCreateConversation(userId: string) {
+  let conv = await prisma.chatConversation.findFirst({ where: { userId, status: { not: "CLOSED" } }, orderBy: { createdAt: "desc" } });
+  if (!conv) {
+    conv = await prisma.chatConversation.create({ data: { userId } });
+    await prisma.chatMessage.create({ data: { conversationId: conv.id, sender: "BOT",
+      body: "Halo! 👋 Saya asisten Miruum. Ada yang bisa saya bantu? Tanya soal booking, pembayaran, promo, e-voucher, atau refund — atau ketik 'agen' untuk bicara dengan agen kami." } });
+  }
+  return conv;
+}
+
+app.get("/api/chat", requireAuth, async (req: AuthRequest, res) => {
+  const conv = await getOrCreateConversation(req.userId!);
+  const messages = await prisma.chatMessage.findMany({ where: { conversationId: conv.id }, orderBy: { createdAt: "asc" } });
+  res.json({ conversationId: conv.id, status: conv.status, messages });
+});
+
+app.post("/api/chat", requireAuth, async (req: AuthRequest, res) => {
+  const body = String(req.body?.body ?? "").trim();
+  if (!body) return res.status(400).json({ error: "Pesan kosong" });
+  const conv = await getOrCreateConversation(req.userId!);
+  await prisma.chatMessage.create({ data: { conversationId: conv.id, sender: "USER", body } });
+  let status = conv.status;
+  // Bot replies only while not handled by a live agent.
+  if (conv.status === "BOT") {
+    const reply = botReply(body);
+    await prisma.chatMessage.create({ data: { conversationId: conv.id, sender: "BOT", body: reply.body } });
+    if (reply.escalate) status = "WAITING_AGENT";
+  }
+  await prisma.chatConversation.update({ where: { id: conv.id }, data: { status, lastMessageAt: new Date() } });
+  const messages = await prisma.chatMessage.findMany({ where: { conversationId: conv.id }, orderBy: { createdAt: "asc" } });
+  res.json({ conversationId: conv.id, status, messages });
+});
+
+// Admin: live-agent console.
+app.get("/api/admin/chats", requireRole("ADMIN"), async (_req, res) => {
+  const chats = await prisma.chatConversation.findMany({
+    orderBy: { lastMessageAt: "desc" }, take: 100,
+    include: { user: { select: { name: true, email: true } }, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+  res.json({ chats });
+});
+app.get("/api/admin/chats/:id", requireRole("ADMIN"), async (req, res) => {
+  const conv = await prisma.chatConversation.findUnique({ where: { id: req.params.id },
+    include: { user: { select: { name: true, email: true } }, messages: { orderBy: { createdAt: "asc" } } } });
+  if (!conv) return res.status(404).json({ error: "Percakapan tidak ditemukan" });
+  res.json({ conversation: conv });
+});
+app.post("/api/admin/chats/:id/reply", requireRole("ADMIN"), async (req, res) => {
+  const body = String(req.body?.body ?? "").trim();
+  if (!body) return res.status(400).json({ error: "Balasan kosong" });
+  await prisma.chatMessage.create({ data: { conversationId: req.params.id, sender: "AGENT", body } });
+  await prisma.chatConversation.update({ where: { id: req.params.id }, data: { status: "AGENT", lastMessageAt: new Date() } });
+  res.json({ ok: true });
+});
+
+// ─────────────── Finance report (range + monthly series + CSV) ───────────────
+app.get("/api/admin/finance/report", requireRole("ADMIN"), async (req, res) => {
+  const { from, to, format } = req.query as Record<string, string>;
+  const where: any = { status: { in: ["PAID", "COMPLETED"] } };
+  if (from || to) where.paidAt = { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to + "T23:59:59") } : {}) };
+  const bookings = await prisma.booking.findMany({
+    where, orderBy: { paidAt: "desc" },
+    include: { hotel: { select: { name: true } }, channel: { select: { code: true, name: true, type: true } } },
+  });
+  if (format === "csv") {
+    const rows = [["Kode", "Tanggal", "Hotel", "Sumber", "Subtotal", "Diskon", "Pajak", "Total"].join(",")];
+    for (const b of bookings) rows.push([b.code, (b.paidAt ?? b.createdAt).toISOString().slice(0, 10), `"${b.hotel.name}"`,
+      b.channel ? b.channel.name : "Direct", b.roomPrice, b.discount, b.taxFee, b.totalPrice].join(","));
+    res.set("Content-Type", "text/csv").set("Content-Disposition", 'attachment; filename="miruum-finance.csv"').send(rows.join("\n"));
+    return;
+  }
+  // Monthly revenue series + totals.
+  const series: Record<string, { gross: number; count: number }> = {};
+  let gross = 0, tax = 0, discount = 0;
+  for (const b of bookings) {
+    const mk = (b.paidAt ?? b.createdAt).toISOString().slice(0, 7);
+    series[mk] ??= { gross: 0, count: 0 };
+    series[mk].gross += b.totalPrice; series[mk].count += 1;
+    gross += b.totalPrice; tax += b.taxFee; discount += b.discount;
+  }
+  res.json({
+    count: bookings.length, gross, tax, discount,
+    series: Object.entries(series).sort().map(([month, v]) => ({ month, ...v })),
+    bookings: bookings.slice(0, 200).map((b) => ({ code: b.code, date: (b.paidAt ?? b.createdAt), hotel: b.hotel.name,
+      source: b.channel?.name ?? "Direct", total: b.totalPrice, discount: b.discount })),
+  });
 });
 
 // ─────────────────────────── Notifications ───────────────────────────

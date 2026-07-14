@@ -217,6 +217,27 @@ class Payment {
       );
 }
 
+class ChatMessage {
+  final String id, sender, body;
+  final String? createdAt;
+  ChatMessage({required this.id, required this.sender, required this.body, this.createdAt});
+  bool get isUser => sender == 'USER';
+  bool get isBot => sender == 'BOT';
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        id: j['id'], sender: j['sender'] ?? 'BOT', body: j['body'] ?? '', createdAt: j['createdAt'],
+      );
+}
+
+class ChatThread {
+  final String status;
+  final List<ChatMessage> messages;
+  ChatThread({required this.status, required this.messages});
+  factory ChatThread.fromJson(Map<String, dynamic> j) => ChatThread(
+        status: j['status'] ?? 'BOT',
+        messages: (j['messages'] as List?)?.map((m) => ChatMessage.fromJson(m)).toList() ?? [],
+      );
+}
+
 class AppNotification {
   final String id, title, body, type;
   final String? hotelName, orderCode, createdAt;

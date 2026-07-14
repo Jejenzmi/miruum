@@ -1,0 +1,54 @@
+<%- include('../partials/top', { title:'Laporan Keuangan', heading:'Laporan Keuangan', section:'admin', active:'report', me }) %>
+
+<div class="card">
+  <form method="get" action="/admin/report" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+    <div><label style="margin:0 0 4px">Dari</label><input type="date" name="from" value="<%= from %>"></div>
+    <div><label style="margin:0 0 4px">Sampai</label><input type="date" name="to" value="<%= to %>"></div>
+    <button class="btn">Terapkan</button>
+    <a class="btn ghost" href="/admin/finance/report/download?from=<%= from %>&to=<%= to %>">⬇️ Unduh CSV</a>
+  </form>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="muted">Transaksi (paid)</div><b><%= report.count %></b></div>
+  <div class="stat"><div class="muted">Total Gross</div><b><%= rupiah(report.gross) %></b></div>
+  <div class="stat"><div class="muted">Total Pajak</div><b><%= rupiah(report.tax) %></b></div>
+  <div class="stat"><div class="muted">Total Diskon</div><b style="color:#E5484D"><%= rupiah(report.discount) %></b></div>
+</div>
+
+<div class="card">
+  <h3>Pendapatan per Bulan</h3>
+  <% var max = Math.max(1, ...report.series.map(function(s){return s.gross})); %>
+  <div style="display:flex;gap:14px;align-items:end;height:180px;padding-top:10px">
+    <% report.series.forEach(function(s){ %>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;height:100%">
+        <span class="muted" style="font-size:10px"><%= rupiah(s.gross) %></span>
+        <div style="width:70%;background:linear-gradient(var(--primary),var(--primary-d));border-radius:8px 8px 0 0;height:<%= Math.round(s.gross/max*130) %>px;margin-top:4px"></div>
+        <span class="muted" style="font-size:11px;margin-top:6px"><%= s.month %></span>
+      </div>
+    <% }) %>
+    <% if (!report.series.length) { %><span class="empty">Belum ada data</span><% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Rincian Transaksi</h3>
+  <table>
+    <thead><tr><th>Kode</th><th>Tanggal</th><th>Hotel</th><th>Sumber</th><th>Diskon</th><th>Total</th></tr></thead>
+    <tbody>
+      <% report.bookings.forEach(function(b){ %>
+        <tr>
+          <td><b><%= b.code %></b></td>
+          <td><%= new Date(b.date).toLocaleDateString('id-ID') %></td>
+          <td><%= b.hotel %></td>
+          <td><%= b.source %></td>
+          <td><%= b.discount>0 ? '-'+rupiah(b.discount) : '—' %></td>
+          <td><b style="color:#E07C17"><%= rupiah(b.total) %></b></td>
+        </tr>
+      <% }) %>
+      <% if (!report.bookings.length) { %><tr><td colspan="6" class="empty">Belum ada transaksi</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -1,6 +1,8 @@
 const path = require("path");
 const express = require("express");
 const session = require("express-session");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 * 1024 * 1024 } });
 
 const app = express();
 const PORT = Number(process.env.PORT || 4101);
@@ -32,6 +34,13 @@ async function api(pathname, { method = "GET", token, body } = {}) {
   const json = text ? JSON.parse(text) : {};
   if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
   return json;
+}
+
+// Upload a multer file to MinIO via the backend; returns the public URL.
+async function uploadFile(token, file, folder) {
+  const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  const { url } = await api("/uploads", { method: "POST", token, body: { dataUrl, folder } });
+  return url;
 }
 
 const rupiah = (v) => "Rp " + (v || 0).toLocaleString("id-ID");
@@ -173,6 +182,36 @@ app.get("/admin/users", adminGuard, async (req, res) => {
   res.render("admin/users", { users, active: "users" });
 });
 
+// ── Laporan Keuangan ──
+app.get("/admin/report", adminGuard, async (req, res) => {
+  const q = [];
+  if (req.query.from) q.push("from=" + req.query.from);
+  if (req.query.to) q.push("to=" + req.query.to);
+  const report = await api("/admin/finance/report" + (q.length ? "?" + q.join("&") : ""), { token: res.locals.token });
+  res.render("admin/report", { report, from: req.query.from || "", to: req.query.to || "", active: "report" });
+});
+
+app.get("/admin/finance/report/download", adminGuard, async (req, res) => {
+  const q = ["format=csv"];
+  if (req.query.from) q.push("from=" + req.query.from);
+  if (req.query.to) q.push("to=" + req.query.to);
+  const r = await fetch(API + "/admin/finance/report?" + q.join("&"), { headers: { Authorization: `Bearer ${res.locals.token}` } });
+  const csv = await r.text();
+  res.set("Content-Type", "text/csv").set("Content-Disposition", 'attachment; filename="miruum-finance.csv"').send(csv);
+});
+
+// ── Live Chat CS (agent console) ──
+app.get("/admin/chats", adminGuard, async (req, res) => {
+  const { chats } = await api("/admin/chats", { token: res.locals.token });
+  let conversation = null;
+  if (req.query.id) conversation = (await api("/admin/chats/" + req.query.id, { token: res.locals.token })).conversation;
+  res.render("admin/chats", { chats, conversation, active: "chats" });
+});
+app.post("/admin/chats/:id/reply", adminGuard, async (req, res) => {
+  await api("/admin/chats/" + req.params.id + "/reply", { method: "POST", token: res.locals.token, body: { body: req.body.body } });
+  res.redirect("/admin/chats?id=" + req.params.id);
+});
+
 // ── Promo ──
 app.get("/admin/promos", adminGuard, async (req, res) => {
   const { promos } = await api("/admin/promos", { token: res.locals.token });
@@ -191,8 +230,11 @@ app.get("/admin/banners", adminGuard, async (req, res) => {
   const { banners } = await api("/admin/banners", { token: res.locals.token });
   res.render("admin/banners", { banners, active: "banners", saved: req.query.saved });
 });
-app.post("/admin/banners", adminGuard, async (req, res) => {
-  await api("/admin/banners", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/banners?saved=1");
+app.post("/admin/banners", adminGuard, upload.single("image"), async (req, res) => {
+  let imageUrl = req.body.imageUrl;
+  try { if (req.file) imageUrl = await uploadFile(res.locals.token, req.file, "banners"); } catch (_) {}
+  await api("/admin/banners", { method: "POST", token: res.locals.token, body: { ...req.body, imageUrl } });
+  res.redirect("/admin/banners?saved=1");
 });
 app.post("/admin/banners/:id/delete", adminGuard, async (req, res) => {
   await api(`/admin/banners/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/banners");
@@ -295,8 +337,13 @@ app.post("/extranet/rooms/:id/availability", partnerGuard, async (req, res) => {
   res.redirect("back");
 });
 
-app.post("/extranet/hotels/:id/photos", partnerGuard, async (req, res) => {
-  try { await api(`/partner/hotels/${req.params.id}/photos`, { method: "POST", token: res.locals.token, body: { url: req.body.url } }); } catch (_) {}
+app.post("/extranet/hotels/:id/photos", partnerGuard, upload.single("photo"), async (req, res) => {
+  try {
+    if (req.file) {
+      const url = await uploadFile(res.locals.token, req.file, "hotels");
+      await api(`/partner/hotels/${req.params.id}/photos`, { method: "POST", token: res.locals.token, body: { url } });
+    }
+  } catch (_) {}
   res.redirect(`/extranet/hotels/${req.params.id}`);
 });
 app.post("/extranet/photos/:photoId/delete", partnerGuard, async (req, res) => {

@@ -160,6 +160,10 @@ class Api {
   Future<Booking> settlePayment(String paymentId) async =>
       Booking.fromJson((await _post('/payments/$paymentId/settle'))['booking']);
 
+  // ── CS Chat ──
+  Future<ChatThread> chat() async => ChatThread.fromJson(await _get('/chat'));
+  Future<ChatThread> sendChat(String body) async => ChatThread.fromJson(await _post('/chat', {'body': body}));
+
   // ── Notifications ──
   Future<List<AppNotification>> notifications() async =>
       ((await _get('/notifications'))['notifications'] as List).map((n) => AppNotification.fromJson(n)).toList();
