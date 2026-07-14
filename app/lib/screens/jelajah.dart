@@ -25,7 +25,7 @@ class JelajahScreen extends StatelessWidget {
           automaticallyImplyLeading: false,
           title: const Text('Jelajah'),
           centerTitle: false,
-          titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
+          titleTextStyle: TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
           actions: [
             Builder(builder: (ctx) => TextButton.icon(
               onPressed: () {
@@ -59,7 +59,7 @@ class JelajahScreen extends StatelessWidget {
                       itemBuilder: (context, i) => ActionChip(
                         label: Text(_cities[i]),
                         backgroundColor: MC.surface,
-                        side: const BorderSide(color: MC.line),
+                        side: BorderSide(color: MC.line),
                         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                         onPressed: () => Navigator.push(context, MaterialPageRoute(
                             builder: (_) => ResultsScreen(title: _cities[i], query: _cities[i]))),
@@ -105,7 +105,7 @@ class _ExploreCard extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(hotel.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
               const SizedBox(height: 2),
-              Text(hotel.city, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: MC.inkMuted, fontSize: 11.5)),
+              Text(hotel.city, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MC.inkMuted, fontSize: 11.5)),
               const SizedBox(height: 6),
               Row(children: [
                 const Icon(Icons.star_rounded, color: MC.star, size: 14),

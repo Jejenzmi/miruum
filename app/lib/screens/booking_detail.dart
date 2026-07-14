@@ -44,7 +44,7 @@ class BookingDetailScreen extends StatelessWidget {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(b.hotel?.name ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const SizedBox(height: 2),
-              Text(b.hotel?.city ?? '', style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+              Text(b.hotel?.city ?? '', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
               if (b.packageTitle != null) ...[
                 const SizedBox(height: 4),
                 Text('Paket: ${b.packageTitle}', style: const TextStyle(color: MC.primaryDark, fontSize: 11.5, fontWeight: FontWeight.w600)),
@@ -66,7 +66,7 @@ class BookingDetailScreen extends StatelessWidget {
             _row('Harga Kamar', rupiah(b.roomPrice)),
             _row('Pajak & Layanan', rupiah(b.taxFee)),
             if (b.discount > 0) _row('Diskon${b.promoCode != null ? ' (${b.promoCode})' : ''}', '- ${rupiah(b.discount)}', color: MC.success),
-            const Divider(height: 20, color: MC.line),
+            Divider(height: 20, color: MC.line),
             _row('Total', rupiah(b.totalPrice), bold: true),
           ])),
           const SizedBox(height: 18),
@@ -88,7 +88,7 @@ class BookingDetailScreen extends StatelessWidget {
   Widget _row(String k, String v, {bool bold = false, Color? color}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 120, child: Text(k, style: const TextStyle(color: MC.inkMuted, fontSize: 13))),
+          SizedBox(width: 120, child: Text(k, style: TextStyle(color: MC.inkMuted, fontSize: 13))),
           Expanded(child: Text(v, textAlign: TextAlign.right,
               style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
                   fontSize: bold ? 15 : 13, color: color ?? (bold ? MC.primaryDark : MC.ink)))),

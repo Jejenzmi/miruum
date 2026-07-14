@@ -108,9 +108,9 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                           ]),
                           const SizedBox(height: 4),
                           Row(children: [
-                            const Icon(Icons.location_on_rounded, size: 15, color: MC.inkFaint),
+                            Icon(Icons.location_on_rounded, size: 15, color: MC.inkFaint),
                             const SizedBox(width: 4),
-                            Text(h.city, style: const TextStyle(color: MC.inkMuted)),
+                            Text(h.city, style: TextStyle(color: MC.inkMuted)),
                             const SizedBox(width: 8),
                             StarRow(h.starRating),
                           ]),
@@ -129,7 +129,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                           Text(h.description ?? '',
                               maxLines: _descExpanded ? null : 3,
                               overflow: _descExpanded ? null : TextOverflow.ellipsis,
-                              style: const TextStyle(color: MC.inkMuted, height: 1.5, fontSize: 13.5)),
+                              style: TextStyle(color: MC.inkMuted, height: 1.5, fontSize: 13.5)),
                           GestureDetector(
                             onTap: () => setState(() => _descExpanded = !_descExpanded),
                             child: Padding(
@@ -168,7 +168,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                     top: false,
                     child: Row(children: [
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Mulai dari', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                        Text('Mulai dari', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                         Text(rupiah(h.priceFrom), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
                       ]),
                       const SizedBox(width: 16),
@@ -221,7 +221,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
             RatingPill(r.rating, small: true),
           ]),
           const SizedBox(height: 8),
-          Text(r.body, style: const TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.5)),
+          Text(r.body, style: TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.5)),
         ]),
       );
 
@@ -231,7 +231,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Icon(icon, color: MC.primaryDark, size: 20),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12, color: MC.inkMuted)),
+          Text(label, style: TextStyle(fontSize: 12, color: MC.inkMuted)),
           const SizedBox(height: 2),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
         ]),

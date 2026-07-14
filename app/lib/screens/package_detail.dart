@@ -109,9 +109,9 @@ class _PackageViewState extends State<_PackageView> {
                 Text(pkg.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
                 const SizedBox(height: 6),
                 Row(children: [
-                  const Icon(Icons.location_on_rounded, size: 15, color: MC.inkFaint),
+                  Icon(Icons.location_on_rounded, size: 15, color: MC.inkFaint),
                   const SizedBox(width: 3),
-                  Expanded(child: Text(pkg.city, style: const TextStyle(color: MC.inkMuted, fontSize: 13))),
+                  Expanded(child: Text(pkg.city, style: TextStyle(color: MC.inkMuted, fontSize: 13))),
                 ]),
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 8, children: [
@@ -124,7 +124,7 @@ class _PackageViewState extends State<_PackageView> {
                 const SizedBox(height: 12),
                 cardBox(child: Column(children: [
                   for (var i = 0; i < pkg.inclusions.length; i++) ...[
-                    if (i > 0) const Divider(height: 18, color: MC.line),
+                    if (i > 0) Divider(height: 18, color: MC.line),
                     Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Icon(Icons.check_circle_rounded, color: MC.primary, size: 20),
                       const SizedBox(width: 10),
@@ -136,7 +136,7 @@ class _PackageViewState extends State<_PackageView> {
                   const SizedBox(height: 20),
                   const Text('Tentang paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 8),
-                  Text(pkg.description!, style: const TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
+                  Text(pkg.description!, style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
                 ],
                 if (hotel != null) ...[
                   const SizedBox(height: 20),
@@ -153,10 +153,10 @@ class _PackageViewState extends State<_PackageView> {
                         Row(children: [
                           StarRow(hotel.starRating),
                           const SizedBox(width: 6),
-                          Text(hotel.city, style: const TextStyle(color: MC.inkMuted, fontSize: 11.5)),
+                          Text(hotel.city, style: TextStyle(color: MC.inkMuted, fontSize: 11.5)),
                         ]),
                       ])),
-                      const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
+                      Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
                     ])),
                   ),
                 ],
@@ -172,9 +172,9 @@ class _PackageViewState extends State<_PackageView> {
                       Text('${_fmt.format(_checkIn)}  →  ${_fmt.format(_checkOut)}',
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       const SizedBox(height: 2),
-                      Text('${pkg.nights} malam menginap', style: const TextStyle(color: MC.inkFaint, fontSize: 11)),
+                      Text('${pkg.nights} malam menginap', style: TextStyle(color: MC.inkFaint, fontSize: 11)),
                     ])),
-                    const Icon(Icons.edit_calendar_rounded, color: MC.inkFaint, size: 18),
+                    Icon(Icons.edit_calendar_rounded, color: MC.inkFaint, size: 18),
                   ])),
                 ),
                 const SizedBox(height: 20),
@@ -198,9 +198,9 @@ class _PackageViewState extends State<_PackageView> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               if (pkg.originalPrice > pkg.price)
                 Text(rupiah(pkg.originalPrice),
-                    style: const TextStyle(fontSize: 11, color: MC.inkFaint, decoration: TextDecoration.lineThrough)),
+                    style: TextStyle(fontSize: 11, color: MC.inkFaint, decoration: TextDecoration.lineThrough)),
               Text(rupiah(pkg.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
-              const Text('Harga paket / bundle', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
+              Text('Harga paket / bundle', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
             ]),
             const SizedBox(width: 16),
             Expanded(child: PrimaryButton('Pesan Paket', icon: Icons.card_giftcard_rounded, onPressed: _book)),

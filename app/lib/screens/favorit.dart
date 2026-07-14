@@ -23,7 +23,7 @@ class FavoritScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         title: const Text('Favorit'),
         centerTitle: false,
-        titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
+        titleTextStyle: TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
       ),
       body: SafeArea(
         top: false,

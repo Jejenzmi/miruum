@@ -91,9 +91,9 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => _toast(context, 'Login Google (demo) — pakai demo@miruum.id', err: false),
                   icon: const Icon(Icons.g_mobiledata_rounded, size: 30, color: MC.danger),
-                  label: const Text('Sign In with Google', style: TextStyle(color: MC.ink, fontWeight: FontWeight.w600)),
+                  label: Text('Sign In with Google', style: TextStyle(color: MC.ink, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: MC.line),
+                    side: BorderSide(color: MC.line),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                   ),
                 ),
@@ -110,7 +110,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: GestureDetector(
                   onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
                   child: RichText(
-                    text: const TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
+                    text: TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
                       TextSpan(text: "Don't Have an Account ? "),
                       TextSpan(text: 'Sign Up', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                     ]),
@@ -198,7 +198,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: GestureDetector(
                   onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignInScreen())),
                   child: RichText(
-                    text: const TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
+                    text: TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
                       TextSpan(text: 'Sudah punya akun Miruum ? '),
                       TextSpan(text: 'Masuk', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                     ]),
@@ -403,7 +403,7 @@ class _OtpScreenState extends State<OtpScreen> {
               const Text('Cek Email Anda', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text('Masukan 4 digit kode yang dikirim ke email ${widget.email}',
-                  style: const TextStyle(color: MC.inkMuted, fontSize: 13)),
+                  style: TextStyle(color: MC.inkMuted, fontSize: 13)),
               const SizedBox(height: 8),
               const Text('Gunakan kode 1234 (demo)', style: TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 32),

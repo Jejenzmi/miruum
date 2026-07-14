@@ -99,7 +99,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
                 Text(p.methodLabel, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 4),
                 Text('Total: ${rupiah(p.amount)}', style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 18)),
-                const Divider(height: 24, color: MC.line),
+                Divider(height: 24, color: MC.line),
                 if (p.vaNumber != null) _vaBlock(p.vaNumber!),
                 if (p.qrString != null) _qrBlock(p.qrString!),
                 if (p.payUrl != null && p.vaNumber == null && p.qrString == null) _ewalletBlock(p.payUrl!),
@@ -135,7 +135,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
   }
 
   Widget _vaBlock(String va) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Nomor Virtual Account', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
+        Text('Nomor Virtual Account', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -157,7 +157,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
       ]);
 
   Widget _qrBlock(String qr) => Column(children: [
-        const Text('Scan QRIS', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
+        Text('Scan QRIS', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
         const SizedBox(height: 10),
         Center(
           child: Container(
@@ -172,7 +172,7 @@ class _PaymentInstructionScreenState extends State<PaymentInstructionScreen> {
       ]);
 
   Widget _ewalletBlock(String url) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Lanjutkan di aplikasi e-wallet', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
+        Text('Lanjutkan di aplikasi e-wallet', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),

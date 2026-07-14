@@ -58,7 +58,7 @@ class _MapScreenState extends State<MapScreen> {
           ],
         ),
         if (located.isEmpty)
-          const Center(child: Text('Lokasi hotel belum tersedia', style: TextStyle(color: MC.inkMuted))),
+          Center(child: Text('Lokasi hotel belum tersedia', style: TextStyle(color: MC.inkMuted))),
         if (_selected != null)
           Positioned(
             left: 16, right: 16, bottom: 20,
@@ -73,7 +73,7 @@ class _MapScreenState extends State<MapScreen> {
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(_selected!.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
                     const SizedBox(height: 2),
-                    Text(_selected!.city, style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+                    Text(_selected!.city, style: TextStyle(color: MC.inkMuted, fontSize: 12)),
                     const SizedBox(height: 4),
                     Row(children: [
                       const Icon(Icons.star_rounded, color: MC.star, size: 14),
@@ -82,7 +82,7 @@ class _MapScreenState extends State<MapScreen> {
                       Text(rupiah(_selected!.priceFrom), style: const TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark, fontSize: 13.5)),
                     ]),
                   ])),
-                  const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
+                  Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
                 ]),
               ),
             ),

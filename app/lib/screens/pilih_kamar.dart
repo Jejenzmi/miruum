@@ -97,7 +97,7 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
         children: [
           Text(room.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
           const SizedBox(height: 4),
-          Text(room.bedInfo, style: const TextStyle(color: MC.inkMuted, fontSize: 12.5)),
+          Text(room.bedInfo, style: TextStyle(color: MC.inkMuted, fontSize: 12.5)),
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
             if (room.freeWifi) const TagChip('Wifi Gratis', Icons.wifi_rounded),
@@ -127,10 +127,10 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
                   const SizedBox(height: 2),
                   if (hasDiscount)
                     Text(rupiah(room.originalPrice!),
-                        style: const TextStyle(color: MC.inkFaint, fontSize: 12, decoration: TextDecoration.lineThrough)),
+                        style: TextStyle(color: MC.inkFaint, fontSize: 12, decoration: TextDecoration.lineThrough)),
                   RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
                     TextSpan(text: rupiah(room.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    const TextSpan(text: '/malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                    TextSpan(text: '/malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                   ])),
                 ]),
               ),

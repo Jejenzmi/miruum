@@ -128,11 +128,11 @@ class NetImage extends StatelessWidget {
       url, width: width, height: height, fit: fit,
       loadingBuilder: (c, child, p) => p == null
           ? child
-          : Container(width: width, height: height, color: MC.field, child: const Center(
+          : Container(width: width, height: height, color: MC.field, child: Center(
               child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: MC.inkFaint)))),
       errorBuilder: (c, e, s) => Container(
         width: width, height: height, color: MC.field,
-        child: const Icon(Icons.hotel_rounded, color: MC.inkFaint, size: 34),
+        child: Icon(Icons.hotel_rounded, color: MC.inkFaint, size: 34),
       ),
     );
   }
@@ -166,7 +166,7 @@ class BookingStepper extends StatelessWidget {
             Text(_labels[i], style: TextStyle(fontSize: 10.5, color: (i + 1) <= step ? MC.ink : MC.inkFaint, fontWeight: FontWeight.w500)),
           ]),
           if (i < 3)
-            Expanded(child: Container(height: 2, margin: const EdgeInsets.only(bottom: 18), color: (i + 1) < step ? MC.primary : MC.line)),
+            Expanded(child: Container(height: 2, margin: EdgeInsets.only(bottom: 18), color: (i + 1) < step ? MC.primary : MC.line)),
         ],
       ],
     );

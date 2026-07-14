@@ -56,7 +56,7 @@ class NotifikasiScreen extends StatelessWidget {
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(n.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                       const SizedBox(height: 3),
-                      Text(n.body, style: const TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.4)),
+                      Text(n.body, style: TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.4)),
                     ])),
                   ])).animate().fadeIn(delay: (i * 60).ms, duration: 350.ms).slideX(begin: 0.1, end: 0);
                 },

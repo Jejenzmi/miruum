@@ -77,7 +77,7 @@ class ProfileScreen extends StatelessWidget {
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingScreen()))),
               ]),
               const SizedBox(height: 20),
-              const Center(child: Text('Miruum · Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+              Center(child: Text('Miruum · Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
             ],
           ),
         ),
@@ -99,7 +99,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5))),
-            const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
+            Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
           ]),
         ),
       );
@@ -199,7 +199,7 @@ class _GuestProfile extends StatelessWidget {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             const SizedBox(height: 2),
-            Text(sub, style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+            Text(sub, style: TextStyle(color: MC.inkMuted, fontSize: 12)),
           ])),
         ]),
       );
@@ -240,7 +240,7 @@ class _GuestProfile extends StatelessWidget {
           Center(
             child: GestureDetector(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
-              child: RichText(text: const TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
+              child: RichText(text: TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
                 TextSpan(text: 'Belum punya akun? '),
                 TextSpan(text: 'Daftar', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
               ])),

@@ -27,7 +27,7 @@ class PackageListScreen extends StatelessWidget {
             }
             final pkgs = state.data!;
             if (pkgs.isEmpty) {
-              return const Center(child: Text('Belum ada paket tersedia', style: TextStyle(color: MC.inkMuted)));
+              return Center(child: Text('Belum ada paket tersedia', style: TextStyle(color: MC.inkMuted)));
             }
             return ListView.separated(
               padding: const EdgeInsets.all(20),
@@ -97,10 +97,10 @@ class PackageCard extends StatelessWidget {
               Text(pkg.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const SizedBox(height: 4),
               Row(children: [
-                const Icon(Icons.location_on_rounded, size: 13, color: MC.inkFaint),
+                Icon(Icons.location_on_rounded, size: 13, color: MC.inkFaint),
                 const SizedBox(width: 2),
                 Expanded(child: Text(pkg.city, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: MC.inkMuted, fontSize: 12))),
+                    style: TextStyle(color: MC.inkMuted, fontSize: 12))),
                 const Icon(Icons.star_rounded, color: MC.star, size: 15),
                 const SizedBox(width: 2),
                 Text(pkg.rating.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
@@ -110,16 +110,16 @@ class PackageCard extends StatelessWidget {
                 for (final inc in pkg.inclusions.take(3))
                   TagChip(inc, Icons.check_rounded),
               ]),
-              const Divider(height: 22, color: MC.line),
+              Divider(height: 22, color: MC.line),
               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     if (pkg.originalPrice > pkg.price)
                       Text(rupiah(pkg.originalPrice),
-                          style: const TextStyle(fontSize: 11, color: MC.inkFaint, decoration: TextDecoration.lineThrough)),
+                          style: TextStyle(fontSize: 11, color: MC.inkFaint, decoration: TextDecoration.lineThrough)),
                     RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
                       TextSpan(text: rupiah(pkg.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      const TextSpan(text: ' / paket', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                      TextSpan(text: ' / paket', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                     ])),
                   ]),
                 ),

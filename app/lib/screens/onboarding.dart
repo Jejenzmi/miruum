@@ -50,7 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(children: [
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: _finish, child: const Text('Lewati', style: TextStyle(color: MC.inkMuted))),
+            child: TextButton(onPressed: _finish, child: Text('Lewati', style: TextStyle(color: MC.inkMuted))),
           ),
           Expanded(
             child: PageView.builder(
@@ -71,7 +71,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Text(s.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800))
                         .animate(key: ValueKey('t$i')).fadeIn().slideY(begin: 0.2, end: 0),
                     const SizedBox(height: 12),
-                    Text(s.body, textAlign: TextAlign.center, style: const TextStyle(color: MC.inkMuted, fontSize: 14, height: 1.5))
+                    Text(s.body, textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 14, height: 1.5))
                         .animate(key: ValueKey('b$i')).fadeIn(delay: 100.ms),
                   ]),
                 );

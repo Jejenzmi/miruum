@@ -133,7 +133,7 @@ class _PriceCalendarState extends State<_PriceCalendar> {
       Padding(padding: const EdgeInsets.fromLTRB(6, 14, 6, 8),
           child: Text('$monthName ${first.year}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
       Row(children: const ['M', 'S', 'S', 'R', 'K', 'J', 'S']
-          .map((d) => Expanded(child: Center(child: Text(d, style: const TextStyle(color: MC.inkFaint, fontSize: 11, fontWeight: FontWeight.w600)))))
+          .map((d) => Expanded(child: Center(child: Text(d, style: TextStyle(color: MC.inkFaint, fontSize: 11, fontWeight: FontWeight.w600)))))
           .toList()),
       const SizedBox(height: 4),
       GridView.count(

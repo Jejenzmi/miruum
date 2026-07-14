@@ -88,7 +88,7 @@ class EmptyState extends StatelessWidget {
           Text(title, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(subtitle!, textAlign: TextAlign.center, style: const TextStyle(color: MC.inkMuted, fontSize: 13)),
+            Text(subtitle!, textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 13)),
           ],
           if (action != null) ...[const SizedBox(height: 18), action!],
         ]).animate().fadeIn(duration: 400.ms),

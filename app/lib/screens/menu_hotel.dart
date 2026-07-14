@@ -87,9 +87,9 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
             const Text('Masukan tamu & kamar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
             const SizedBox(height: 10),
             stepper('Kamar', _rooms, () => setSheet(() => _rooms = (_rooms - 1).clamp(1, 9)), () => setSheet(() => _rooms++)),
-            const Divider(color: MC.line),
+            Divider(color: MC.line),
             stepper('Dewasa', _adults, () => setSheet(() => _adults = (_adults - 1).clamp(1, 20)), () => setSheet(() => _adults++)),
-            const Divider(color: MC.line),
+            Divider(color: MC.line),
             stepper('Anak', _children, () => setSheet(() => _children = (_children - 1).clamp(0, 20)), () => setSheet(() => _children++)),
             const SizedBox(height: 16),
             PrimaryButton('Simpan', onPressed: () {
@@ -123,7 +123,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
               if (_recent.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Row(children: [
-                  const Text('Pencarian terakhir', style: TextStyle(fontSize: 12.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
+                  Text('Pencarian terakhir', style: TextStyle(fontSize: 12.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () async {
@@ -142,7 +142,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(color: MC.field, borderRadius: BorderRadius.circular(20)),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.history_rounded, size: 14, color: MC.inkFaint),
+                          Icon(Icons.history_rounded, size: 14, color: MC.inkFaint),
                           const SizedBox(width: 5),
                           Text(q, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
                         ]),
@@ -191,7 +191,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: MC.inkFaint)),
+              Text(label, style: TextStyle(fontSize: 11, color: MC.inkFaint)),
               const SizedBox(height: 2),
               child,
             ]),

@@ -54,7 +54,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 children: [
                   for (final group in methods) ...[
                     Padding(padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(group['group'], style: const TextStyle(fontWeight: FontWeight.w700, color: MC.inkMuted, fontSize: 13))),
+                        child: Text(group['group'], style: TextStyle(fontWeight: FontWeight.w700, color: MC.inkMuted, fontSize: 13))),
                     for (final item in group['items'])
                       ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -133,13 +133,13 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                     const SizedBox(height: 16),
                     cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('No. Pesanan : ${b.code}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const Divider(height: 20, color: MC.line),
+                      Divider(height: 20, color: MC.line),
                       Row(children: [
                         ClipRRect(borderRadius: BorderRadius.circular(12), child: NetImage(b.hotel?.imageUrl ?? '', width: 56, height: 56)),
                         const SizedBox(width: 12),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(b.hotel?.name ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
-                          Text('${b.rooms} x ${b.room?.name ?? ''}', style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+                          Text('${b.rooms} x ${b.room?.name ?? ''}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
                         ])),
                         Text(rupiah(b.roomPrice), style: const TextStyle(fontWeight: FontWeight.w700)),
                       ]),
@@ -152,14 +152,14 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                         const SizedBox(width: 12),
                         Expanded(child: Text(_methodLabel ?? 'Metode Pembayaran',
                             style: TextStyle(fontWeight: FontWeight.w600, color: _methodLabel == null ? MC.inkMuted : MC.ink))),
-                        const Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
+                        Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
                       ])),
                     ),
                     const SizedBox(height: 16),
                     cardBox(child: Column(children: [
                       _line('Harga Kamar', rupiah(b.roomPrice)),
                       _line('Pajak & Biaya Layanan', rupiah(b.taxFee)),
-                      const Divider(height: 20, color: MC.line),
+                      Divider(height: 20, color: MC.line),
                       _line('Harga Total', rupiah(b.totalPrice), bold: true),
                     ])),
                   ],
@@ -174,7 +174,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                   top: false,
                   child: Row(children: [
                     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Harga Total', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                      Text('Harga Total', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                       Text(rupiah(b.totalPrice), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
                     ]),
                     const SizedBox(width: 16),

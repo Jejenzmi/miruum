@@ -58,7 +58,7 @@ class _ReviewFormState extends State<_ReviewForm> {
         Text(widget.hotelName != null ? 'Ulasan untuk ${widget.hotelName}' : 'Beri Ulasan',
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         const SizedBox(height: 4),
-        const Text('Bagaimana pengalaman menginapmu?', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+        Text('Bagaimana pengalaman menginapmu?', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
         const SizedBox(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) {
           final v = i + 1;

@@ -305,10 +305,10 @@ class _VerticalHotelCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
               const SizedBox(height: 3),
               Row(children: [
-                const Icon(Icons.location_on_rounded, size: 12, color: MC.inkFaint),
+                Icon(Icons.location_on_rounded, size: 12, color: MC.inkFaint),
                 const SizedBox(width: 2),
                 Expanded(child: Text(hotel.city, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: MC.inkMuted, fontSize: 11))),
+                    style: TextStyle(color: MC.inkMuted, fontSize: 11))),
               ]),
               const SizedBox(height: 6),
               Row(children: [
@@ -319,7 +319,7 @@ class _VerticalHotelCard extends StatelessWidget {
               const SizedBox(height: 4),
               RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
                 TextSpan(text: rupiah(hotel.priceFrom), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                const TextSpan(text: '/mlm', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
+                TextSpan(text: '/mlm', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
               ])),
             ]),
           ),
@@ -335,9 +335,9 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.cloud_off_rounded, size: 48, color: MC.inkFaint),
+          Icon(Icons.cloud_off_rounded, size: 48, color: MC.inkFaint),
           const SizedBox(height: 12),
-          const Text('Gagal memuat data', style: TextStyle(color: MC.inkMuted)),
+          Text('Gagal memuat data', style: TextStyle(color: MC.inkMuted)),
           const SizedBox(height: 12),
           OutlineButtonX('Coba lagi', onPressed: onRetry, icon: Icons.refresh_rounded),
         ]),

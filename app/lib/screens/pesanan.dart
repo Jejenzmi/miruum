@@ -27,7 +27,7 @@ class PesananScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         title: const Text('Pesanan'),
         centerTitle: false,
-        titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
+        titleTextStyle: TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
       ),
       body: SafeArea(
         top: false,
@@ -115,7 +115,7 @@ class _OrderCard extends StatelessWidget {
     final dates = '${fmt.format(DateTime.tryParse(b.checkIn) ?? DateTime.now())} - ${fmt.format(DateTime.tryParse(b.checkOut) ?? DateTime.now())}';
     return cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Text('No. Pesanan : ${b.code}', style: const TextStyle(fontSize: 11.5, color: MC.inkMuted)),
+        Text('No. Pesanan : ${b.code}', style: TextStyle(fontSize: 11.5, color: MC.inkMuted)),
         const Spacer(),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -130,12 +130,12 @@ class _OrderCard extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(b.hotel?.name ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
           const SizedBox(height: 2),
-          Text(b.hotel?.city ?? '', style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+          Text(b.hotel?.city ?? '', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
           const SizedBox(height: 4),
           Row(children: [
-            const Icon(Icons.event_rounded, size: 13, color: MC.inkFaint),
+            Icon(Icons.event_rounded, size: 13, color: MC.inkFaint),
             const SizedBox(width: 4),
-            Text(dates, style: const TextStyle(fontSize: 12, color: MC.inkMuted)),
+            Text(dates, style: TextStyle(fontSize: 12, color: MC.inkMuted)),
           ]),
           const SizedBox(height: 4),
           Text(rupiah(b.totalPrice), style: const TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark)),

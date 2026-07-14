@@ -81,9 +81,9 @@ class _ResultsViewState extends State<_ResultsView> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Row(children: [
-                const Icon(Icons.event_rounded, size: 15, color: MC.inkFaint),
+                Icon(Icons.event_rounded, size: 15, color: MC.inkFaint),
                 const SizedBox(width: 6),
-                Expanded(child: Text(dates, style: const TextStyle(fontSize: 12.5, color: MC.inkMuted))),
+                Expanded(child: Text(dates, style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
                 GestureDetector(
                   onTap: _openFilter,
                   child: const Row(children: [

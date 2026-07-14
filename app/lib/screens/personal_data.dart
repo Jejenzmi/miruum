@@ -13,7 +13,7 @@ class PersonalDataScreen extends StatelessWidget {
     Widget row(String label, String? value) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           child: cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+            Text(label, style: TextStyle(color: MC.inkMuted, fontSize: 12)),
             const SizedBox(height: 4),
             Text(value?.isNotEmpty == true ? value! : '-', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           ])),
@@ -32,7 +32,7 @@ class PersonalDataScreen extends StatelessWidget {
           row('No. Handphone', u.phone),
           row('Email', u.email),
           const SizedBox(height: 20),
-          const Center(child: Text('Miruum 2022, Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+          Center(child: Text('Miruum 2022, Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
         ]),
       ),
     );
@@ -76,7 +76,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _field(String label, TextEditingController c, {TextInputType? keyboard}) => Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 12.5, color: MC.inkMuted)),
+          Text(label, style: TextStyle(fontSize: 12.5, color: MC.inkMuted)),
           const SizedBox(height: 6),
           TextField(controller: c, keyboardType: keyboard),
         ]),

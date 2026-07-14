@@ -130,10 +130,10 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(widget.hotel.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
               const SizedBox(height: 2),
-              Text(widget.hotel.city, style: const TextStyle(color: MC.inkMuted, fontSize: 12)),
+              Text(widget.hotel.city, style: TextStyle(color: MC.inkMuted, fontSize: 12)),
             ])),
           ]),
-          const Divider(height: 24, color: MC.line),
+          Divider(height: 24, color: MC.line),
           if (_isPackage) _row('Paket', widget.package!.title),
           _row('Kamar', _isPackage
               ? (widget.package!.room?.name ?? '${widget.rooms}x Kamar')
@@ -144,7 +144,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           _row('Check-out', _fmt.format(widget.checkOut)),
           if (!_isPackage) _row('Tempat tidur', widget.room!.bedInfo),
           if (_isPackage) ...[
-            const Divider(height: 24, color: MC.line),
+            Divider(height: 24, color: MC.line),
             const Text('Termasuk dalam paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 8),
             for (final inc in widget.package!.inclusions)
@@ -163,7 +163,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   Widget _row(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 96, child: Text(k, style: const TextStyle(color: MC.inkMuted, fontSize: 13))),
+          SizedBox(width: 96, child: Text(k, style: TextStyle(color: MC.inkMuted, fontSize: 13))),
           Expanded(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
         ]),
       );
@@ -196,7 +196,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   Widget _labeled(String label, TextEditingController c, {TextInputType? keyboard}) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: MC.inkMuted)),
+          Text(label, style: TextStyle(fontSize: 12, color: MC.inkMuted)),
           const SizedBox(height: 6),
           TextField(controller: c, keyboardType: keyboard, decoration: const InputDecoration(isDense: true)),
         ]),
@@ -254,9 +254,9 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           top: false,
           child: Row(children: [
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Total Price', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+              Text('Total Price', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
               Text(rupiah(_total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
-              const Text('Termasuk pajak & layanan', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
+              Text('Termasuk pajak & layanan', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
             ]),
             const SizedBox(width: 16),
             Expanded(child: PrimaryButton('Pesan Sekarang', loading: _loading, onPressed: _submit)),

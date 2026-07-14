@@ -48,10 +48,10 @@ class HotelCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Row(children: [
-                    const Icon(Icons.location_on_rounded, size: 13, color: MC.inkFaint),
+                    Icon(Icons.location_on_rounded, size: 13, color: MC.inkFaint),
                     const SizedBox(width: 2),
                     Expanded(child: Text(hotel.city, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: MC.inkMuted))),
+                        style: TextStyle(fontSize: 12, color: MC.inkMuted))),
                   ]),
                   const SizedBox(height: 6),
                   RatingPill(hotel.rating, small: true),
@@ -62,11 +62,11 @@ class HotelCard extends StatelessWidget {
                       Expanded(
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(color: MC.ink),
+                            style: TextStyle(color: MC.ink),
                             children: [
                               TextSpan(text: rupiah(hotel.priceFrom),
                                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: MC.primaryDark)),
-                              const TextSpan(text: ' /malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                              TextSpan(text: ' /malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                             ],
                           ),
                         ),

@@ -41,7 +41,7 @@ class VoucherScreen extends StatelessWidget {
                   cardBox(child: Column(children: [
                     Text('${booking.hotel?.name ?? ''}, ${booking.room?.name ?? ''}',
                         textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                    const Divider(height: 24, color: MC.line),
+                    Divider(height: 24, color: MC.line),
                     _row('No. Pesanan', booking.code),
                     _row('Tanggal Transaksi', date),
                     _row('Metode Pembayaran', bankName),
@@ -74,7 +74,7 @@ class VoucherScreen extends StatelessWidget {
   Widget _row(String k, String v, {bool highlight = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(k, style: const TextStyle(color: MC.inkMuted, fontSize: 13)),
+          Text(k, style: TextStyle(color: MC.inkMuted, fontSize: 13)),
           Text(v, style: TextStyle(fontWeight: FontWeight.w700, fontSize: highlight ? 15 : 13, color: highlight ? MC.primaryDark : MC.ink)),
         ]),
       );

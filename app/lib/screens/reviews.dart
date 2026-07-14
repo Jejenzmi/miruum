@@ -43,7 +43,7 @@ class ReviewsScreen extends StatelessWidget {
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(_label(hotel.rating), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                         const SizedBox(height: 2),
-                        Text('Dari ${hotel.reviewCount} ulasan', style: const TextStyle(color: MC.inkMuted, fontSize: 13)),
+                        Text('Dari ${hotel.reviewCount} ulasan', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
                       ]),
                     ]),
                   ),
@@ -63,7 +63,7 @@ class ReviewsScreen extends StatelessWidget {
                         RatingPill(r.rating, small: true),
                       ]),
                       const SizedBox(height: 8),
-                      Text(r.body, style: const TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
+                      Text(r.body, style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
                     ]),
                   ),
                 ],

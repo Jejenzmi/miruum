@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../image_upload.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import 'home.dart';
 import 'pesanan.dart';
@@ -51,12 +52,12 @@ class _MainShellState extends State<MainShell> {
               height: 64,
               selectedIndex: _index,
               onDestinationSelected: (i) => setState(() => _index = i),
-              destinations: const [
-                NavigationDestination(icon: Icon(Icons.home_outlined, color: MC.inkFaint), selectedIcon: Icon(Icons.home_rounded, color: MC.primaryDark), label: 'Beranda'),
-                NavigationDestination(icon: Icon(Icons.receipt_long_outlined, color: MC.inkFaint), selectedIcon: Icon(Icons.receipt_long_rounded, color: MC.primaryDark), label: 'Pesanan'),
-                NavigationDestination(icon: Icon(Icons.explore_outlined, color: MC.inkFaint), selectedIcon: Icon(Icons.explore_rounded, color: MC.primaryDark), label: 'Jelajah'),
-                NavigationDestination(icon: Icon(Icons.favorite_outline_rounded, color: MC.inkFaint), selectedIcon: Icon(Icons.favorite_rounded, color: MC.primaryDark), label: 'Favorit'),
-                NavigationDestination(icon: Icon(Icons.person_outline_rounded, color: MC.inkFaint), selectedIcon: Icon(Icons.person_rounded, color: MC.primaryDark), label: 'Akun'),
+              destinations: [
+                NavigationDestination(icon: Icon(Icons.home_outlined, color: MC.inkFaint), selectedIcon: const Icon(Icons.home_rounded, color: MC.primaryDark), label: tr('Beranda', 'Home')),
+                NavigationDestination(icon: Icon(Icons.receipt_long_outlined, color: MC.inkFaint), selectedIcon: const Icon(Icons.receipt_long_rounded, color: MC.primaryDark), label: tr('Pesanan', 'Orders')),
+                NavigationDestination(icon: Icon(Icons.explore_outlined, color: MC.inkFaint), selectedIcon: const Icon(Icons.explore_rounded, color: MC.primaryDark), label: tr('Jelajah', 'Explore')),
+                NavigationDestination(icon: Icon(Icons.favorite_outline_rounded, color: MC.inkFaint), selectedIcon: const Icon(Icons.favorite_rounded, color: MC.primaryDark), label: tr('Favorit', 'Saved')),
+                NavigationDestination(icon: Icon(Icons.person_outline_rounded, color: MC.inkFaint), selectedIcon: const Icon(Icons.person_rounded, color: MC.primaryDark), label: tr('Akun', 'Account')),
               ],
             ),
           ),
