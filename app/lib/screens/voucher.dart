@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../api.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../ui_kit.dart';
 import '../widgets.dart';
 import 'shell.dart';
 
@@ -48,8 +51,19 @@ class VoucherScreen extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
-              child: PrimaryButton('OK', onPressed: () => goToTab(context, 1)), // → Pesanan tab
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: Column(children: [
+                OutlineButtonX('Lihat / Unduh E-Voucher', icon: Icons.receipt_long_rounded,
+                    onPressed: () async {
+                  final ok = await openUrl(context.read<Api>().voucherUrl(booking.code));
+                  if (!ok && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tidak dapat membuka e-voucher')));
+                  }
+                }),
+                const SizedBox(height: 10),
+                PrimaryButton('Selesai', onPressed: () => goToTab(context, 1)), // → Pesanan tab
+              ]),
             ),
           ],
         ),

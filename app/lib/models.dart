@@ -94,6 +94,7 @@ class Hotel {
   final List<Review> reviews;
   final SupplyChannel? channel;
   final List<HotelOffer> offers;
+  final double? lat, lng;
 
   Hotel({
     required this.id, required this.name, required this.city, required this.address,
@@ -101,7 +102,7 @@ class Hotel {
     required this.priceFrom, required this.starRating, required this.isPromo,
     this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo,
     this.photos = const [], this.facilities = const [], this.rooms = const [], this.reviews = const [],
-    this.channel, this.offers = const [],
+    this.channel, this.offers = const [], this.lat, this.lng,
   });
 
   factory Hotel.fromJson(Map<String, dynamic> j) => Hotel(
@@ -117,6 +118,7 @@ class Hotel {
         reviews: (j['reviews'] as List?)?.map((r) => Review.fromJson(r)).toList() ?? [],
         channel: j['channel'] != null ? SupplyChannel.fromJson(j['channel']) : null,
         offers: (j['offers'] as List?)?.map((o) => HotelOffer.fromJson(o)).toList() ?? const [],
+        lat: (j['lat'] as num?)?.toDouble(), lng: (j['lng'] as num?)?.toDouble(),
       );
 }
 

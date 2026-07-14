@@ -90,6 +90,26 @@ app.post("/api/auth/otp/verify", (req, res) => {
   return res.status(400).json({ error: "Kode OTP salah" });
 });
 
+// Forgot password — sends a reset code (mock "1234"; real would email/SMS it).
+app.post("/api/auth/forgot", async (req, res) => {
+  const email = String(req.body?.email ?? "");
+  const user = await prisma.user.findUnique({ where: { email } });
+  // Don't reveal whether the email exists.
+  res.json({ ok: true, hint: user ? "1234" : "1234" });
+});
+
+// Reset password with the code.
+app.post("/api/auth/reset", async (req, res) => {
+  const schema = z.object({ email: z.string().email(), code: z.string(), password: z.string().min(6) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Kata sandi baru minimal 6 karakter" });
+  if (!/^\d{4}$/.test(parsed.data.code)) return res.status(400).json({ error: "Kode reset salah" });
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  if (!user) return res.status(404).json({ error: "Email tidak terdaftar" });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(parsed.data.password, 10) } });
+  res.json({ ok: true });
+});
+
 app.get("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
   if (!user) return res.status(404).json({ error: "Not found" });
@@ -139,7 +159,7 @@ app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
 const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
   reviewCount: true, priceFrom: true, starRating: true, imageUrl: true,
-  isPromo: true, promoLabel: true,
+  isPromo: true, promoLabel: true, lat: true, lng: true,
   channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
 
@@ -207,6 +227,46 @@ app.get("/api/hotels/:id/reviews", async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
   res.json({ reviews });
+});
+
+// Submit a review (1–5 stars, stored on a 0–10 scale) → recompute hotel rating.
+app.post("/api/hotels/:id/reviews", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({ rating: z.number().min(1).max(5), body: z.string().min(3) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Beri rating & ulasan minimal 3 karakter" });
+  const hotel = await prisma.hotel.findUnique({ where: { id: req.params.id } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  await prisma.review.create({
+    data: { hotelId: hotel.id, userId: req.userId, authorName: user?.name ?? "Tamu", rating: parsed.data.rating * 2, body: parsed.data.body },
+  });
+  const agg = await prisma.review.aggregate({ where: { hotelId: hotel.id }, _avg: { rating: true }, _count: true });
+  await prisma.hotel.update({
+    where: { id: hotel.id },
+    data: { rating: Math.round((agg._avg.rating ?? 0) * 10) / 10, reviewCount: agg._count },
+  });
+  await invalidate("miruum:");
+  res.json({ ok: true, rating: agg._avg.rating, reviewCount: agg._count });
+});
+
+// Hotel-level price calendar: per date, the cheapest available room price.
+app.get("/api/hotels/:id/availability", async (req, res) => {
+  const { from, to } = req.query as Record<string, string>;
+  const rooms = await prisma.room.findMany({ where: { hotelId: req.params.id }, select: { id: true, price: true } });
+  if (rooms.length === 0) return res.json({ days: [] });
+  const roomIds = rooms.map((r) => r.id);
+  const where: any = { roomId: { in: roomIds } };
+  if (from || to) where.date = { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) };
+  const rows = await prisma.roomAvailability.findMany({ where, orderBy: { date: "asc" }, take: 1000 });
+  const byDate: Record<string, { price: number; available: boolean }> = {};
+  for (const r of rows) {
+    const key = r.date.toISOString().slice(0, 10);
+    const open = !r.closed && r.allotment > 0;
+    if (!byDate[key]) byDate[key] = { price: open ? r.price : r.price, available: open };
+    if (open && (!byDate[key].available || r.price < byDate[key].price)) byDate[key] = { price: r.price, available: true };
+  }
+  const days = Object.entries(byDate).map(([date, v]) => ({ date, price: v.price, available: v.available }));
+  res.json({ days });
 });
 
 app.get("/api/hotels/:id/rooms", async (req, res) => {

@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
 import 'hotel_detail.dart';
+import 'map_screen.dart';
 import 'results.dart';
 
 class JelajahScreen extends StatelessWidget {
@@ -25,6 +26,16 @@ class JelajahScreen extends StatelessWidget {
           title: const Text('Jelajah'),
           centerTitle: false,
           titleTextStyle: const TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
+          actions: [
+            Builder(builder: (ctx) => TextButton.icon(
+              onPressed: () {
+                final hotels = ctx.read<HotelsCubit>().state.data ?? [];
+                Navigator.push(ctx, MaterialPageRoute(builder: (_) => MapScreen(hotels: hotels)));
+              },
+              icon: const Icon(Icons.map_outlined, color: MC.primary, size: 20),
+              label: const Text('Peta', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+            )),
+          ],
         ),
         body: SafeArea(
           top: false,

@@ -16,13 +16,20 @@ class ResultsScreen extends StatelessWidget {
   final String query;
   final DateTime? checkIn, checkOut;
   final int rooms;
-  const ResultsScreen({super.key, this.title = 'Hasil Pencarian', this.query = '', this.checkIn, this.checkOut, this.rooms = 1});
+  final FilterResult? initialFilter;
+  const ResultsScreen({super.key, this.title = 'Hasil Pencarian', this.query = '', this.checkIn, this.checkOut, this.rooms = 1, this.initialFilter});
 
   @override
   Widget build(BuildContext context) {
+    final f = initialFilter;
     return BlocProvider(
-      create: (ctx) => HotelsCubit(ctx.read<Api>())..load(query: query.isNotEmpty ? {'query': query} : null),
-      child: _ResultsView(title: title, query: query, checkIn: checkIn, checkOut: checkOut, rooms: rooms),
+      create: (ctx) => HotelsCubit(ctx.read<Api>())..load(query: {
+        if (query.isNotEmpty) 'query': query,
+        if (f != null && f.minPrice > 0) 'minPrice': f.minPrice,
+        if (f != null && f.maxPrice < 5000000) 'maxPrice': f.maxPrice,
+        if (f != null && f.star > 0) 'star': f.star,
+      }),
+      child: _ResultsView(title: title, query: query, checkIn: checkIn, checkOut: checkOut, rooms: rooms, initialFilter: f),
     );
   }
 }
@@ -31,13 +38,14 @@ class _ResultsView extends StatefulWidget {
   final String title, query;
   final DateTime? checkIn, checkOut;
   final int rooms;
-  const _ResultsView({required this.title, required this.query, this.checkIn, this.checkOut, required this.rooms});
+  final FilterResult? initialFilter;
+  const _ResultsView({required this.title, required this.query, this.checkIn, this.checkOut, required this.rooms, this.initialFilter});
   @override
   State<_ResultsView> createState() => _ResultsViewState();
 }
 
 class _ResultsViewState extends State<_ResultsView> {
-  FilterResult _filter = const FilterResult();
+  late FilterResult _filter = widget.initialFilter ?? const FilterResult();
   final _fmt = DateFormat('d MMM yyyy', 'id_ID');
 
   void _apply() {

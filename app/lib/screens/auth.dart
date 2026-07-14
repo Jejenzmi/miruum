@@ -74,7 +74,9 @@ class _SignInScreenState extends State<SignInScreen> {
                   )),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(onPressed: () {}, child: const Text('Forgot Password ?', style: TextStyle(color: MC.primary, fontSize: 12.5))),
+                child: TextButton(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                    child: const Text('Forgot Password ?', style: TextStyle(color: MC.primary, fontSize: 12.5))),
               ),
               PrimaryButton('Sign In', loading: _loading, onPressed: _submit),
               const SizedBox(height: 20),
@@ -203,6 +205,90 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
               ),
+            ], startMs: 240)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────── Forgot Password ───────────────────────────
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _email = TextEditingController();
+  final _code = TextEditingController();
+  final _pass = TextEditingController();
+  bool _sent = false, _loading = false, _obscure = true;
+
+  Future<void> _sendCode() async {
+    if (!_email.text.contains('@')) { _toast(context, 'Masukkan email yang valid'); return; }
+    setState(() => _loading = true);
+    try {
+      await context.read<Api>().forgotPassword(_email.text.trim());
+      if (mounted) { setState(() => _sent = true); _toast(context, 'Kode reset dikirim (demo: 1234)', err: false); }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _reset() async {
+    if (_code.text.trim().length < 4 || _pass.text.length < 6) {
+      _toast(context, 'Kode 4 digit & kata sandi baru min. 6 karakter'); return;
+    }
+    setState(() => _loading = true);
+    try {
+      await context.read<Api>().resetPassword(_email.text.trim(), _code.text.trim(), _pass.text);
+      if (!mounted) return;
+      _toast(context, 'Kata sandi berhasil diubah, silakan masuk', err: false);
+      Navigator.pop(context);
+    } on ApiException catch (e) {
+      if (mounted) _toast(context, e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: MC.bg,
+      body: Column(children: [
+        HeroHeader(
+          height: 190,
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.lock_reset_rounded, color: Colors.white, size: 40)
+                .animate().scale(begin: const Offset(0.6, 0.6), duration: 500.ms, curve: Curves.elasticOut),
+            const SizedBox(height: 10),
+            const Text('Lupa Password', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
+                .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
+            const SizedBox(height: 4),
+            const Text('Reset kata sandimu dengan mudah', style: TextStyle(color: Colors.white70, fontSize: 13.5))
+                .animate().fadeIn(delay: 220.ms),
+          ]),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
+              AuthTextField('Email terdaftar', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              if (_sent) ...[
+                const SizedBox(height: 14),
+                AuthTextField('Kode reset (demo: 1234)', Icons.pin_rounded, _code, keyboard: TextInputType.number),
+                const SizedBox(height: 14),
+                AuthTextField('Kata sandi baru', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+                    suffix: IconButton(
+                      icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                    )),
+              ],
+              const SizedBox(height: 22),
+              PrimaryButton(_sent ? 'Reset Kata Sandi' : 'Kirim Kode', loading: _loading, onPressed: _sent ? _reset : _sendCode),
             ], startMs: 240)),
           ),
         ),

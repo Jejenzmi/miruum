@@ -4,6 +4,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
+import 'price_calendar.dart';
 import 'rincian_pesanan.dart';
 
 class PilihKamarScreen extends StatefulWidget {
@@ -76,12 +77,14 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
       );
 
   Future<void> _pickDate() async {
-    final res = await showDatePicker(
-      context: context, initialDate: _checkIn, firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (c, w) => Theme(data: Theme.of(c).copyWith(colorScheme: const ColorScheme.light(primary: MC.primary)), child: w!),
-    );
-    if (res != null) setState(() => _checkIn = res);
+    final range = await showPriceCalendar(context, widget.hotel.id,
+        initial: DateTimeRange(start: _checkIn, end: _checkOut));
+    if (range != null) {
+      setState(() {
+        _checkIn = range.start;
+        _nights = range.end.difference(range.start).inDays.clamp(1, 30);
+      });
+    }
   }
 
   Widget _roomCard(Hotel h, Room room) {

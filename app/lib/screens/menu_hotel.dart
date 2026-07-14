@@ -17,6 +17,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
   DateTime _checkIn = DateTime.now().add(const Duration(days: 1));
   DateTime _checkOut = DateTime.now().add(const Duration(days: 2));
   int _rooms = 1, _adults = 2, _children = 0;
+  FilterResult _filter = const FilterResult();
   final _fmt = DateFormat('EEE, d MMM', 'id_ID');
 
   Future<void> _pickDate(bool checkIn) async {
@@ -107,9 +108,14 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => const FilterScreen()));
+                  final res = await Navigator.push<FilterResult>(context, MaterialPageRoute(builder: (_) => FilterScreen(initial: _filter)));
+                  if (res != null) setState(() => _filter = res);
                 },
-                child: _field(Icons.tune_rounded, 'Filter', const Text('Atur harga & bintang', style: TextStyle(color: MC.inkMuted))),
+                child: _field(Icons.tune_rounded, 'Filter',
+                    Text(_filter.star > 0 || _filter.minPrice > 0 || _filter.maxPrice < 5000000
+                        ? 'Harga & bintang diatur'
+                        : 'Atur harga & bintang',
+                        style: TextStyle(color: _filter.star > 0 || _filter.minPrice > 0 || _filter.maxPrice < 5000000 ? MC.primary : MC.inkMuted, fontWeight: FontWeight.w600))),
               ),
               const SizedBox(height: 24),
               PrimaryButton('Cari Hotel', icon: Icons.search_rounded, onPressed: () {
@@ -119,6 +125,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
                       checkIn: _checkIn,
                       checkOut: _checkOut,
                       rooms: _rooms,
+                      initialFilter: _filter,
                     )));
               }),
             ],

@@ -13,6 +13,7 @@ import '../widgets.dart';
 import 'auth.dart';
 import 'pembayaran.dart';
 import 'hotel_detail.dart';
+import 'review_sheet.dart';
 
 class PesananScreen extends StatelessWidget {
   const PesananScreen({super.key});
@@ -140,19 +141,32 @@ class _OrderCard extends StatelessWidget {
         ])),
       ]),
       const SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: OutlineButtonX('Rincian', onPressed: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => HotelDetailScreen(b.hotel!.id))))),
-        const SizedBox(width: 10),
-        if (b.status == 'PENDING')
+      if (b.status == 'PENDING')
+        Row(children: [
+          Expanded(child: OutlineButtonX('Rincian', onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => HotelDetailScreen(b.hotel!.id))))),
+          const SizedBox(width: 10),
           Expanded(child: PrimaryButton('Bayar', onPressed: () async {
             await Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id)));
             onChanged();
-          }))
-        else if (b.status == 'PAID' || b.status == 'COMPLETED')
-          Expanded(child: PrimaryButton('Pesan Lagi', onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => HotelDetailScreen(b.hotel!.id))))),
-      ]),
+          })),
+        ])
+      else if (b.status == 'PAID' || b.status == 'COMPLETED')
+        Row(children: [
+          Expanded(child: OutlineButtonX('E-Voucher', icon: Icons.receipt_long_rounded, onPressed: () async {
+            final ok = await openUrl(context.read<Api>().voucherUrl(b.code));
+            if (!ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka e-voucher')));
+            }
+          })),
+          const SizedBox(width: 10),
+          Expanded(child: PrimaryButton('Beri Ulasan', icon: Icons.rate_review_outlined, onPressed: () async {
+            final done = await showReviewSheet(context, b.hotel!.id, hotelName: b.hotel!.name);
+            if (done && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Terima kasih atas ulasanmu!'), backgroundColor: MC.primary));
+            }
+          })),
+        ]),
     ]));
   }
 }

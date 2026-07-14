@@ -85,6 +85,26 @@ class Api {
   Future<List<Review>> reviews(String id) async =>
       ((await _get('/hotels/$id/reviews'))['reviews'] as List).map((r) => Review.fromJson(r)).toList();
 
+  Future<void> submitReview(String hotelId, int rating, String body) async =>
+      _post('/hotels/$hotelId/reviews', {'rating': rating, 'body': body});
+
+  /// Per-date cheapest price + availability for a hotel (calendar).
+  Future<List<Map<String, dynamic>>> hotelAvailability(String hotelId, DateTime from, DateTime to) async {
+    final j = await _get('/hotels/$hotelId/availability',
+        {'from': from.toIso8601String().split('T').first, 'to': to.toIso8601String().split('T').first});
+    return (j['days'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> forgotPassword(String email) async => _post('/auth/forgot', {'email': email});
+  Future<void> resetPassword(String email, String code, String password) async =>
+      _post('/auth/reset', {'email': email, 'code': code, 'password': password});
+
+  /// Public e-voucher URL for a booking code (opens the printable HTML page).
+  String voucherUrl(String code) {
+    final origin = base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
+    return '$origin/api/vouchers/$code';
+  }
+
   // ── Hotel Packages ──
   Future<List<HotelPackage>> packages({Map<String, dynamic>? q}) async =>
       ((await _get('/packages', q))['packages'] as List).map((p) => HotelPackage.fromJson(p)).toList();

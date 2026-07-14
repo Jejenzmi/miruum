@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
+
+/// Open a URL in the external browser; returns false if it couldn't launch.
+Future<bool> openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) return launchUrl(uri, mode: LaunchMode.externalApplication);
+  return false;
+}
 
 /// Staggered fade + slide-up entrance for a list of children.
 List<Widget> stagger(List<Widget> children, {int startMs = 100, int stepMs = 70}) {
