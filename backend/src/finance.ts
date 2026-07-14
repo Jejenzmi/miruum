@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { getNum } from "./settings.js";
 
 // ─────────────────────────── Finance & settlement ───────────────────────────
 // Money flows differ by supply source:
@@ -7,11 +8,10 @@ import type { PrismaClient } from "@prisma/client";
 //  • DIRECT (own Channel Manager) — guest pays the hotel's rate; Miruum takes a
 //    platform commission, the remainder is owed to the hotel (a Settlement).
 
-export const DIRECT_PLATFORM_PCT = 12; // Miruum commission on direct bookings
-
 const round = (n: number) => Math.round(n);
 
 export async function computeFinance(prisma: PrismaClient) {
+  const DIRECT_PLATFORM_PCT = await getNum("directCommissionPct"); // configurable
   const bookings = await prisma.booking.findMany({
     where: { status: { in: ["PAID", "COMPLETED"] } },
     include: {

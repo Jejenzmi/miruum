@@ -7,7 +7,8 @@ import 'view_state.dart';
 class HomeData {
   final List<Hotel> promo, recommended;
   final List<Promo> promos;
-  const HomeData(this.promo, this.recommended, this.promos);
+  final List<Banner> banners;
+  const HomeData(this.promo, this.recommended, this.promos, this.banners);
 }
 
 class HomeCubit extends Cubit<ViewState<HomeData>> {
@@ -17,8 +18,9 @@ class HomeCubit extends Cubit<ViewState<HomeData>> {
   Future<void> load() async {
     emit(const ViewState.loading());
     try {
-      final res = await Future.wait([api.promoHotels(), api.recommended(), api.promos()]);
-      emit(ViewState.success(HomeData(res[0] as List<Hotel>, res[1] as List<Hotel>, res[2] as List<Promo>)));
+      final res = await Future.wait([api.promoHotels(), api.recommended(), api.promos(), api.banners()]);
+      emit(ViewState.success(HomeData(
+        res[0] as List<Hotel>, res[1] as List<Hotel>, res[2] as List<Promo>, res[3] as List<Banner>)));
     } catch (e) {
       emit(ViewState.failure(e.toString()));
     }

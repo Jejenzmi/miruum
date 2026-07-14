@@ -183,6 +183,16 @@ const CONNECTOR_TEMPLATES: Record<string, unknown> = {
   },
 };
 
+// Idempotent (runs even when catalog exists): seed home banners once.
+async function ensureBanners() {
+  if ((await prisma.banner.count()) > 0) return;
+  await prisma.banner.createMany({ data: [
+    { title: "Newest Promo", subtitle: "Diskon hingga 30% hotel pilihan", imageUrl: img("1566073771259-6a8506099945"), badge: "30%", sortOrder: 0 },
+    { title: "Weekend Getaway", subtitle: "Hemat 15% menginap akhir pekan", imageUrl: img("1618773928121-c32242e63f39"), badge: "15%", sortOrder: 1 },
+    { title: "Staycation Deals", subtitle: "Paket menginap keluarga terbaik", imageUrl: img("1445019980597-93fa8acb246c"), badge: "Hot", sortOrder: 2 },
+  ] });
+}
+
 async function ensureChannels() {
   for (const c of CHANNELS) {
     await prisma.supplyChannel.upsert({ where: { code: c.code }, create: c, update: c });
@@ -210,9 +220,10 @@ async function assignChannels() {
 async function main() {
   console.log("[seed] start");
 
-  // Supply channels are always (re)ensured — additive & non-destructive, so they
-  // apply even on live DBs where the catalog reseed below is skipped.
+  // Always (re)ensured — additive & non-destructive, so they apply even on live
+  // DBs where the catalog reseed below is skipped.
   await ensureChannels();
+  await ensureBanners();
 
   // Idempotent restart guard: the hotel/room/review/package block below is
   // DESTRUCTIVE (deleteMany then recreate). Once seeded, re-running it on every

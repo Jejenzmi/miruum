@@ -183,9 +183,32 @@ model RoomAvailability {
   price     Int      // rate for this night (rupiah)
   allotment Int      @default(0) // rooms available to sell this night
   closed    Boolean  @default(false)
+  minStay   Int      @default(1)     // minimum nights
+  cta       Boolean  @default(false) // closed to arrival
+  ctd       Boolean  @default(false) // closed to departure
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@unique([roomId, date])
+}
+
+// Home promo/marketing banner (admin-managed carousel).
+model Banner {
+  id        String   @id @default(cuid())
+  title     String
+  subtitle  String   @default("")
+  imageUrl  String
+  badge     String?  // e.g. "30%"
+  linkUrl   String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// Global platform settings (key → value), read with defaults by the app/finance.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 // A curated bundle: hotel stay + inclusions (breakfast, transfer, spa…) at one bundled price.

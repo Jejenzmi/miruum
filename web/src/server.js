@@ -173,6 +173,74 @@ app.get("/admin/users", adminGuard, async (req, res) => {
   res.render("admin/users", { users, active: "users" });
 });
 
+// ── Promo ──
+app.get("/admin/promos", adminGuard, async (req, res) => {
+  const { promos } = await api("/admin/promos", { token: res.locals.token });
+  res.render("admin/promos", { promos, active: "promos", saved: req.query.saved });
+});
+app.post("/admin/promos", adminGuard, async (req, res) => {
+  try { await api("/admin/promos", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/promos?saved=1"); }
+  catch (e) { res.redirect("/admin/promos?saved=err"); }
+});
+app.post("/admin/promos/:id/delete", adminGuard, async (req, res) => {
+  await api(`/admin/promos/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/promos");
+});
+
+// ── Banner ──
+app.get("/admin/banners", adminGuard, async (req, res) => {
+  const { banners } = await api("/admin/banners", { token: res.locals.token });
+  res.render("admin/banners", { banners, active: "banners", saved: req.query.saved });
+});
+app.post("/admin/banners", adminGuard, async (req, res) => {
+  await api("/admin/banners", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/banners?saved=1");
+});
+app.post("/admin/banners/:id/delete", adminGuard, async (req, res) => {
+  await api(`/admin/banners/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/banners");
+});
+
+// ── Paket ──
+app.get("/admin/packages", adminGuard, async (req, res) => {
+  const [{ packages }, { hotels }] = await Promise.all([
+    api("/admin/packages", { token: res.locals.token }),
+    api("/admin/hotels", { token: res.locals.token }),
+  ]);
+  res.render("admin/packages", { packages, hotels, active: "packages", saved: req.query.saved });
+});
+app.post("/admin/packages", adminGuard, async (req, res) => {
+  try { await api("/admin/packages", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/packages?saved=1"); }
+  catch { res.redirect("/admin/packages?saved=err"); }
+});
+app.post("/admin/packages/:id/delete", adminGuard, async (req, res) => {
+  await api(`/admin/packages/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/packages");
+});
+
+// ── Pengaturan ──
+app.get("/admin/settings", adminGuard, async (req, res) => {
+  const { settings, defaults } = await api("/admin/settings", { token: res.locals.token });
+  res.render("admin/settings", { settings, defaults, active: "settings", saved: req.query.saved });
+});
+app.post("/admin/settings", adminGuard, async (req, res) => {
+  await api("/admin/settings", { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/settings?saved=1");
+});
+
+// ── Broadcast ──
+app.get("/admin/broadcast", adminGuard, (req, res) => res.render("admin/broadcast", { active: "broadcast", sent: req.query.sent }));
+app.post("/admin/broadcast", adminGuard, async (req, res) => {
+  await api("/admin/notifications", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/broadcast?sent=1");
+});
+
+// ── Rate Manager (central Channel Manager) ──
+app.get("/admin/rates", adminGuard, async (req, res) => {
+  const { hotels } = await api("/admin/rate-manager", { token: res.locals.token });
+  res.render("admin/rates", { hotels, active: "rates", saved: req.query.saved });
+});
+app.post("/admin/rates/:roomId", adminGuard, async (req, res) => {
+  await api(`/partner/rooms/${req.params.roomId}/availability`, { method: "PUT", token: res.locals.token,
+    body: { from: req.body.from, to: req.body.to, price: req.body.price || undefined, allotment: req.body.allotment || undefined,
+      closed: req.body.closed === "on", minStay: req.body.minStay || undefined, cta: req.body.cta === "on", ctd: req.body.ctd === "on" } });
+  res.redirect("/admin/rates?saved=1");
+});
+
 // ═══════════════════════ EXTRANET (PARTNER) ═══════════════════════
 app.get("/extranet/login", (req, res) => res.render("extranet/login", { error: null }));
 app.post("/extranet/login", async (req, res) => {

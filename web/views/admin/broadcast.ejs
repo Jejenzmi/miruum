@@ -1,0 +1,21 @@
+<%- include('../partials/top', { title:'Broadcast', heading:'Broadcast Notifikasi', section:'admin', active:'broadcast', me }) %>
+
+<% if (sent) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Notifikasi terkirim ke semua pengguna.</div><% } %>
+
+<div class="card" style="max-width:560px">
+  <h3>Kirim ke Semua Pengguna</h3>
+  <p class="muted" style="margin-top:-8px">Notifikasi akan muncul di tab Notifikasi aplikasi semua pengguna.</p>
+  <form method="post" action="/admin/broadcast">
+    <label>Judul</label><input name="title" placeholder="Promo Spesial Akhir Pekan!" required>
+    <label>Isi Pesan</label><textarea name="body" rows="4" placeholder="Nikmati diskon hingga 30% ..." required></textarea>
+    <label>Tipe</label>
+    <select name="type">
+      <option value="info">Info</option>
+      <option value="success">Sukses / Promo</option>
+      <option value="pending">Pengingat</option>
+    </select>
+    <div style="margin-top:18px"><button class="btn">📣 Kirim Broadcast</button></div>
+  </form>
+</div>
+
+<%- include('../partials/bottom') %>

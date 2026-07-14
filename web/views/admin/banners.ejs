@@ -1,0 +1,38 @@
+<%- include('../partials/top', { title:'Banner', heading:'Banner Home', section:'admin', active:'banners', me }) %>
+
+<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Banner disimpan.</div><% } %>
+
+<div class="card">
+  <h3>Tambah Banner</h3>
+  <form method="post" action="/admin/banners">
+    <label>Judul</label><input name="title" placeholder="Newest Promo" required>
+    <label>Subjudul</label><input name="subtitle" placeholder="Diskon hingga 30% hotel pilihan">
+    <label>URL Gambar</label><input name="imageUrl" placeholder="https://..." required>
+    <div class="row2">
+      <div><label>Badge (opsional)</label><input name="badge" placeholder="30%"></div>
+      <div><label>Urutan</label><input name="sortOrder" type="number" value="0"></div>
+    </div>
+    <div style="margin-top:16px"><button class="btn">➕ Simpan Banner</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Daftar Banner</h3>
+  <table>
+    <thead><tr><th></th><th>Judul</th><th>Badge</th><th>Aktif</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% banners.forEach(function(b){ %>
+        <tr>
+          <td><img class="thumb" src="<%= b.imageUrl %>" alt=""></td>
+          <td><b><%= b.title %></b><br><span class="muted" style="font-size:11px"><%= b.subtitle %></span></td>
+          <td><% if (b.badge){ %><span class="pill PARTNER"><%= b.badge %></span><% } %></td>
+          <td><span class="pill <%= b.active?'PAID':'REFUNDED' %>"><%= b.active?'Ya':'Tidak' %></span></td>
+          <td><form method="post" action="/admin/banners/<%= b.id %>/delete" onsubmit="return confirm('Hapus banner?')"><button class="btn danger sm">Hapus</button></form></td>
+        </tr>
+      <% }) %>
+      <% if (!banners.length) { %><tr><td colspan="5" class="empty">Belum ada banner</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

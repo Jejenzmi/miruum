@@ -55,7 +55,7 @@ class _HomeView extends StatelessWidget {
                   child: SectionHeader('Promo Terbaru', action: 'Lihat semua', onAction: () {}),
                 ),
                 const SizedBox(height: 12),
-                _promoCarousel(data.promos).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideX(begin: 0.1, end: 0),
+                _promoCarousel(data.banners).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideX(begin: 0.1, end: 0),
                 const SizedBox(height: 20),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _categoryTiles(context))
                     .animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(begin: 0.15, end: 0),
@@ -210,44 +210,46 @@ class _HomeView extends StatelessWidget {
         ),
       );
 
-  // ── Promo Terbaru (Newest Promo) ──
-  Widget _promoCarousel(List<Promo> promos) => SizedBox(
+  // ── Promo Terbaru (admin-managed banners) ──
+  Widget _promoCarousel(List<Banner> banners) => SizedBox(
         height: 150,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: promos.length,
+          itemCount: banners.length,
           separatorBuilder: (_, __) => const SizedBox(width: 12),
           itemBuilder: (context, i) {
-            final p = promos[i];
+            final b = banners[i];
             return Container(
               width: 290,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: [softShadow]),
               child: Stack(fit: StackFit.expand, children: [
-                NetImage(p.imageUrl),
+                NetImage(b.imageUrl),
                 Container(decoration: BoxDecoration(
                     gradient: LinearGradient(colors: [Colors.black.withOpacity(0.55), Colors.black.withOpacity(0.05)]))),
                 Positioned(
-                  left: 14, top: 14, bottom: 14, right: 90,
+                  left: 14, top: 14, bottom: 14, right: b.badge != null ? 90 : 14,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                    const Text('Newest Promo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                    Text(b.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Text(p.description, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    Text(b.subtitle, maxLines: 2, overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: Colors.white70, fontSize: 11.5)),
                   ]),
                 ),
-                Positioned(
-                  right: 14, top: 0, bottom: 0,
-                  child: Center(
-                    child: Container(
-                      width: 60, height: 60,
-                      decoration: const BoxDecoration(color: MC.accent, shape: BoxShape.circle),
-                      child: Center(child: Text('${p.discountPct}%',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18))),
+                if (b.badge != null)
+                  Positioned(
+                    right: 14, top: 0, bottom: 0,
+                    child: Center(
+                      child: Container(
+                        width: 60, height: 60,
+                        decoration: const BoxDecoration(color: MC.accent, shape: BoxShape.circle),
+                        child: Center(child: Text(b.badge!, textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15))),
+                      ),
                     ),
                   ),
-                ),
               ]),
             );
           },

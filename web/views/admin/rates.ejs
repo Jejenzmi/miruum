@@ -1,0 +1,35 @@
+<%- include('../partials/top', { title:'Rate Manager', heading:'Rate & Ketersediaan (Channel Manager)', section:'admin', active:'rates', me }) %>
+
+<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Rate & ketersediaan diperbarui.</div><% } %>
+
+<p class="muted" style="font-size:12.5px;margin-bottom:16px">
+  Kelola harga, jatah kamar (allotment) & restriksi untuk hotel <b>DIRECT</b> (Channel Manager Miruum) secara terpusat, per rentang tanggal.
+</p>
+
+<% hotels.forEach(function(h){ %>
+  <div class="card">
+    <h3><%= h.name %> <span class="muted" style="font-weight:400;font-size:12px">· <%= h.city %></span></h3>
+    <% h.rooms.forEach(function(r){ %>
+      <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px">
+        <b><%= r.name %></b> <span class="muted" style="font-size:11.5px">· dasar <%= rupiah(r.price) %> · stok <%= r.stock %></span>
+        <form method="post" action="/admin/rates/<%= r.id %>" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px">
+          <div><label style="margin:0 0 4px">Dari</label><input name="from" type="date" required style="max-width:150px"></div>
+          <div><label style="margin:0 0 4px">Sampai</label><input name="to" type="date" required style="max-width:150px"></div>
+          <div><label style="margin:0 0 4px">Harga</label><input name="price" type="number" placeholder="<%= r.price %>" style="max-width:120px"></div>
+          <div><label style="margin:0 0 4px">Allotment</label><input name="allotment" type="number" placeholder="<%= r.stock %>" style="max-width:100px"></div>
+          <div><label style="margin:0 0 4px">Min. malam</label><input name="minStay" type="number" placeholder="1" style="max-width:90px"></div>
+          <label style="display:flex;align-items:center;gap:5px;margin:0 0 10px;font-size:12px"><input type="checkbox" name="cta" style="width:auto"> CTA</label>
+          <label style="display:flex;align-items:center;gap:5px;margin:0 0 10px;font-size:12px"><input type="checkbox" name="ctd" style="width:auto"> CTD</label>
+          <label style="display:flex;align-items:center;gap:5px;margin:0 0 10px;font-size:12px"><input type="checkbox" name="closed" style="width:auto"> Tutup</label>
+          <button class="btn sm" style="margin-bottom:2px">Terapkan</button>
+        </form>
+      </div>
+    <% }) %>
+    <% if (!h.rooms.length) { %><p class="empty">Belum ada kamar</p><% } %>
+  </div>
+<% }) %>
+<% if (!hotels.length) { %><div class="card"><p class="empty">Belum ada hotel DIRECT</p></div><% } %>
+
+<p class="muted" style="font-size:11.5px">CTA = Closed To Arrival (tak bisa check-in di tanggal itu) · CTD = Closed To Departure · Tutup = tidak dijual.</p>
+
+<%- include('../partials/bottom') %>

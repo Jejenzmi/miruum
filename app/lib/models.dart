@@ -163,6 +163,16 @@ class HotelPackage {
       );
 }
 
+class Banner {
+  final String id, title, subtitle, imageUrl;
+  final String? badge;
+  Banner({required this.id, required this.title, required this.subtitle, required this.imageUrl, this.badge});
+  factory Banner.fromJson(Map<String, dynamic> j) => Banner(
+        id: j['id'], title: j['title'] ?? '', subtitle: j['subtitle'] ?? '',
+        imageUrl: j['imageUrl'] ?? '', badge: j['badge'],
+      );
+}
+
 class Booking {
   final String id, code, status;
   final int nights, guests, rooms, roomPrice, taxFee, totalPrice, discount;

@@ -10,6 +10,7 @@ import { ensureBucket, putObject, storageReady } from "./storage.js";
 import { syncOffers, getConnector } from "./connectors.js";
 import { PAYMENT_METHODS, methodByCode, activeProvider } from "./payments.js";
 import { computeFinance } from "./finance.js";
+import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { dispatch } from "./notify.js";
 import { quote, consume } from "./availability.js";
 
@@ -363,6 +364,19 @@ app.get("/api/promos", async (_req, res) => {
   res.json({ promos });
 });
 
+// Home marketing banners (admin-managed).
+app.get("/api/banners", async (_req, res) => {
+  const banners = await cached("miruum:banners:all", 120, () =>
+    prisma.banner.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }));
+  res.json({ banners });
+});
+
+// Public app config (safe subset).
+app.get("/api/config", async (_req, res) => {
+  const s = await getSettings();
+  res.json({ taxPct: Number(s.taxPct), currency: s.currency, appName: s.appName });
+});
+
 // Validate a promo code against an amount → returns the discount.
 app.post("/api/promos/validate", async (req, res) => {
   const schema = z.object({ code: z.string(), amount: z.coerce.number().int().min(0) });
@@ -463,7 +477,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     baseAmount = q.total;
   }
 
-  const taxFee = Math.round(baseAmount * 0.11); // 11% tax & service
+  const taxFee = Math.round(baseAmount * (await getNum("taxPct")) / 100); // configurable tax & service
   // Apply promo code (discount off the accommodation subtotal).
   let discount = 0;
   let promoCode: string | null = null;
@@ -523,6 +537,9 @@ app.put("/api/partner/rooms/:id/availability", requireRole("PARTNER", "ADMIN"), 
     price: z.coerce.number().int().optional(),
     allotment: z.coerce.number().int().optional(),
     closed: z.coerce.boolean().optional(),
+    minStay: z.coerce.number().int().optional(),
+    cta: z.coerce.boolean().optional(),
+    ctd: z.coerce.boolean().optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
@@ -536,9 +553,13 @@ app.put("/api/partner/rooms/:id/availability", requireRole("PARTNER", "ADMIN"), 
     if (p.data.price != null) data.price = p.data.price;
     if (p.data.allotment != null) data.allotment = p.data.allotment;
     if (p.data.closed != null) data.closed = p.data.closed;
+    if (p.data.minStay != null) data.minStay = p.data.minStay;
+    if (p.data.cta != null) data.cta = p.data.cta;
+    if (p.data.ctd != null) data.ctd = p.data.ctd;
     await prisma.roomAvailability.upsert({
       where: { roomId_date: { roomId: room.id, date } },
-      create: { roomId: room.id, date, price: p.data.price ?? room.price, allotment: p.data.allotment ?? room.stock, closed: p.data.closed ?? false },
+      create: { roomId: room.id, date, price: p.data.price ?? room.price, allotment: p.data.allotment ?? room.stock, closed: p.data.closed ?? false,
+        minStay: p.data.minStay ?? 1, cta: p.data.cta ?? false, ctd: p.data.ctd ?? false },
       update: data,
     });
     updated++;
@@ -888,6 +909,128 @@ app.post("/api/admin/settlements", requireRole("ADMIN"), async (req, res) => {
 app.get("/api/admin/settlements", requireRole("ADMIN"), async (_req, res) => {
   const settlements = await prisma.settlement.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { hotel: { select: { name: true } } } });
   res.json({ settlements });
+});
+
+// ─────────────── Promo CRUD ───────────────
+app.get("/api/admin/promos", requireRole("ADMIN"), async (_req, res) => {
+  res.json({ promos: await prisma.promo.findMany({ orderBy: { code: "asc" } }) });
+});
+app.post("/api/admin/promos", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ code: z.string().min(2), title: z.string().min(2), description: z.string().default(""),
+    discountPct: z.coerce.number().int().min(1).max(100), imageUrl: z.string().default(""), validUntil: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data promo tidak valid" });
+  try {
+    const promo = await prisma.promo.create({ data: { ...p.data, code: p.data.code.toUpperCase() } });
+    await invalidate("miruum:"); res.json({ promo });
+  } catch { res.status(400).json({ error: "Kode promo sudah ada" }); }
+});
+app.put("/api/admin/promos/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().optional(), description: z.string().optional(),
+    discountPct: z.coerce.number().int().optional(), imageUrl: z.string().optional(), validUntil: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const promo = await prisma.promo.update({ where: { id: req.params.id }, data: p.data });
+  await invalidate("miruum:"); res.json({ promo });
+});
+app.delete("/api/admin/promos/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.promo.delete({ where: { id: req.params.id } }); await invalidate("miruum:"); res.json({ ok: true });
+});
+
+// ─────────────── Banner CRUD ───────────────
+app.get("/api/admin/banners", requireRole("ADMIN"), async (_req, res) => {
+  res.json({ banners: await prisma.banner.findMany({ orderBy: { sortOrder: "asc" } }) });
+});
+app.post("/api/admin/banners", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().min(1), subtitle: z.string().default(""), imageUrl: z.string().min(1),
+    badge: z.string().optional(), linkUrl: z.string().optional(), active: z.coerce.boolean().default(true), sortOrder: z.coerce.number().int().default(0) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data banner tidak valid" });
+  const banner = await prisma.banner.create({ data: p.data }); await invalidate("miruum:"); res.json({ banner });
+});
+app.put("/api/admin/banners/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().optional(), subtitle: z.string().optional(), imageUrl: z.string().optional(),
+    badge: z.string().optional(), linkUrl: z.string().optional(), active: z.coerce.boolean().optional(), sortOrder: z.coerce.number().int().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const banner = await prisma.banner.update({ where: { id: req.params.id }, data: p.data });
+  await invalidate("miruum:"); res.json({ banner });
+});
+app.delete("/api/admin/banners/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.banner.delete({ where: { id: req.params.id } }); await invalidate("miruum:"); res.json({ ok: true });
+});
+
+// ─────────────── Package (Hotel Package) CRUD ───────────────
+app.get("/api/admin/packages", requireRole("ADMIN"), async (_req, res) => {
+  const packages = await prisma.hotelPackage.findMany({ orderBy: { createdAt: "desc" }, include: { hotel: { select: { name: true } } } });
+  res.json({ packages });
+});
+app.post("/api/admin/packages", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().min(2), hotelId: z.string(), nights: z.coerce.number().int().min(1),
+    days: z.coerce.number().int().min(1), guests: z.coerce.number().int().min(1).default(2),
+    originalPrice: z.coerce.number().int(), price: z.coerce.number().int(), inclusions: z.string().default(""),
+    badge: z.string().optional(), imageUrl: z.string().default(""), isPopular: z.coerce.boolean().default(false), description: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data paket tidak valid" });
+  const hotel = await prisma.hotel.findUnique({ where: { id: p.data.hotelId } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  const room = await prisma.room.findFirst({ where: { hotelId: hotel.id } });
+  if (!room) return res.status(400).json({ error: "Hotel belum punya kamar" });
+  const slug = p.data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 9000 + 1000);
+  const discountPct = p.data.originalPrice > 0 ? Math.round((1 - p.data.price / p.data.originalPrice) * 100) : 0;
+  const pkg = await prisma.hotelPackage.create({ data: {
+    slug, title: p.data.title, city: hotel.city, description: p.data.description || "", imageUrl: p.data.imageUrl || hotel.imageUrl,
+    hotelId: hotel.id, roomId: room.id, nights: p.data.nights, days: p.data.days, guests: p.data.guests,
+    inclusions: p.data.inclusions.split("\n").map((s) => s.trim()).filter(Boolean),
+    originalPrice: p.data.originalPrice, price: p.data.price, discountPct, rating: hotel.rating, reviewCount: hotel.reviewCount,
+    starRating: hotel.starRating, badge: p.data.badge, isPopular: p.data.isPopular } });
+  await invalidate("miruum:"); res.json({ package: pkg });
+});
+app.put("/api/admin/packages/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().optional(), nights: z.coerce.number().int().optional(), days: z.coerce.number().int().optional(),
+    guests: z.coerce.number().int().optional(), originalPrice: z.coerce.number().int().optional(), price: z.coerce.number().int().optional(),
+    inclusions: z.string().optional(), badge: z.string().optional(), imageUrl: z.string().optional(), isPopular: z.coerce.boolean().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = { ...p.data };
+  if (data.inclusions !== undefined) data.inclusions = String(data.inclusions).split("\n").map((s: string) => s.trim()).filter(Boolean);
+  if (data.originalPrice != null && data.price != null) data.discountPct = Math.round((1 - data.price / data.originalPrice) * 100);
+  const pkg = await prisma.hotelPackage.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:"); res.json({ package: pkg });
+});
+app.delete("/api/admin/packages/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.hotelPackage.delete({ where: { id: req.params.id } }); await invalidate("miruum:"); res.json({ ok: true });
+});
+
+// ─────────────── Settings ───────────────
+app.get("/api/admin/settings", requireRole("ADMIN"), async (_req, res) => {
+  res.json({ settings: await getSettings(), defaults: SETTING_DEFAULTS });
+});
+app.put("/api/admin/settings", requireRole("ADMIN"), async (req, res) => {
+  const kv: Record<string, string> = {};
+  for (const k of Object.keys(SETTING_DEFAULTS)) if (req.body[k] != null) kv[k] = String(req.body[k]);
+  await setSettings(kv); await invalidate("miruum:");
+  res.json({ ok: true, settings: await getSettings() });
+});
+
+// ─────────────── Broadcast notification ───────────────
+app.post("/api/admin/notifications", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().min(2), body: z.string().min(2), type: z.string().default("info") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Judul & isi wajib diisi" });
+  // userId null → broadcast to all users (GET /notifications includes null-user rows).
+  await prisma.notification.create({ data: { userId: null, title: p.data.title, body: p.data.body, type: p.data.type } });
+  res.json({ ok: true });
+});
+
+// ─────────────── Central Channel Manager: rooms + availability ───────────────
+app.get("/api/admin/rate-manager", requireRole("ADMIN"), async (_req, res) => {
+  const hotels = await prisma.hotel.findMany({
+    where: { channel: { type: "DIRECT" } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, city: true, rooms: { select: { id: true, name: true, price: true, stock: true } } },
+  });
+  res.json({ hotels });
 });
 
 app.get("/api/admin/bookings", requireRole("ADMIN"), async (_req, res) => {
