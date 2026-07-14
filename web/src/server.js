@@ -229,6 +229,21 @@ app.post("/admin/broadcast", adminGuard, async (req, res) => {
   await api("/admin/notifications", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/broadcast?sent=1");
 });
 
+// ── Distribution (room-type mapping + outbound push) ──
+app.get("/admin/distribution", adminGuard, async (req, res) => {
+  const { hotels, otaChannels } = await api("/admin/distribution", { token: res.locals.token });
+  res.render("admin/distribution", { hotels, otaChannels, active: "distribution", pushed: req.query.pushed, saved: req.query.saved });
+});
+app.post("/admin/rooms/:roomId/map/:channelId", adminGuard, async (req, res) => {
+  try { await api(`/admin/rooms/${req.params.roomId}/channel-maps/${req.params.channelId}`, { method: "PUT", token: res.locals.token, body: { externalRoomId: req.body.externalRoomId, enabled: req.body.enabled === "on" } }); }
+  catch (_) {}
+  res.redirect("/admin/distribution?saved=1");
+});
+app.post("/admin/distribution/push", adminGuard, async (req, res) => {
+  const r = await api("/admin/distribution/push", { method: "POST", token: res.locals.token });
+  res.redirect(`/admin/distribution?pushed=${r.pushed || 0}`);
+});
+
 // ── Rate Manager (central Channel Manager) ──
 app.get("/admin/rates", adminGuard, async (req, res) => {
   const { hotels } = await api("/admin/rate-manager", { token: res.locals.token });
@@ -278,6 +293,19 @@ app.post("/extranet/rooms/:id/availability", partnerGuard, async (req, res) => {
       allotment: req.body.allotment || undefined, closed: req.body.closed === "on" },
   });
   res.redirect("back");
+});
+
+app.post("/extranet/hotels/:id/photos", partnerGuard, async (req, res) => {
+  try { await api(`/partner/hotels/${req.params.id}/photos`, { method: "POST", token: res.locals.token, body: { url: req.body.url } }); } catch (_) {}
+  res.redirect(`/extranet/hotels/${req.params.id}`);
+});
+app.post("/extranet/photos/:photoId/delete", partnerGuard, async (req, res) => {
+  try { await api(`/partner/photos/${req.params.photoId}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect(req.get("referer") || "/extranet");
+});
+app.post("/extranet/hotels/:id/promo", partnerGuard, async (req, res) => {
+  await api(`/partner/hotels/${req.params.id}/promo`, { method: "PUT", token: res.locals.token, body: { isPromo: req.body.isPromo, promoLabel: req.body.promoLabel } });
+  res.redirect(`/extranet/hotels/${req.params.id}`);
 });
 
 app.get("/extranet/bookings", partnerGuard, async (req, res) => {

@@ -11,6 +11,36 @@
 </div>
 
 <div class="card">
+  <h2>🖼️ Foto Hotel</h2>
+  <p class="muted" style="margin-top:-8px">Kelola galeri foto yang tampil di aplikasi.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <% (hotel.photos||[]).forEach(function(ph){ %>
+      <div style="position:relative">
+        <img src="<%= ph.url %>" style="width:110px;height:80px;object-fit:cover;border-radius:12px">
+        <form method="post" action="/extranet/photos/<%= ph.id %>/delete" onsubmit="return confirm('Hapus foto?')" style="position:absolute;top:4px;right:4px">
+          <button class="btn danger sm" style="padding:2px 8px">✕</button>
+        </form>
+      </div>
+    <% }) %>
+    <% if (!(hotel.photos||[]).length) { %><span class="muted">Belum ada foto</span><% } %>
+  </div>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/photos" style="display:flex;gap:8px;max-width:520px">
+    <input name="url" placeholder="URL gambar (https://...)" required>
+    <button class="btn sm">➕ Tambah Foto</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>🏷️ Promo Hotel</h2>
+  <p class="muted" style="margin-top:-8px">Tandai hotel sedang promo & tampilkan label di kartu hotel.</p>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/promo" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" name="isPromo" style="width:auto" <%= hotel.isPromo?'checked':'' %>> Aktifkan promo</label>
+    <input name="promoLabel" value="<%= hotel.promoLabel || '' %>" placeholder="mis. Save up to 30%" style="max-width:260px">
+    <button class="btn sm">Simpan</button>
+  </form>
+</div>
+
+<div class="card">
   <h2>Kamar & Ketersediaan</h2>
   <p class="muted" style="margin-top:-8px">Ubah harga & stok kamar Anda.</p>
   <table>

@@ -11,6 +11,7 @@ import { syncOffers, getConnector } from "./connectors.js";
 import { PAYMENT_METHODS, methodByCode, activeProvider } from "./payments.js";
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
+import { pushDistribution } from "./distribution.js";
 import { dispatch } from "./notify.js";
 import { quote, consume } from "./availability.js";
 
@@ -1033,6 +1034,42 @@ app.get("/api/admin/rate-manager", requireRole("ADMIN"), async (_req, res) => {
   res.json({ hotels });
 });
 
+// ─────────────── Distribution: room-type mapping + outbound push ───────────────
+app.get("/api/admin/distribution", requireRole("ADMIN"), async (_req, res) => {
+  const otaChannels = await prisma.supplyChannel.findMany({ where: { type: "OTA", active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, code: true, name: true, color: true } });
+  const hotels = await prisma.hotel.findMany({
+    where: { channel: { type: "DIRECT" } },
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, city: true,
+      rooms: { select: { id: true, name: true, channelMaps: { select: { channelId: true, externalRoomId: true, enabled: true, lastPushedAt: true, pushStatus: true } } } },
+    },
+  });
+  res.json({ hotels, otaChannels });
+});
+
+app.put("/api/admin/rooms/:roomId/channel-maps/:channelId", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ externalRoomId: z.string().min(1), enabled: z.coerce.boolean().default(true) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "ID kamar OTA wajib diisi" });
+  const map = await prisma.roomChannelMap.upsert({
+    where: { roomId_channelId: { roomId: req.params.roomId, channelId: req.params.channelId } },
+    create: { roomId: req.params.roomId, channelId: req.params.channelId, externalRoomId: p.data.externalRoomId, enabled: p.data.enabled },
+    update: { externalRoomId: p.data.externalRoomId, enabled: p.data.enabled },
+  });
+  res.json({ map });
+});
+
+app.delete("/api/admin/rooms/:roomId/channel-maps/:channelId", requireRole("ADMIN"), async (req, res) => {
+  await prisma.roomChannelMap.deleteMany({ where: { roomId: req.params.roomId, channelId: req.params.channelId } });
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/distribution/push", requireRole("ADMIN"), async (_req, res) => {
+  const stats = await pushDistribution(prisma);
+  res.json({ ok: true, ...stats });
+});
+
 app.get("/api/admin/bookings", requireRole("ADMIN"), async (_req, res) => {
   const bookings = await prisma.booking.findMany({
     orderBy: { createdAt: "desc" }, take: 100,
@@ -1067,6 +1104,43 @@ app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: 
     include: { rooms: true, photos: true },
   });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan / bukan milik Anda" });
+  res.json({ hotel });
+});
+
+// Verify a hotel belongs to the partner (admins pass through).
+async function ownsHotel(req: AuthRequest, hotelId: string): Promise<boolean> {
+  if ((req as any).role === "ADMIN") return true;
+  const h = await prisma.hotel.findFirst({ where: { id: hotelId, ownerId: req.userId }, select: { id: true } });
+  return !!h;
+}
+
+// Partner: manage hotel photos.
+app.post("/api/partner/hotels/:id/photos", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const url = String(req.body?.url ?? "");
+  if (!/^https?:\/\//.test(url)) return res.status(400).json({ error: "URL foto tidak valid" });
+  const count = await prisma.hotelPhoto.count({ where: { hotelId: req.params.id } });
+  const photo = await prisma.hotelPhoto.create({ data: { hotelId: req.params.id, url, sort: count } });
+  await invalidate("miruum:");
+  res.json({ photo });
+});
+
+app.delete("/api/partner/photos/:photoId", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const photo = await prisma.hotelPhoto.findUnique({ where: { id: req.params.photoId } });
+  if (!photo) return res.status(404).json({ error: "Foto tidak ditemukan" });
+  if (!(await ownsHotel(req, photo.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  await prisma.hotelPhoto.delete({ where: { id: req.params.photoId } });
+  await invalidate("miruum:");
+  res.json({ ok: true });
+});
+
+// Partner: toggle hotel promo (isPromo + label).
+app.put("/api/partner/hotels/:id/promo", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const isPromo = req.body?.isPromo === "on" || req.body?.isPromo === true || req.body?.isPromo === "true";
+  const promoLabel = String(req.body?.promoLabel ?? "").trim() || null;
+  const hotel = await prisma.hotel.update({ where: { id: req.params.id }, data: { isPromo, promoLabel } });
+  await invalidate("miruum:");
   res.json({ hotel });
 });
 

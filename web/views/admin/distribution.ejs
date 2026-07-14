@@ -1,0 +1,44 @@
+<%- include('../partials/top', { title:'Distribusi OTA', heading:'Distribusi OTA (Room Mapping & Push)', section:'admin', active:'distribution', me }) %>
+
+<% if (pushed !== undefined) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">🚀 Push selesai — <%= pushed %> pemetaan terkirim ke OTA.</div><% } %>
+<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Pemetaan disimpan.</div><% } %>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+  <p class="muted" style="font-size:12.5px;margin:0;max-width:640px">
+    Petakan tiap kamar Miruum (hotel DIRECT) ke <b>ID tipe kamar di OTA</b>, lalu <b>Push</b> untuk mendorong rate & ketersediaan ke OTA tersebut. (Push saat ini mock — aktif otomatis saat kredensial API OTA tersedia.)
+  </p>
+  <form method="post" action="/admin/distribution/push"><button class="btn">🚀 Push ke Semua OTA</button></form>
+</div>
+
+<% hotels.forEach(function(h){ %>
+  <div class="card">
+    <h3><%= h.name %> <span class="muted" style="font-weight:400;font-size:12px">· <%= h.city %></span></h3>
+    <% h.rooms.forEach(function(r){
+         var byCh = {}; (r.channelMaps||[]).forEach(function(m){ byCh[m.channelId]=m; }); %>
+      <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px">
+        <b><%= r.name %></b>
+        <table style="margin-top:10px">
+          <thead><tr><th>OTA</th><th>ID Tipe Kamar OTA</th><th>Aktif</th><th>Status Push</th><th></th></tr></thead>
+          <tbody>
+            <% otaChannels.forEach(function(c){ var m = byCh[c.id]; %>
+              <tr>
+                <td><span class="pill" style="background:<%= (c.color||'#888') %>1f;color:<%= c.color||'#555' %>"><%= c.name %></span></td>
+                <td colspan="3">
+                  <form method="post" action="/admin/rooms/<%= r.id %>/map/<%= c.id %>" style="display:flex;gap:8px;align-items:center">
+                    <input name="externalRoomId" value="<%= m ? m.externalRoomId : '' %>" placeholder="mis. AGD-DLX-001" style="max-width:200px">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;margin:0"><input type="checkbox" name="enabled" style="width:auto" <%= (!m || m.enabled)?'checked':'' %>> aktif</label>
+                    <span class="muted" style="font-size:11px"><%= m && m.pushStatus ? m.pushStatus : (m && m.lastPushedAt ? 'terkirim' : 'belum di-push') %></span>
+                    <button class="btn ghost sm">Simpan</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% }) %>
+  </div>
+<% }) %>
+<% if (!hotels.length) { %><div class="card"><p class="empty">Belum ada hotel DIRECT untuk didistribusikan</p></div><% } %>
+
+<%- include('../partials/bottom') %>

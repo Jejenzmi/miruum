@@ -106,6 +106,7 @@ model SupplyChannel {
   hotels        Hotel[]
   offers        HotelOffer[]
   bookings      Booking[]
+  roomMaps      RoomChannelMap[]
 }
 
 // A price/availability offer for a hotel from ONE supply source. The same
@@ -172,6 +173,23 @@ model Room {
   bookings          Booking[]
   packages          HotelPackage[]
   availability      RoomAvailability[]
+  channelMaps       RoomChannelMap[]
+}
+
+// Maps a Miruum room to an OTA's room-type id — the basis for two-way sync and
+// outbound rate/availability push to that OTA.
+model RoomChannelMap {
+  id             String   @id @default(cuid())
+  roomId         String
+  channelId      String
+  externalRoomId String   // room-type id at the OTA
+  enabled        Boolean  @default(true)
+  lastPushedAt   DateTime?
+  pushStatus     String?  // OK | error message
+  room           Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  channel        SupplyChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, channelId])
 }
 
 // Per-date rate & allotment for a room — the calendar behind availability and
