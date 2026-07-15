@@ -88,6 +88,15 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            // Clamp the system font scale so very large accessibility settings
+            // (or tiny ones) never push text out of its container on any device.
+            builder: (context, child) {
+              final mq = MediaQuery.of(context);
+              return MediaQuery(
+                data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
+                child: child!,
+              );
+            },
             home: const SplashScreen(),
           );
         },
