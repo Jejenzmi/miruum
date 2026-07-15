@@ -521,7 +521,15 @@ class _ProgramRailState extends State<_ProgramRail> {
                 Expanded(child: Text(h.city, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MC.inkMuted, fontSize: 11))),
               ]),
               const SizedBox(height: 6),
-              Text(rupiah(h.priceFrom), style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 13)),
+              Row(children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+                    child: Text(rupiah(h.priceFrom), maxLines: 1, style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 13)),
+                  ),
+                ),
+                Text(' /mlm', style: TextStyle(color: MC.inkFaint, fontSize: 10)),
+              ]),
             ]),
           ),
         ]),

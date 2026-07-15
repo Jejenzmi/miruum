@@ -291,7 +291,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                           Icon(_saveGuest ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
                               size: 20, color: _saveGuest ? MC.primary : MC.inkFaint),
                           const SizedBox(width: 8),
-                          Text('Simpan tamu ini untuk pemesanan berikutnya', style: TextStyle(fontSize: 12.5, color: MC.inkMuted)),
+                          Expanded(child: Text('Simpan tamu ini untuk pemesanan berikutnya', style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
                         ]),
                       ),
                     ]),
@@ -389,9 +389,10 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
 
   Widget _priceRow(String label, String value, {bool discount = false, bool bold = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label, style: TextStyle(fontSize: bold ? 14.5 : 13, color: bold ? MC.ink : MC.inkMuted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
-          Text(value, style: TextStyle(fontSize: bold ? 16 : 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: discount ? MC.success : (bold ? MC.primaryDark : MC.ink))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Text(label, style: TextStyle(fontSize: bold ? 14.5 : 13, color: bold ? MC.ink : MC.inkMuted, fontWeight: bold ? FontWeight.w800 : FontWeight.w500))),
+          const SizedBox(width: 10),
+          Text(value, textAlign: TextAlign.right, style: TextStyle(fontSize: bold ? 16 : 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: discount ? MC.success : (bold ? MC.primaryDark : MC.ink))),
         ]),
       );
 
