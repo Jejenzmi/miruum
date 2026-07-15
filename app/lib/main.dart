@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'push.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +23,15 @@ Future<void> main() async {
   AppSettings.locale.value = Locale(prefs.getString('miruum_lang') ?? 'id');
 
   await Push.init(); // Firebase + FCM (guarded; app runs even if unavailable)
+
+  // Crash reporting → Firebase Crashlytics (guarded; no-op if Firebase unavailable).
+  try {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } catch (_) {}
 
   final api = Api();
   runApp(
