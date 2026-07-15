@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../feedback.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -34,7 +35,7 @@ class _ReviewFormState extends State<_ReviewForm> {
 
   Future<void> _submit() async {
     if (_text.text.trim().length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tulis ulasan minimal 3 karakter'), backgroundColor: MC.danger));
+      showSnack(context, 'Tulis ulasan minimal 3 karakter', kind: SnackKind.error);
       return;
     }
     setState(() => _loading = true);
@@ -42,7 +43,7 @@ class _ReviewFormState extends State<_ReviewForm> {
       await context.read<Api>().submitReview(widget.hotelId, _rating, _text.text.trim());
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: MC.danger));
+      if (mounted) showSnack(context, e.message, kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

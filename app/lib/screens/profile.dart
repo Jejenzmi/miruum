@@ -3,12 +3,14 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
+import '../feedback.dart';
 import '../image_upload.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
 import 'auth.dart';
 import 'chat_screen.dart';
+import 'loyalty.dart';
 import 'personal_data.dart';
 import 'setting.dart';
 import 'shell.dart';
@@ -35,16 +37,15 @@ class ProfileScreen extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.logout_rounded, color: Colors.white),
                 onPressed: () async {
-                  final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    title: const Text('Keluar'),
-                    content: const Text('Yakin ingin keluar dari akun?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Keluar', style: TextStyle(color: MC.danger))),
-                    ],
-                  ));
-                  if (ok == true && context.mounted) context.read<AuthBloc>().add(const AuthLoggedOut());
+                  final ok = await confirmDialog(context,
+                      title: 'Keluar dari Akun?',
+                      message: 'Kamu perlu masuk lagi untuk mengelola pesanan & favoritmu.',
+                      confirmText: 'Ya, keluar', cancelText: 'Batal',
+                      icon: Icons.logout_rounded, danger: true);
+                  if (ok && context.mounted) {
+                    context.read<AuthBloc>().add(const AuthLoggedOut());
+                    showSnack(context, 'Kamu telah keluar dari akun.', kind: SnackKind.info, title: 'Sampai jumpa 👋');
+                  }
                 },
               ),
             ]),
@@ -67,6 +68,8 @@ class ProfileScreen extends StatelessWidget {
               ...stagger([
                 _menuTile(context, Icons.person_outline_rounded, 'Data Pribadi', MC.blue,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDataScreen()))),
+                _menuTile(context, Icons.stars_rounded, 'Poin Miruum', MC.primary,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoyaltyScreen()))),
                 _menuTile(context, Icons.receipt_long_outlined, 'Pesanan Saya', MC.primary,
                     () => goToTab(context, 1)),
                 _menuTile(context, Icons.favorite_border_rounded, 'Hotel Favorit', MC.danger,
@@ -137,6 +140,12 @@ class _EditableAvatar extends StatefulWidget {
 class _EditableAvatarState extends State<_EditableAvatar> {
   bool _busy = false;
 
+  Widget _initial(String name) => Container(
+        width: 64, height: 64, alignment: Alignment.center, color: MC.primarySoft,
+        child: Text(name.characters.first.toUpperCase(),
+            style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 26)),
+      );
+
   Future<void> _change() async {
     if (_busy) return;
     final url = await pickAndUploadImage(context, folder: 'avatars');
@@ -146,12 +155,10 @@ class _EditableAvatarState extends State<_EditableAvatar> {
       final user = await context.read<Api>().updateMe({'avatarUrl': url});
       if (!mounted) return;
       context.read<AuthBloc>().add(AuthUserUpdated(user));
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Foto profil diperbarui'), backgroundColor: MC.primary));
+      showSnack(context, 'Foto profil berhasil diperbarui.', kind: SnackKind.success);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Gagal menyimpan foto'), backgroundColor: MC.danger));
+        showSnack(context, 'Gagal menyimpan foto. Coba lagi.', kind: SnackKind.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -168,11 +175,18 @@ class _EditableAvatarState extends State<_EditableAvatar> {
         CircleAvatar(
           radius: 32,
           backgroundColor: MC.primarySoft,
-          backgroundImage: hasPhoto ? NetworkImage(user.avatarUrl!) : null,
-          child: hasPhoto
-              ? null
-              : Text(user.name.characters.first.toUpperCase(),
-                  style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 26)),
+          child: ClipOval(
+            child: hasPhoto
+                ? Image.network(
+                    user.avatarUrl!,
+                    width: 64, height: 64, fit: BoxFit.cover,
+                    // Fall back to the initial if the image fails to load.
+                    errorBuilder: (_, __, ___) => _initial(user.name),
+                    loadingBuilder: (ctx, child, prog) =>
+                        prog == null ? child : const SizedBox(width: 64, height: 64, child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: MC.primary)))),
+                  )
+                : _initial(user.name),
+          ),
         ),
         Positioned(
           right: 0, bottom: 0,

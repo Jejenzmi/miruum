@@ -1,12 +1,40 @@
 <%- include('../partials/top', { title:'Keuangan', heading:'Keuangan & Settlement', section:'admin', active:'finance', me }) %>
 
-<% if (paid) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f;margin-bottom:16px">✓ Payout dicatat.</div><% } %>
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div><div class="label">Total Transaksi (paid)</div><div class="value"><%= finance.totalBookings %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-finance"/></svg></div><div class="label">Gross Value</div><div class="value" style="font-size:19px"><%= rupiah(finance.totalGross) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-trend"/></svg></div><div class="label">Pendapatan Miruum</div><div class="value" style="font-size:19px;color:var(--primary-d)"><%= rupiah(finance.totalRevenue) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-box"/></svg></div><div class="label">Payout ke Hotel (DIRECT)</div><div class="value" style="font-size:19px"><%= rupiah(finance.totalHotelPayout) %></div></div>
+</div>
 
-<div class="stats" style="margin-bottom:20px">
-  <div class="stat"><div class="muted">Total Transaksi (paid)</div><b style="font-size:22px"><%= finance.totalBookings %></b></div>
-  <div class="stat"><div class="muted">Gross Value</div><b style="font-size:22px"><%= rupiah(finance.totalGross) %></b></div>
-  <div class="stat"><div class="muted">Pendapatan Miruum</div><b style="font-size:22px;color:#E07C17"><%= rupiah(finance.totalRevenue) %></b></div>
-  <div class="stat"><div class="muted">Payout ke Hotel (DIRECT)</div><b style="font-size:22px"><%= rupiah(finance.totalHotelPayout) %></b></div>
+<% if (claimDone) { %><div class="notice ok">Klaim pencairan <%= claimDone==='paid'?'dibayar & dicatat sebagai settlement':'ditolak' %>.</div><% } %>
+
+<div class="card">
+  <h3 style="margin:0 0 6px">Klaim Pencairan Mitra</h3>
+  <p class="muted" style="font-size:12px;margin:0 0 12px">Pengajuan pencairan dari hotel mitra. Bayar untuk mencatat settlement otomatis.</p>
+  <table>
+    <thead><tr><th>Tanggal</th><th>Hotel · Mitra</th><th>Jumlah</th><th>Rekening Tujuan</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% (claims||[]).forEach(function(c){ %>
+        <tr>
+          <td style="font-size:12px"><%= new Date(c.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) %></td>
+          <td><b><%= c.hotel.name %></b><br><span class="muted" style="font-size:11px"><%= c.hotel.owner ? c.hotel.owner.name : '—' %></span></td>
+          <td><b><%= rupiah(c.amount) %></b></td>
+          <td style="font-size:12px"><%= c.bankName || '—' %> <%= c.bankAccount || '' %><% if (c.accountHolder) { %><br><span class="muted"><%= c.accountHolder %></span><% } %></td>
+          <td><span class="pill <%= c.status==='PAID'?'PAID':c.status==='REJECTED'?'CANCELLED':'PENDING' %>"><%= c.status==='PAID'?'Dibayar':c.status==='REJECTED'?'Ditolak':'Menunggu' %></span></td>
+          <td>
+            <% if (c.status==='PENDING') { %>
+              <div class="actions">
+                <form method="post" action="/admin/claims/<%= c.id %>/pay" data-confirm="Bayar pencairan <%= rupiah(c.amount) %> ke <%= c.hotel.name %>?" data-confirm-ok="Ya, bayar"><button class="btn sm">Bayar</button></form>
+                <form method="post" action="/admin/claims/<%= c.id %>/reject" data-confirm="Tolak klaim ini?"><button class="btn danger sm">Tolak</button></form>
+              </div>
+            <% } else { %><span class="muted">—</span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!(claims||[]).length) { %><tr><td colspan="6" class="empty">Belum ada klaim pencairan</td></tr><% } %>
+    </tbody>
+  </table>
 </div>
 
 <div class="card">
@@ -43,11 +71,11 @@
           <td><b style="color:<%= p.due>0?'#b02a2a':'#1c7a3f' %>"><%= rupiah(p.due) %></b></td>
           <td>
             <% if (p.due>0){ %>
-              <form method="post" action="/admin/settlements/pay" onsubmit="return confirm('Catat payout <%= rupiah(p.due) %> ke <%= p.name %>?')">
+              <form method="post" action="/admin/settlements/pay" data-confirm="Catat payout <%= rupiah(p.due) %> ke <%= p.name %>?">
                 <input type="hidden" name="hotelId" value="<%= p.hotelId %>">
                 <input type="hidden" name="amount" value="<%= p.due %>">
                 <input type="hidden" name="bookingsCount" value="<%= p.bookings %>">
-                <button class="btn sm">💸 Tandai Lunas</button>
+                <button class="btn sm">Tandai Lunas</button>
               </form>
             <% } else { %><span class="muted">—</span><% } %>
           </td>

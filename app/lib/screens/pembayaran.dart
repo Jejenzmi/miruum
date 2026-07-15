@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../feedback.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -86,7 +87,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
 
   Future<void> _pay(Booking b) async {
     if (_methodCode == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pilih metode pembayaran dulu'), backgroundColor: MC.danger));
+      showSnack(context, 'Pilih metode pembayaran dulu', kind: SnackKind.error);
       return;
     }
     setState(() => _paying = true);
@@ -95,7 +96,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
       if (!mounted) return;
       Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentInstructionScreen(payment: payment, bookingId: b.id)));
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: MC.danger));
+      if (mounted) showSnack(context, e.message, kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _paying = false);
     }

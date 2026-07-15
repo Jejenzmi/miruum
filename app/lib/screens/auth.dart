@@ -1,20 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../brand.dart';
+import '../feedback.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
 
-void _toast(BuildContext c, String m, {bool err = true}) {
-  ScaffoldMessenger.of(c).showSnackBar(SnackBar(
-    content: Text(m),
-    backgroundColor: err ? MC.danger : MC.primary,
-    behavior: SnackBarBehavior.floating,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  ));
+void _toast(BuildContext c, String m, {bool err = true}) =>
+    showSnack(c, m, kind: err ? SnackKind.error : SnackKind.success);
+
+// OAuth Web client ID, injected at build time once Google sign-in is enabled
+// in Firebase (--dart-define=GOOGLE_SERVER_CLIENT_ID=...). Empty → button shows
+// a "coming soon" message instead of failing.
+const _googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID', defaultValue: '');
+
+Future<void> signInWithGoogle(BuildContext context) async {
+  if (_googleServerClientId.isEmpty) {
+    resultDialog(context,
+        title: 'Login dengan Google',
+        message: 'Login Google sedang disiapkan. Untuk sekarang, gunakan email atau daftar akun baru.',
+        kind: SnackKind.info, okText: 'Mengerti');
+    return;
+  }
+  try {
+    final gsi = GoogleSignIn(serverClientId: _googleServerClientId, scopes: const ['email', 'profile']);
+    await gsi.signOut();
+    final acct = await gsi.signIn();
+    if (acct == null) return; // cancelled
+    final idToken = (await acct.authentication).idToken;
+    if (idToken == null || idToken.isEmpty) {
+      if (context.mounted) showSnack(context, 'Gagal memperoleh token Google.', kind: SnackKind.error);
+      return;
+    }
+    final (token, user) = await context.read<Api>().googleLogin(idToken);
+    if (context.mounted) {
+      context.read<AuthBloc>().add(AuthSessionGranted(token, user));
+      Navigator.pop(context);
+    }
+  } catch (e) {
+    if (context.mounted) showSnack(context, 'Login Google gagal. Coba lagi.', kind: SnackKind.error);
+  }
+}
+
+/// A crisp multi-color Google "G" mark (blue right + bar, green bottom, yellow
+/// left, red top), drawn so the Google sign-in button looks authentic.
+class GoogleGLogo extends StatelessWidget {
+  final double size;
+  const GoogleGLogo({super.key, this.size = 20});
+  @override
+  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _GoogleGPainter()));
+}
+
+class _GoogleGPainter extends CustomPainter {
+  double _rad(double deg) => deg * 3.1415926535 / 180.0;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final sw = w * 0.26;
+    final rect = Rect.fromLTWH(sw / 2, sw / 2, w - sw, w - sw);
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = sw
+      ..strokeCap = StrokeCap.butt;
+    p.color = const Color(0xFF4285F4); canvas.drawArc(rect, _rad(-45), _rad(90), false, p); // blue (right)
+    p.color = const Color(0xFF34A853); canvas.drawArc(rect, _rad(45), _rad(90), false, p);  // green (bottom)
+    p.color = const Color(0xFFFBBC05); canvas.drawArc(rect, _rad(135), _rad(90), false, p); // yellow (left)
+    p.color = const Color(0xFFEA4335); canvas.drawArc(rect, _rad(225), _rad(90), false, p); // red (top)
+    // Inner blue crossbar of the "G".
+    final bar = Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.fill;
+    canvas.drawRect(Rect.fromLTWH(w * 0.5, w * 0.5 - sw / 2, w * 0.5 - sw / 2 + 1, sw), bar);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ─────────────────────────── Sign In ───────────────────────────
@@ -50,14 +112,14 @@ class _SignInScreenState extends State<SignInScreen> {
       body: Column(children: [
         HeroHeader(
           height: 210,
-          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.center, children: [
             const MiruumLogo(size: 34, onDark: true).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
             const SizedBox(height: 14),
-            const Text('Sign In', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
-                .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
+            const Text('Sign In', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
+                .animate().fadeIn(delay: 120.ms).scale(begin: const Offset(0.9, 0.9)),
             const SizedBox(height: 4),
             const Text('Halo Sahabat Miruum! Ayo login dulu 👋',
-                    style: TextStyle(color: Colors.white70, fontSize: 13.5))
+                    textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 13.5))
                 .animate().fadeIn(delay: 220.ms),
           ]),
         ),
@@ -88,22 +150,17 @@ class _SignInScreenState extends State<SignInScreen> {
               const SizedBox(height: 16),
               SizedBox(
                 height: 50,
+                width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _toast(context, 'Login Google (demo) — pakai demo@miruum.id', err: false),
-                  icon: const Icon(Icons.g_mobiledata_rounded, size: 30, color: MC.danger),
+                  onPressed: () => signInWithGoogle(context),
+                  icon: const Padding(padding: EdgeInsets.only(right: 2), child: GoogleGLogo(size: 20)),
                   label: Text('Sign In with Google', style: TextStyle(color: MC.ink, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
+                    alignment: Alignment.center,
                     side: BorderSide(color: MC.line),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(12)),
-                child: const Text('Demo: demo@miruum.id / demo123',
-                    textAlign: TextAlign.center, style: TextStyle(color: MC.primaryDark, fontSize: 12, fontWeight: FontWeight.w600)),
               ),
               const SizedBox(height: 20),
               Center(
@@ -231,7 +288,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _loading = true);
     try {
       await context.read<Api>().forgotPassword(_email.text.trim());
-      if (mounted) { setState(() => _sent = true); _toast(context, 'Kode reset dikirim (demo: 1234)', err: false); }
+      if (mounted) { setState(() => _sent = true); _toast(context, 'Kode reset telah dikirim ke email Anda.', err: false); }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -279,7 +336,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               AuthTextField('Email terdaftar', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
               if (_sent) ...[
                 const SizedBox(height: 14),
-                AuthTextField('Kode reset (demo: 1234)', Icons.pin_rounded, _code, keyboard: TextInputType.number),
+                AuthTextField('Kode reset dari email', Icons.pin_rounded, _code, keyboard: TextInputType.number),
                 const SizedBox(height: 14),
                 AuthTextField('Kata sandi baru', Icons.lock_outline_rounded, _pass, obscure: _obscure,
                     suffix: IconButton(
@@ -372,6 +429,20 @@ class _OtpScreenState extends State<OtpScreen> {
   final _controllers = List.generate(4, (_) => TextEditingController());
   final _nodes = List.generate(4, (_) => FocusNode());
   bool _loading = false;
+  String? _devCode; // shown only when no email/WA channel is configured
+
+  @override
+  void initState() {
+    super.initState();
+    _sendCode();
+  }
+
+  Future<void> _sendCode() async {
+    try {
+      final r = await context.read<Api>().requestOtp();
+      if (mounted && r != null) setState(() => _devCode = r);
+    } catch (_) {/* ignore — user can resend */}
+  }
 
   Future<void> _confirm() async {
     final code = _controllers.map((c) => c.text).join();
@@ -405,7 +476,11 @@ class _OtpScreenState extends State<OtpScreen> {
               Text('Masukan 4 digit kode yang dikirim ke email ${widget.email}',
                   style: TextStyle(color: MC.inkMuted, fontSize: 13)),
               const SizedBox(height: 8),
-              const Text('Gunakan kode 1234 (demo)', style: TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+              if (_devCode != null)
+                Text('Kode Anda: $_devCode', style: const TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600))
+              else
+                TextButton(onPressed: _sendCode, style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    child: const Text('Kirim ulang kode', style: TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600))),
               const SizedBox(height: 32),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -436,11 +511,4 @@ class _OtpScreenState extends State<OtpScreen> {
       ),
     );
   }
-}
-
-/// Shown when a guest tries a member-only action.
-Future<bool> ensureLoggedIn(BuildContext context) async {
-  if (context.read<AuthBloc>().state.isLoggedIn) return true;
-  await Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
-  return context.read<AuthBloc>().state.isLoggedIn;
 }

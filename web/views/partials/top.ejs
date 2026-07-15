@@ -5,42 +5,193 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= title %> — Miruum</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <g id="i-dashboard"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></g>
+  <g id="i-hotel"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M15 9h3a1 1 0 0 1 1 1v11M8 8h2M8 12h2M8 16h2"/></g>
+  <g id="i-package"><path d="M21 8v13H3V8M1 3h22v5H1zM10 21V3M14 21V3"/></g>
+  <g id="i-rates"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></g>
+  <g id="i-channels"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></g>
+  <g id="i-distribution"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></g>
+  <g id="i-promos"><path d="M20.6 13.4 12 22l-9-9V4a1 1 0 0 1 1-1h8l8.6 8.6a1.4 1.4 0 0 1 0 2z"/><circle cx="7.5" cy="7.5" r="1.2"/></g>
+  <g id="i-banners"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></g>
+  <g id="i-bookings"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1zM8 8h8M8 12h8M8 16h5"/></g>
+  <g id="i-finance"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4M3 5v14a2 2 0 0 0 2 2h16v-5M18 12a2 2 0 0 0 0 4h4v-4z"/></g>
+  <g id="i-report"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></g>
+  <g id="i-reviews"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></g>
+  <g id="i-facilities"><path d="M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></g>
+  <g id="i-content"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8M8 9h2"/></g>
+  <g id="i-chats"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></g>
+  <g id="i-broadcast"><path d="m3 11 14-7v16L3 13zM8 13v5a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-3"/></g>
+  <g id="i-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11"/></g>
+  <g id="i-settings"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g>
+  <g id="i-logout"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></g>
+  <g id="i-box"><path d="m12 3 9 5v8l-9 5-9-5V8l9-5zM3 8l9 5 9-5M12 13v8"/></g>
+  <g id="i-link"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></g>
+  <g id="i-plug"><path d="M12 22v-5M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0z"/></g>
+  <g id="i-globe"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></g>
+  <g id="i-bell"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a2 2 0 0 0 3.4 0"/></g>
+  <g id="i-trend"><path d="M3 17l6-6 4 4 8-8M21 7v6M21 7h-6"/></g>
+  <g id="i-sparkle"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.4 2.4M15.3 15.3l2.4 2.4M17.7 6.3l-2.4 2.4M8.7 15.3l-2.4 2.4"/></g>
+  <g id="i-info"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></g>
+  <g id="i-shield"><path d="M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/></g>
+  <g id="i-arrival"><path d="M12 3v10M7 8l5 5 5-5M4 21h16"/></g>
+  <g id="i-departure"><path d="M12 13V3M7 8l5-5 5 5M4 21h16"/></g>
+  <g id="i-campaign"><path d="M4 22V4M4 5h13l-2 4 2 4H4"/></g>
+</defs></svg>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><img src="/static/logo.png" alt="Miruum" class="brand-logo-side"></div>
-    <span class="badge-role"><%= section === 'admin' ? 'BACK OFFICE' : 'EXTRANET MITRA' %></span>
+    <span class="sblob s1"></span><span class="sblob s2"></span><span class="sblob s3"></span>
+    <%
+      // Portal = which product (admin Back Office / cm Channel Manager / extranet).
+      var pv = (section === 'admin') ? 'admin' : (section === 'corporate') ? 'corporate' : ((typeof portal !== 'undefined' && portal) ? portal : 'extranet');
+      var _tag = pv === 'admin' ? 'Operations Console' : pv === 'cm' ? 'Distribusi OTA' : pv === 'pms' ? 'Front Office' : pv === 'corporate' ? 'Corporate & Gov' : 'Hotel Management';
+      var _badge = pv === 'admin' ? 'BACK OFFICE' : pv === 'cm' ? 'CHANNEL MANAGER' : pv === 'pms' ? 'PMS' : pv === 'corporate' ? 'CORPORATE' : 'EXTRANET MITRA';
+    %>
+    <div class="side-brand">
+      <img src="/static/logo.png" alt="Miruum" class="brand-logo-side">
+      <div class="side-tag"><%= _tag %></div>
+    </div>
+    <span class="badge-role"><%= _badge %></span>
     <nav class="nav">
-      <% if (section === 'admin') { %>
-        <a href="/admin" class="<%= active==='dashboard'?'active':'' %>">📊 Dashboard</a>
-        <a href="/admin/hotels" class="<%= active==='hotels'?'active':'' %>">🏨 Hotel</a>
-        <a href="/admin/packages" class="<%= active==='packages'?'active':'' %>">🎁 Paket Hotel</a>
-        <a href="/admin/rates" class="<%= active==='rates'?'active':'' %>">🗓️ Rate Manager</a>
-        <a href="/admin/channels" class="<%= active==='channels'?'active':'' %>">🔀 Channel Manager</a>
-        <a href="/admin/distribution" class="<%= active==='distribution'?'active':'' %>">🚀 Distribusi OTA</a>
-        <a href="/admin/promos" class="<%= active==='promos'?'active':'' %>">🏷️ Promo</a>
-        <a href="/admin/banners" class="<%= active==='banners'?'active':'' %>">🖼️ Banner</a>
-        <a href="/admin/bookings" class="<%= active==='bookings'?'active':'' %>">🧾 Pesanan</a>
-        <a href="/admin/finance" class="<%= active==='finance'?'active':'' %>">💰 Keuangan</a>
-        <a href="/admin/report" class="<%= active==='report'?'active':'' %>">📊 Laporan</a>
-        <a href="/admin/chats" class="<%= active==='chats'?'active':'' %>">💬 Live Chat CS</a>
-        <a href="/admin/broadcast" class="<%= active==='broadcast'?'active':'' %>">📣 Broadcast</a>
-        <a href="/admin/users" class="<%= active==='users'?'active':'' %>">👥 Pengguna</a>
-        <a href="/admin/settings" class="<%= active==='settings'?'active':'' %>">⚙️ Pengaturan</a>
-        <a href="/admin/logout">🚪 Keluar</a>
+      <% function ni(id){ return '<svg class="ni" viewBox="0 0 24 24"><use href="#i-'+id+'"/></svg>'; } %>
+      <% if (pv === 'admin') { %>
+        <div class="nav-label">Utama</div>
+        <a href="/admin" class="<%= active==='dashboard'?'active':'' %>"><%- ni('dashboard') %>Dashboard</a>
+        <a href="/admin/hotels" class="<%= active==='hotels'?'active':'' %>"><%- ni('hotel') %>Hotel</a>
+        <a href="/admin/packages" class="<%= active==='packages'?'active':'' %>"><%- ni('package') %>Paket Hotel</a>
+        <a href="/admin/facilities" class="<%= active==='facilities'?'active':'' %>"><%- ni('facilities') %>Fasilitas</a>
+        <div class="nav-label">Distribusi & Harga</div>
+        <a href="/admin/rates" class="<%= active==='rates'?'active':'' %>"><%- ni('rates') %>Rate Manager</a>
+        <a href="/admin/channels" class="<%= active==='channels'?'active':'' %>"><%- ni('channels') %>Channel Manager</a>
+        <a href="/admin/rate-intelligence" class="<%= active==='rate-intel'?'active':'' %>"><%- ni('finance') %>Rate Intelligence</a>
+        <a href="/admin/parity" class="<%= active==='parity'?'active':'' %>"><%- ni('shield') %>Rate Parity</a>
+        <a href="/admin/revenue-management" class="<%= active==='rm'?'active':'' %>"><%- ni('trend') %>Revenue Mgmt</a>
+        <a href="/admin/meta-channels" class="<%= active==='meta'?'active':'' %>"><%- ni('globe') %>Metasearch & GDS</a>
+        <a href="/admin/distribution" class="<%= active==='distribution'?'active':'' %>"><%- ni('distribution') %>Distribusi OTA</a>
+        <div class="nav-label">Pemasaran</div>
+        <a href="/admin/programs" class="<%= active==='programs'?'active':'' %>"><%- ni('campaign') %>Program & Campaign</a>
+        <a href="/admin/promos" class="<%= active==='promos'?'active':'' %>"><%- ni('promos') %>Kode Promo</a>
+        <a href="/admin/banners" class="<%= active==='banners'?'active':'' %>"><%- ni('banners') %>Banner</a>
+        <div class="nav-label">Transaksi</div>
+        <a href="/admin/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Pesanan</a>
+        <a href="/admin/finance" class="<%= active==='finance'?'active':'' %>"><%- ni('finance') %>Keuangan</a>
+        <a href="/admin/report" class="<%= active==='report'?'active':'' %>"><%- ni('report') %>Laporan</a>
+        <div class="nav-label">Layanan & Sistem</div>
+        <a href="/admin/reviews" class="<%= active==='reviews'?'active':'' %>"><%- ni('reviews') %>Ulasan</a>
+        <a href="/admin/content" class="<%= active==='content'?'active':'' %>"><%- ni('content') %>Konten Statis</a>
+        <a href="/admin/chats" class="<%= active==='chats'?'active':'' %>"><%- ni('chats') %>Live Chat CS</a>
+        <a href="/admin/broadcast" class="<%= active==='broadcast'?'active':'' %>"><%- ni('broadcast') %>Broadcast</a>
+        <a href="/admin/users" class="<%= active==='users'?'active':'' %>"><%- ni('users') %>Pengguna</a>
+        <a href="/admin/corporate" class="<%= active==='corporate'?'active':'' %>"><%- ni('box') %>Pengajuan Korporat</a>
+        <a href="/admin/corporate-billing" class="<%= active==='billing'?'active':'' %>"><%- ni('finance') %>Penagihan Korporat</a>
+        <a href="/admin/regions" class="<%= active==='regions'?'active':'' %>"><%- ni('globe') %>Master Wilayah</a>
+        <a href="/admin/integrations" class="<%= active==='integrations'?'active':'' %>"><%- ni('plug') %>Integrasi & Kredensial</a>
+        <a href="/admin/app-popup" class="<%= active==='app-popup'?'active':'' %>"><%- ni('bell') %>Pop-up & Update</a>
+        <a href="/admin/audit" class="<%= active==='audit'?'active':'' %>"><%- ni('users') %>Log Audit</a>
+        <a href="/admin/settings" class="<%= active==='settings'?'active':'' %>"><%- ni('settings') %>Pengaturan</a>
+        <a href="/admin/logout" class="logout" data-confirm="Yakin ingin keluar dari Back Office?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
+      <% } else if (pv === 'cm') { %>
+        <div class="nav-label">Distribusi</div>
+        <a href="/extranet/channel-manager" class="<%= active==='cm'?'active':'' %>"><%- ni('channels') %>Channel Manager</a>
+        <a href="/extranet/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Pesanan dari OTA</a>
+        <a href="/extranet/payouts" class="<%= active==='payouts'?'active':'' %>"><%- ni('finance') %>Pencairan / Klaim</a>
+        <div class="nav-label">Lainnya</div>
+        <a href="https://extranet.gokar.id/extranet" target="_blank" rel="noopener"><%- ni('hotel') %>Extranet Properti ↗</a>
+        <a href="/extranet/logout" class="logout" data-confirm="Yakin ingin keluar dari Channel Manager?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
+      <% } else if (pv === 'corporate') { %>
+        <div class="nav-label">Korporat</div>
+        <a href="/corporate" class="<%= active==='dashboard'?'active':'' %>"><%- ni('dashboard') %>Dashboard</a>
+        <a href="/corporate/book" class="<%= active==='book'?'active':'' %>"><%- ni('hotel') %>Pesan Hotel</a>
+        <a href="/corporate/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Riwayat & Invoice</a>
+        <a href="/corporate/invoices" class="<%= active==='invoices'?'active':'' %>"><%- ni('finance') %>Tagihan & Pembayaran</a>
+        <div class="nav-label">Akun</div>
+        <a href="/corporate/logout" class="logout" data-confirm="Yakin ingin keluar dari portal korporat?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
+      <% } else if (pv === 'pms') { %>
+        <div class="nav-label">Front Office</div>
+        <a href="/pms" class="<%= active==='pms'?'active':'' %>"><%- ni('dashboard') %>Front Desk</a>
+        <a href="/pms/guests" class="<%= active==='guests'?'active':'' %>"><%- ni('users') %>Profil Tamu</a>
+        <a href="/pms/pos" class="<%= active==='pos'?'active':'' %>"><%- ni('finance') %>POS (Charge ke Kamar)</a>
+        <a href="/pms/maintenance" class="<%= active==='maintenance'?'active':'' %>"><%- ni('plug') %>Maintenance</a>
+        <a href="/pms/reports" class="<%= active==='reports'?'active':'' %>"><%- ni('trend') %>Laporan Harian (D-Report)</a>
+        <a href="/pms#housekeeping"><%- ni('hotel') %>Housekeeping</a>
+        <div class="nav-label">Ekosistem</div>
+        <a href="https://cm.gokar.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager ↗</a>
+        <a href="https://extranet.gokar.id/extranet" target="_blank" rel="noopener"><%- ni('package') %>Extranet Properti ↗</a>
+        <a href="/extranet/logout" class="logout" data-confirm="Yakin ingin keluar dari PMS?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } else { %>
-        <a href="/extranet" class="<%= active==='dashboard'?'active':'' %>">📊 Ringkasan</a>
-        <a href="/extranet/bookings" class="<%= active==='bookings'?'active':'' %>">🧾 Pesanan Masuk</a>
-        <a href="/extranet/logout">🚪 Keluar</a>
+        <div class="nav-label">Properti</div>
+        <a href="/extranet" class="<%= active==='dashboard'?'active':'' %>"><%- ni('dashboard') %>Ringkasan & Hotel</a>
+        <a href="/extranet/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Pesanan Masuk</a>
+        <a href="/extranet/reviews" class="<%= active==='reviews'?'active':'' %>"><%- ni('sparkle') %>Ulasan Tamu</a>
+        <a href="/extranet/messages" class="<%= active==='messages'?'active':'' %>"><%- ni('bell') %>Pesan Tamu</a>
+        <a href="/extranet/report" class="<%= active==='report'?'active':'' %>"><%- ni('trend') %>Laporan Performa</a>
+        <div class="nav-label">Keuangan</div>
+        <a href="/extranet/payouts" class="<%= active==='payouts'?'active':'' %>"><%- ni('finance') %>Pencairan / Klaim</a>
+        <div class="nav-label">Pemasaran</div>
+        <a href="/extranet/programs" class="<%= active==='programs'?'active':'' %>"><%- ni('campaign') %>Program & Campaign</a>
+        <div class="nav-label">Distribusi</div>
+        <a href="https://cm.gokar.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager <%= (locals.ent && locals.ent.channelManager) ? '↗' : '🔒' %></a>
+        <a href="https://pms.gokar.id/pms" target="_blank" rel="noopener"><%- ni('hotel') %>PMS Front Desk <%= (locals.ent && locals.ent.pms) ? '↗' : '🔒' %></a>
+        <a href="/extranet/logout" class="logout" data-confirm="Yakin ingin keluar dari Extranet?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } %>
     </nav>
+    <div class="side-foot">
+      <% if (pv === 'admin') { %>
+        <div class="sf-title">Miruum OTA</div>
+        <div class="sf-sub">Distribusi, harga, tamu & keuangan dalam satu konsol.</div>
+      <% } else if (pv === 'cm') { %>
+        <div class="sf-badge">✦ Channel Manager</div>
+        <div class="sf-title">Satu inventaris, semua OTA</div>
+        <div class="sf-sub">Distribusi host-to-host & anti-overbooking otomatis.</div>
+      <% } else if (pv === 'pms') { %>
+        <div class="sf-badge">✦ PMS Miruum</div>
+        <div class="sf-title">Ekosistem hospitality</div>
+        <div class="sf-sub">Front office terhubung Channel Manager & Extranet.</div>
+      <% } else if (pv === 'corporate') { %>
+        <div class="sf-badge">✦ Corporate & Government</div>
+        <div class="sf-title">Perjalanan dinas mudah</div>
+        <div class="sf-sub">Pesan hotel karyawan/pegawai, tagihan & laporan terpusat.</div>
+      <% } else { %>
+        <div class="sf-badge">✦ Mitra Miruum</div>
+        <div class="sf-title">Maksimalkan okupansi</div>
+        <div class="sf-sub">Kelola rate, stok & promo real-time — tanpa double-booking.</div>
+      <% } %>
+    </div>
   </aside>
   <main class="main">
+    <%
+      var _subs = {
+        dashboard:'Ringkasan operasional hari ini', hotels:'Kelola daftar hotel & kamar',
+        packages:'Paket bundling hotel + benefit', facilities:'Katalog & fasilitas tiap hotel',
+        content:'Kelola T&C, Privasi & Tentang', cm:'Distribusi inventaris & harga ke semua OTA',
+        pms:'Front office — check-in, check-out & housekeeping',
+        programs:'Program promo & campaign untuk hotel',
+        book:'Pesan hotel untuk karyawan/pegawai',
+        payouts:'Cairkan pendapatan booking DIRECT Anda',
+        billing:'Terbitkan tagihan ke instansi korporat/pemerintah',
+        invoices:'Tagihan dari Miruum & status pembayaran',
+        rates:'Atur harga, allotment & restriksi per tanggal',
+        channels:'Sumber pasok & mark-up per kanal', distribution:'Petakan kamar & dorong rate ke OTA',
+        promos:'Kode promo & diskon', banners:'Kelola carousel di aplikasi',
+        bookings:'Semua pesanan masuk', finance:'Arus kas, komisi & settlement',
+        report:'Grafik & unduh laporan', reviews:'Moderasi ulasan tamu',
+        chats:'Layani percakapan pelanggan',
+        broadcast:'Kirim notifikasi ke pengguna', users:'Kelola akun & peran',
+        corporate:'Tinjau & setujui pengajuan akun instansi',
+        regions:'Data induk wilayah Indonesia (pemekaran)',
+        settings:'Pajak, komisi & konfigurasi', integrations:'Email/SMTP, FCM push & WhatsApp'
+      };
+      var _sub = typeof subtitle !== 'undefined' ? subtitle : (_subs[active] || '');
+    %>
     <div class="topbar">
-      <h1><%= heading %></h1>
+      <div>
+        <h1><%= heading %></h1>
+        <% if (_sub) { %><p class="topbar-sub"><%= _sub %></p><% } %>
+      </div>
       <div class="user-chip">
         <span><%= me.name %></span>
         <div class="avatar"><%= me.name.charAt(0).toUpperCase() %></div>

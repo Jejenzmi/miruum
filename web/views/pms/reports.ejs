@@ -1,0 +1,42 @@
+<%- include('../partials/top', { title:'Laporan Harian', heading:'Laporan Harian (D-Report)', section:'extranet', active:'reports', me }) %>
+
+<% if (done==='audit') { %><div class="notice ok">Night audit selesai — D-report tersimpan, room charge harian diposting, no-show ditandai.</div><% } %>
+
+<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+  <p class="muted" style="margin:0;max-width:600px">Ringkasan manajer harian: okupansi, ADR, RevPAR, revenue. Dihasilkan tiap Night Audit.</p>
+  <form method="post" action="/pms/night-audit" data-confirm="Jalankan Night Audit sekarang?" data-confirm-title="Night Audit" data-confirm-ok="Jalankan"><button class="btn">🌙 Jalankan Night Audit</button></form>
+</div>
+
+<% var latest = (reports||[])[0]; %>
+<% if (latest) { %>
+  <div class="stat-grid" style="margin-bottom:16px">
+    <div class="stat"><div class="label">Okupansi</div><div class="value"><%= latest.occupancyPct %>%</div></div>
+    <div class="stat"><div class="label">ADR (avg daily rate)</div><div class="value" style="font-size:18px"><%= rupiah(latest.adr) %></div></div>
+    <div class="stat"><div class="label">RevPAR</div><div class="value" style="font-size:18px"><%= rupiah(latest.revpar) %></div></div>
+    <div class="stat"><div class="label">Revenue</div><div class="value" style="font-size:18px"><%= rupiah(latest.totalRevenue) %></div></div>
+  </div>
+<% } %>
+
+<div class="card">
+  <h2 style="margin-top:0">Riwayat D-Report</h2>
+  <div style="overflow-x:auto"><table style="width:100%;font-size:12.5px">
+    <thead><tr><th>Tanggal</th><th style="text-align:right">Okupansi</th><th style="text-align:right">ADR</th><th style="text-align:right">RevPAR</th><th style="text-align:right">Arr/Dep</th><th style="text-align:right">In-house</th><th style="text-align:right">No-show</th><th style="text-align:right">Revenue</th></tr></thead>
+    <tbody>
+      <% (reports||[]).forEach(function(r){ %>
+        <tr>
+          <td><b><%= new Date(r.businessDate).toLocaleDateString('id-ID') %></b></td>
+          <td style="text-align:right"><%= r.occupancyPct %>%</td>
+          <td style="text-align:right"><%= rupiah(r.adr) %></td>
+          <td style="text-align:right"><%= rupiah(r.revpar) %></td>
+          <td style="text-align:right"><%= r.arrivals %>/<%= r.departures %></td>
+          <td style="text-align:right"><%= r.inhouse %></td>
+          <td style="text-align:right"><%= r.noShows %></td>
+          <td style="text-align:right"><b><%= rupiah(r.totalRevenue) %></b></td>
+        </tr>
+      <% }) %>
+      <% if (!(reports||[]).length) { %><tr><td colspan="8" class="empty">Belum ada laporan. Jalankan Night Audit.</td></tr><% } %>
+    </tbody>
+  </table></div>
+</div>
+
+<%- include('../partials/bottom') %>

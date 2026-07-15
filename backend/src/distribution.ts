@@ -11,9 +11,15 @@ function dayUTC(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-export async function pushDistribution(prisma: PrismaClient): Promise<{ pushed: number; skipped: number }> {
+// Push host-to-host to every connected OTA. Pass `ownerId` to scope to one
+// partner hotel's inventory (the partner-facing Channel Manager at cm.gokar.id).
+export async function pushDistribution(prisma: PrismaClient, ownerId?: string): Promise<{ pushed: number; skipped: number }> {
   const maps = await prisma.roomChannelMap.findMany({
-    where: { enabled: true, channel: { type: "OTA", active: true } },
+    where: {
+      enabled: true,
+      channel: { type: "OTA", active: true },
+      ...(ownerId ? { room: { hotel: { ownerId } } } : {}),
+    },
     include: { room: true, channel: true },
   });
   let pushed = 0, skipped = 0;

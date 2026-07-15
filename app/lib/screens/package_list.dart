@@ -107,7 +107,8 @@ class PackageCard extends StatelessWidget {
               ]),
               const SizedBox(height: 10),
               Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final inc in pkg.inclusions.take(3))
+                TagChip(pkg.boardLabel, Icons.restaurant_rounded),
+                for (final inc in pkg.inclusions.take(2))
                   TagChip(inc, Icons.check_rounded),
               ]),
               Divider(height: 22, color: MC.line),

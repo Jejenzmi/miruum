@@ -1,12 +1,18 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'models.dart';
+import 'token_store.dart';
 
 /// Thin API client for the Miruum backend.
 /// Served same-origin behind nginx → base path is `/api`.
 class Api {
   static const String base = String.fromEnvironment('API_BASE', defaultValue: '/api');
   String? token;
+  String? refreshToken;
+
+  /// Called when the refresh token is rejected → the session is truly over.
+  Future<void> Function()? onSessionExpired;
+  bool _refreshing = false;
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -19,25 +25,61 @@ class Api {
     return Uri.parse('$base$path').replace(queryParameters: (query?.isEmpty ?? true) ? null : query);
   }
 
-  Future<dynamic> _get(String path, [Map<String, dynamic>? q]) async {
-    final r = await http.get(_u(path, q), headers: _headers);
+  Future<http.Response> _raw(String method, String path, {Map<String, dynamic>? q, Object? body}) {
+    final uri = _u(path, q);
+    switch (method) {
+      case 'GET':
+        return http.get(uri, headers: _headers);
+      case 'POST':
+        return http.post(uri, headers: _headers, body: jsonEncode(body ?? {}));
+      case 'PUT':
+        return http.put(uri, headers: _headers, body: jsonEncode(body ?? {}));
+      case 'DELETE':
+        return http.delete(uri, headers: _headers);
+    }
+    throw ApiException('Metode tidak didukung', 0);
+  }
+
+  /// Core request with a single transparent access-token refresh on 401.
+  Future<dynamic> _req(String method, String path, {Map<String, dynamic>? q, Object? body}) async {
+    var r = await _raw(method, path, q: q, body: body);
+    if (r.statusCode == 401 && refreshToken != null && !path.startsWith('/auth/')) {
+      if (await _tryRefresh()) r = await _raw(method, path, q: q, body: body);
+    }
     return _decode(r);
   }
 
-  Future<dynamic> _post(String path, [Map<String, dynamic>? body]) async {
-    final r = await http.post(_u(path), headers: _headers, body: jsonEncode(body ?? {}));
-    return _decode(r);
+  /// Exchange the refresh token for a new access+refresh pair. Persists on
+  /// success; triggers [onSessionExpired] and clears tokens on hard failure.
+  Future<bool> _tryRefresh() async {
+    if (refreshToken == null || _refreshing) return false;
+    _refreshing = true;
+    try {
+      final r = await http.post(_u('/auth/refresh'),
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'refreshToken': refreshToken}));
+      if (r.statusCode >= 400) {
+        token = null;
+        refreshToken = null;
+        await TokenStore.clear();
+        await onSessionExpired?.call();
+        return false;
+      }
+      final j = jsonDecode(r.body);
+      token = j['token'] as String;
+      refreshToken = j['refreshToken'] as String;
+      await TokenStore.saveSession(token!, refreshToken!);
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _refreshing = false;
+    }
   }
 
-  Future<dynamic> _put(String path, Map<String, dynamic> body) async {
-    final r = await http.put(_u(path), headers: _headers, body: jsonEncode(body));
-    return _decode(r);
-  }
-
-  Future<dynamic> _delete(String path) async {
-    final r = await http.delete(_u(path), headers: _headers);
-    return _decode(r);
-  }
+  Future<dynamic> _get(String path, [Map<String, dynamic>? q]) => _req('GET', path, q: q);
+  Future<dynamic> _post(String path, [Map<String, dynamic>? body]) => _req('POST', path, body: body);
+  Future<dynamic> _put(String path, Map<String, dynamic> body) => _req('PUT', path, body: body);
+  Future<dynamic> _delete(String path) => _req('DELETE', path);
 
   dynamic _decode(http.Response r) {
     final body = r.body.isEmpty ? {} : jsonDecode(r.body);
@@ -48,14 +90,46 @@ class Api {
   }
 
   // ── Auth ──
+  /// Store + persist the session pair returned by an auth endpoint.
+  Future<AppUser> _adoptSession(Map j) async {
+    token = j['token'] as String;
+    refreshToken = j['refreshToken'] as String?;
+    if (refreshToken != null) await TokenStore.saveSession(token!, refreshToken!);
+    return AppUser.fromJson(j['user']);
+  }
+
   Future<(String, AppUser)> login(String email, String password) async {
     final j = await _post('/auth/login', {'email': email, 'password': password});
-    return (j['token'] as String, AppUser.fromJson(j['user']));
+    final user = await _adoptSession(j);
+    return (j['token'] as String, user);
   }
 
   Future<(String, AppUser)> register(String name, String email, String password) async {
     final j = await _post('/auth/register', {'name': name, 'email': email, 'password': password});
-    return (j['token'] as String, AppUser.fromJson(j['user']));
+    final user = await _adoptSession(j);
+    return (j['token'] as String, user);
+  }
+
+  Future<(String, AppUser)> googleLogin(String idToken) async {
+    final j = await _post('/auth/google', {'idToken': idToken});
+    final user = await _adoptSession(j);
+    return (j['token'] as String, user);
+  }
+
+  /// UU PDP: export all my data (portability).
+  Future<Map<String, dynamic>> exportMyData() async => (await _get('/auth/export')) as Map<String, dynamic>;
+
+  /// UU PDP: delete my account (anonymizes PII; keeps anonymized transaction records).
+  Future<void> deleteAccount() async => _post('/auth/delete-account', {'confirm': 'HAPUS'});
+
+  /// Revoke the refresh token server-side (best-effort), then clear locally.
+  Future<void> logout() async {
+    try {
+      if (refreshToken != null) await _post('/auth/logout', {'refreshToken': refreshToken});
+    } catch (_) {/* ignore network errors on logout */}
+    token = null;
+    refreshToken = null;
+    await TokenStore.clear();
   }
 
   Future<AppUser> me() async => AppUser.fromJson((await _get('/auth/me'))['user']);
@@ -67,7 +141,12 @@ class Api {
   Future<String> uploadImage(String dataUrl, {String folder = 'avatars'}) async =>
       (await _post('/uploads', {'dataUrl': dataUrl, 'folder': folder}))['url'] as String;
 
-  Future<void> requestOtp() async => _post('/auth/otp/request');
+  /// Request an OTP. Returns a dev code string only when the server has no
+  /// email/WA channel configured (so the flow still works in demo); else null.
+  Future<String?> requestOtp() async {
+    final j = await _post('/auth/otp/request');
+    return (j is Map && j['devCode'] != null) ? j['devCode'].toString() : null;
+  }
   Future<void> verifyOtp(String code) async => _post('/auth/otp/verify', {'code': code});
 
   // ── Hotels ──
@@ -105,11 +184,13 @@ class Api {
   Future<Map<String, dynamic>> validatePromo(String code, int amount) async =>
       (await _post('/promos/validate', {'code': code, 'amount': amount})) as Map<String, dynamic>;
 
+  String _origin() => base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
+
   /// Public e-voucher URL for a booking code (opens the printable HTML page).
-  String voucherUrl(String code) {
-    final origin = base.endsWith('/api') ? base.substring(0, base.length - 4) : base;
-    return '$origin/api/vouchers/$code';
-  }
+  String voucherUrl(String code) => '${_origin()}/api/vouchers/$code';
+
+  /// Public invoice URL for a booking code.
+  String invoiceUrl(String code) => '${_origin()}/api/invoices/$code';
 
   // ── Hotel Packages ──
   Future<List<HotelPackage>> packages({Map<String, dynamic>? q}) async =>
@@ -124,7 +205,30 @@ class Api {
   Future<List<PromoBanner>> banners() async =>
       ((await _get('/banners'))['banners'] as List).map((b) => PromoBanner.fromJson(b)).toList();
 
+  /// Active promo/campaign programs (type = PROMO | CAMPAIGN) + participating hotels.
+  Future<List<Program>> programs(String type) async =>
+      ((await _get('/programs', {'type': type}))['programs'] as List).map((p) => Program.fromJson(p)).toList();
+
+  /// Register an FCM device token (maps to the logged-in user if authenticated).
+  Future<void> registerDevice(String token) async => _post('/devices', {'token': token, 'platform': 'android'});
+
+  /// Saved guests for "booking for someone else".
+  Future<List<SavedGuest>> savedGuests() async =>
+      ((await _get('/saved-guests'))['guests'] as List).map((g) => SavedGuest.fromJson(g)).toList();
+  Future<void> saveGuest(String name, {String? email, String? phone}) async =>
+      _post('/saved-guests', {'name': name, if (email != null && email.isNotEmpty) 'email': email, if (phone != null && phone.isNotEmpty) 'phone': phone});
+
+  /// Static content page (terms / privacy / about) → {title, body}.
+  Future<Map<String, String>> content(String slug) async {
+    final c = (await _get('/content/$slug'))['content'];
+    return {'title': (c['title'] ?? '').toString(), 'body': (c['body'] ?? '').toString()};
+  }
+
   Future<List<dynamic>> paymentMethods() async => (await _get('/payment-methods'))['methods'] as List;
+
+  /// Facility catalog for the search filter.
+  Future<List<Facility>> facilities() async =>
+      ((await _get('/facilities'))['facilities'] as List).map((f) => Facility.fromJson(f)).toList();
 
   // ── Favorites ──
   Future<List<Hotel>> favorites() async =>
@@ -142,9 +246,36 @@ class Api {
 
   Future<Booking> booking(String id) async => Booking.fromJson((await _get('/bookings/$id'))['booking']);
 
+  /// Refund estimate before cancelling → {note, refundPct, refundAmount, cancellable}.
+  Future<Map<String, dynamic>> refundQuote(String id) async =>
+      (await _get('/bookings/$id/refund-quote')) as Map<String, dynamic>;
+
+  /// Reschedule quote → {allowed, reason?, nights, newTotal, diff, oldTotal}.
+  Future<Map<String, dynamic>> rescheduleQuote(String id, DateTime checkIn, DateTime checkOut) async =>
+      (await _get('/bookings/$id/reschedule-quote', {
+        'checkIn': checkIn.toIso8601String().split('T').first,
+        'checkOut': checkOut.toIso8601String().split('T').first,
+      })) as Map<String, dynamic>;
+
+  /// Digital (online) check-in → returns (booking, keyCode).
+  Future<(Booking, String)> digitalCheckin(String id) async {
+    final j = await _post('/bookings/$id/digital-checkin');
+    return (Booking.fromJson(j['booking']), (j['keyCode'] ?? '').toString());
+  }
+
+  /// Apply a reschedule → (booking, diff).
+  Future<(Booking, int)> reschedule(String id, DateTime checkIn, DateTime checkOut) async {
+    final j = await _post('/bookings/$id/reschedule', {
+      'checkIn': checkIn.toIso8601String().split('T').first,
+      'checkOut': checkOut.toIso8601String().split('T').first,
+    });
+    return (Booking.fromJson(j['booking']), (j['diff'] ?? 0) as int);
+  }
+
   /// Cancel a booking → returns (booking, refundPct, refundAmount).
-  Future<(Booking, int, int)> cancelBooking(String id) async {
-    final j = await _post('/bookings/$id/cancel');
+  /// [bank] carries {bankName, bankAccount, accountHolder} when a cash refund is due.
+  Future<(Booking, int, int)> cancelBooking(String id, {Map<String, dynamic>? bank}) async {
+    final j = await _post('/bookings/$id/cancel', bank ?? const {});
     return (Booking.fromJson(j['booking']), (j['refundPct'] ?? 0) as int, (j['refundAmount'] ?? 0) as int);
   }
 
@@ -167,6 +298,18 @@ class Api {
   // ── Notifications ──
   Future<List<AppNotification>> notifications() async =>
       ((await _get('/notifications'))['notifications'] as List).map((n) => AppNotification.fromJson(n)).toList();
+
+  // ── App config (launch popup + update prompt) ──
+  Future<Map<String, dynamic>> appConfig() async =>
+      (await _get('/app/config')) as Map<String, dynamic>;
+
+  // ── Loyalty points ──
+  Future<Map<String, dynamic>> loyalty() async => (await _get('/loyalty')) as Map<String, dynamic>;
+
+  // ── Guest ↔ Hotel chat ──
+  Future<Map<String, dynamic>> hotelChat(String hotelId) async =>
+      (await _get('/hotel-chat/$hotelId')) as Map<String, dynamic>;
+  Future<void> sendHotelChat(String hotelId, String body) async => _post('/hotel-chat/$hotelId', {'body': body});
 }
 
 class ApiException implements Exception {

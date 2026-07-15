@@ -1,0 +1,34 @@
+<%- include('../partials/top', { title:'POS', heading:'POS — Charge ke Kamar', section:'extranet', active:'pos', me }) %>
+
+<% if (saved==='1') { %><div class="notice ok">Charge diposting ke folio kamar.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal — pastikan tamu sedang menginap.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 14px;max-width:640px;line-height:1.6">
+  Simulasi terminal POS (restoran/spa/laundry). Pilih kamar tamu in-house → charge otomatis masuk ke <b>folio</b> kamar,
+  dibayar saat check-out. <span class="muted">(Terminal POS asli tinggal panggil endpoint <code>/api/partner/pos/charge</code>.)</span>
+</p>
+
+<div class="card" style="max-width:560px">
+  <h2 style="margin-top:0">Posting Charge</h2>
+  <% if (!(rooms||[]).length) { %>
+    <div class="empty">Belum ada tamu in-house dengan kamar ditetapkan. Lakukan check-in + assign kamar dulu.</div>
+  <% } else { %>
+    <form method="post" action="/pms/pos/charge">
+      <label>Kamar / Tamu</label>
+      <select name="bookingId" required>
+        <% rooms.forEach(function(r){ %><option value="<%= r.bookingId %>">Kamar <%= r.roomNumber %> — <%= r.guest %> (<%= r.hotel %>)</option><% }) %>
+      </select>
+      <div class="row2">
+        <div><label>Outlet</label><select name="outlet"><% outlets.forEach(function(o){ %><option><%= o %></option><% }) %></select></div>
+        <div><label>Harga</label><input name="amount" type="number" required placeholder="120000"></div>
+      </div>
+      <div class="row2">
+        <div style="flex:2"><label>Deskripsi</label><input name="description" required placeholder="mis. Nasi goreng + jus"></div>
+        <div><label>Qty</label><input name="qty" type="number" value="1"></div>
+      </div>
+      <div style="margin-top:14px"><button class="btn">Charge ke Folio Kamar</button></div>
+    </form>
+  <% } %>
+</div>
+
+<%- include('../partials/bottom') %>

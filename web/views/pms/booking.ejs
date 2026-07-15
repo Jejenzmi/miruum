@@ -1,0 +1,81 @@
+<%- include('../partials/top', { title:'Folio', heading:'Folio & Kamar', section:'extranet', active:'pms', me }) %>
+
+<% if (saved==='checkin') { %><div class="notice ok">Check-in berhasil & kamar ditetapkan.</div><% } %>
+<% if (saved==='charge') { %><div class="notice ok">Charge ditambahkan ke folio.</div><% } %>
+
+<a class="btn ghost sm" href="/pms" style="margin-bottom:12px">← Front Desk</a>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="margin:0"><%= booking.guest %></h2>
+      <p class="muted" style="margin:2px 0 0"><%= booking.code %> · <%= booking.room %><%= booking.roomNumber ? (' · Kamar '+booking.roomNumber) : '' %> · <%= booking.nights %> malam</p>
+    </div>
+    <span class="pill <%= booking.status==='PAID'?'PAID':(booking.status==='COMPLETED'?'COMPLETED':'PENDING') %>"><%= booking.status %></span>
+  </div>
+</div>
+
+<!-- Room assignment / check-in -->
+<div class="card">
+  <h2>Penetapan Kamar & Check-in</h2>
+  <form method="post" action="/pms/booking/<%= id %>/checkin" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+    <div>
+      <label style="margin-top:0">Nomor Kamar</label>
+      <select name="roomUnitId" style="min-width:160px">
+        <option value="">— pilih kamar —</option>
+        <% (units||[]).forEach(function(u){ %>
+          <option value="<%= u.id %>" <%= u.assigned?'selected':'' %> <%= (u.occupied && !u.assigned)?'disabled':'' %>>
+            Kamar <%= u.number %><%= u.occupied && !u.assigned ? ' (terisi)' : (u.status!=='CLEAN' ? ' ('+u.status+')' : '') %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+    <button class="btn"><%= booking.status==='COMPLETED' ? 'Perbarui Kamar' : 'Tetapkan & Check-in' %></button>
+  </form>
+</div>
+
+<!-- Folio -->
+<div class="card">
+  <h2>Folio Tamu</h2>
+  <table style="width:100%">
+    <thead><tr><th>Item</th><th>Jenis</th><th style="text-align:right">Harga</th><th style="text-align:right">Qty</th><th style="text-align:right">Subtotal</th><th></th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Akomodasi</b> (<%= booking.nights %> malam)</td>
+        <td><span class="pill" style="background:#eef;color:#556">ROOM</span></td>
+        <td style="text-align:right"><%= rupiah(roomTotal) %></td>
+        <td style="text-align:right">1</td>
+        <td style="text-align:right"><b><%= rupiah(roomTotal) %></b></td>
+        <td></td>
+      </tr>
+      <% (charges||[]).forEach(function(c){ %>
+        <tr>
+          <td><%= c.description %></td>
+          <td><span class="pill" style="background:#f3f0e8;color:#7a6a3a"><%= c.kind %></span></td>
+          <td style="text-align:right"><%= rupiah(c.amount) %></td>
+          <td style="text-align:right"><%= c.qty %></td>
+          <td style="text-align:right"><b><%= rupiah(c.amount*c.qty) %></b></td>
+          <td><form method="post" action="/pms/folio/<%= c.id %>/delete/<%= id %>" data-confirm="Hapus charge?"><button class="btn danger sm" style="padding:2px 8px">✕</button></form></td>
+        </tr>
+      <% }) %>
+      <tr style="border-top:2px solid var(--line)">
+        <td colspan="4" style="text-align:right;font-weight:800">Total Tagihan</td>
+        <td style="text-align:right;font-weight:800;color:var(--brand);font-size:15px"><%= rupiah(grandTotal) %></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin:18px 0 8px">Tambah Charge</h3>
+  <form method="post" action="/pms/booking/<%= id %>/folio" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+    <div><label style="margin-top:0">Jenis</label>
+      <select name="kind"><% ['MINIBAR','FNB','LAUNDRY','SPA','OTHER'].forEach(function(k){ %><option value="<%= k %>"><%= k %></option><% }) %></select>
+    </div>
+    <div style="flex:1;min-width:160px"><label style="margin-top:0">Deskripsi</label><input name="description" placeholder="mis. Makan malam restoran" required></div>
+    <div><label style="margin-top:0">Harga</label><input name="amount" type="number" required style="max-width:130px"></div>
+    <div><label style="margin-top:0">Qty</label><input name="qty" type="number" value="1" style="max-width:70px"></div>
+    <button class="btn sm">Tambah</button>
+  </form>
+</div>
+
+<%- include('../partials/bottom') %>

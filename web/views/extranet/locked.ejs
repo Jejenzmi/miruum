@@ -1,0 +1,23 @@
+<%- include('../partials/top', { title: module, heading: module, section:'extranet', active, me }) %>
+
+<div class="card" style="max-width:640px;text-align:center;padding:40px 32px;margin:0 auto">
+  <div style="font-size:44px;line-height:1;margin-bottom:14px">🔒</div>
+  <h2 style="margin:0 0 8px"><%= module %> belum aktif</h2>
+  <p class="muted" style="margin:0 0 18px;line-height:1.6">
+    Properti Anda terdaftar di <b>Extranet</b>, namun modul <b><%= module %></b> adalah layanan terpisah
+    yang belum dikontrak. Aktifkan untuk mulai menggunakannya.
+  </p>
+  <div style="background:#faf7f2;border:1px solid #f0e9df;border-radius:12px;padding:16px;text-align:left;margin-bottom:20px">
+    <% if (module === 'Channel Manager') { %>
+      <div style="font-weight:700;margin-bottom:6px">Yang Anda dapat dengan Channel Manager</div>
+      <div class="muted" style="font-size:13px;line-height:1.7">• Distribusi rate &amp; stok satu titik ke semua OTA<br>• Anti overbooking otomatis<br>• Sinkronisasi harga host-to-host</div>
+    <% } else { %>
+      <div style="font-weight:700;margin-bottom:6px">Yang Anda dapat dengan PMS</div>
+      <div class="muted" style="font-size:13px;line-height:1.7">• Front desk: check-in / check-out tamu<br>• Manajemen housekeeping kamar<br>• Reservasi terhubung Channel Manager</div>
+    <% } %>
+  </div>
+  <a class="btn" href="mailto:partner@miruum.id?subject=Aktivasi%20<%= encodeURIComponent(module) %>">Hubungi Tim Miruum untuk Aktivasi</a>
+  <div style="margin-top:12px"><a href="/extranet" class="muted" style="font-size:13px">← Kembali ke Extranet</a></div>
+</div>
+
+<%- include('../partials/bottom') %>

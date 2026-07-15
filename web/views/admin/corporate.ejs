@@ -1,0 +1,44 @@
+<%- include('../partials/top', { title:'Korporat', heading:'Pengajuan Akun Korporat', section:'admin', active:'corporate', me }) %>
+
+<% if (creds) { %>
+  <div class="notice ok">Akun disetujui &amp; dibuat. Kredensial (relay ke PIC): <b><%= creds.email %></b> · sandi <b><%= creds.password %></b> — login di corporate.gokar.id.</div>
+<% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Tinjau pengajuan layanan korporat/pemerintah. Setujui untuk membuat akun otomatis (kredensial dikirim ke email PIC + ditampilkan di sini).</p>
+
+<div class="card">
+  <h2>Daftar Pengajuan</h2>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Instansi</th><th>Jenis</th><th>PIC</th><th>Kontak</th><th>Skala</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody>
+        <% applications.forEach(function(a){ %>
+          <tr>
+            <td><b><%= a.companyName %></b><% if (a.taxId) { %><br><span class="muted" style="font-size:11px">NPWP <%= a.taxId %></span><% } %><% if (a.note) { %><br><span class="muted" style="font-size:11px"><%= a.note.slice(0,60) %></span><% } %></td>
+            <td><span class="pill <%= a.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= a.type==='GOVERNMENT'?'Pemerintah':'Korporat' %></span></td>
+            <td><%= a.picName %><% if (a.picPosition) { %><br><span class="muted" style="font-size:11px"><%= a.picPosition %></span><% } %></td>
+            <td style="font-size:12px"><%= a.email %><br><span class="muted"><%= a.phone %></span></td>
+            <td><%= a.employees ? a.employees + ' org' : '—' %></td>
+            <td>
+              <% if (a.status==='PENDING') { %><span class="pill PENDING">Menunggu</span>
+              <% } else if (a.status==='APPROVED') { %><span class="pill PAID">Disetujui</span>
+              <% } else { %><span class="pill CANCELLED">Ditolak</span><% } %>
+            </td>
+            <td>
+              <% if (a.status==='PENDING') { %>
+                <div class="actions">
+                  <form method="post" action="/admin/corporate/<%= a.id %>/approve" data-confirm="Setujui & buat akun untuk <%= a.companyName %>?" data-confirm-ok="Ya, setujui"><button class="btn sm">Setujui</button></form>
+                  <form method="post" action="/admin/corporate/<%= a.id %>/reject" data-confirm="Tolak pengajuan <%= a.companyName %>?"><button class="btn danger sm">Tolak</button></form>
+                </div>
+              <% } else { %><span class="muted">—</span><% } %>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!applications.length) { %><tr><td colspan="7" class="empty">Belum ada pengajuan</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

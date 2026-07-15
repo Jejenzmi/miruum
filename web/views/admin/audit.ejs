@@ -1,0 +1,47 @@
+<%- include('../partials/top', { title:'Log Audit', heading:'Log Audit', section:'admin', active:'audit', me }) %>
+
+<%
+  var ACTION_LABEL = {
+    'hotel.create':'Buat Hotel', 'hotel.update':'Ubah Hotel', 'hotel.delete':'Hapus Hotel',
+    'channel.update':'Ubah Kanal/Markup', 'claim.pay':'Bayar Pencairan', 'claim.reject':'Tolak Pencairan',
+    'settlement.create':'Settlement', 'room.price':'Ubah Harga Kamar'
+  };
+  function fmt(ts){ var d = new Date(ts); return d.toLocaleString('id-ID'); }
+%>
+
+<div class="card" style="margin-bottom:14px">
+  <form method="get" action="/admin/audit" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+    <div><label style="margin-top:0">Filter aksi</label>
+      <select name="action" onchange="this.form.submit()">
+        <option value="">— semua aksi —</option>
+        <% (actions||[]).forEach(function(a){ %><option value="<%= a %>" <%= filter===a?'selected':'' %>><%= ACTION_LABEL[a]||a %></option><% }) %>
+      </select>
+    </div>
+    <% if (filter) { %><a class="btn ghost sm" href="/admin/audit">Reset</a><% } %>
+  </form>
+</div>
+
+<div class="card">
+  <p class="muted" style="margin:0 0 12px;font-size:12px">Jejak aksi sensitif admin &amp; mitra (immutable). Menampilkan 300 terbaru.</p>
+  <div style="overflow-x:auto">
+    <table style="width:100%;font-size:12.5px">
+      <thead><tr><th>Waktu</th><th>Aktor</th><th>Peran</th><th>Aksi</th><th>Objek</th><th>Detail</th><th>IP</th></tr></thead>
+      <tbody>
+        <% (logs||[]).forEach(function(l){ %>
+          <tr>
+            <td style="white-space:nowrap"><%= fmt(l.createdAt) %></td>
+            <td><%= l.actorEmail || '—' %></td>
+            <td><span class="pill" style="background:#eef;color:#556"><%= l.actorRole || '—' %></span></td>
+            <td><b><%= ACTION_LABEL[l.action] || l.action %></b></td>
+            <td><%= l.entity || '' %><% if (l.entityId) { %> <span class="muted" style="font-size:10px">#<%= String(l.entityId).slice(-6) %></span><% } %></td>
+            <td style="max-width:280px"><span class="muted" style="font-size:11px"><%= l.meta ? JSON.stringify(l.meta) : '' %></span></td>
+            <td class="muted" style="font-size:11px"><%= l.ip || '' %></td>
+          </tr>
+        <% }) %>
+        <% if (!logs || !logs.length) { %><tr><td colspan="7" class="empty">Belum ada aktivitas tercatat</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -1,7 +1,7 @@
 <%- include('../partials/top', { title:'Hotel', heading:'Kelola Hotel', section:'admin', active:'hotels', me }) %>
 
 <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-  <a class="btn" href="/admin/hotels/new">➕ Tambah Hotel</a>
+  <a class="btn" href="/admin/hotels/new">Tambah Hotel</a>
 </div>
 
 <div class="card">
@@ -20,7 +20,7 @@
           <td>
             <div class="actions">
               <a class="btn ghost sm" href="/admin/hotels/<%= h.id %>/edit">Edit</a>
-              <form method="post" action="/admin/hotels/<%= h.id %>/delete" onsubmit="return confirm('Hapus hotel ini?')">
+              <form method="post" action="/admin/hotels/<%= h.id %>/delete" data-confirm="Hapus hotel ini?">
                 <button class="btn danger sm">Hapus</button>
               </form>
             </div>

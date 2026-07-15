@@ -1,20 +1,34 @@
 <%- include('../partials/top', { title:'Dashboard', heading:'Dashboard', section:'admin', active:'dashboard', me }) %>
 
+<div class="welcome-hero">
+  <span class="wblob w1"></span><span class="wblob w2"></span>
+  <div class="wh-txt">
+    <div class="eyebrow" style="color:rgba(255,255,255,.85)">Back Office</div>
+    <h2>Halo, <%= me.name %></h2>
+    <p>Ringkasan operasional Miruum OTA hari ini — hotel, pesanan, dan pendapatan dalam satu pandang.</p>
+  </div>
+  <div class="wh-actions">
+    <a href="/admin/hotels" class="wh-chip">Kelola Hotel</a>
+    <a href="/admin/rates" class="wh-chip">Rate Manager</a>
+    <a href="/admin/report" class="wh-chip">Laporan</a>
+  </div>
+</div>
+
 <div class="stat-grid">
   <div class="stat">
-    <div class="icon" style="background:var(--green-s);color:var(--green-d)">🏨</div>
+    <div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-hotel"/></svg></div>
     <div class="label">Total Hotel</div><div class="value"><%= stats.hotels %></div>
   </div>
   <div class="stat">
-    <div class="icon" style="background:#E5EEFF;color:#2563EB">🧾</div>
+    <div class="icon" style="background:#E5EEFF;color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div>
     <div class="label">Total Pesanan</div><div class="value"><%= stats.bookings %></div>
   </div>
   <div class="stat">
-    <div class="icon" style="background:var(--orange-s);color:#b8791a">👥</div>
+    <div class="icon" style="background:var(--orange-s);color:#b8791a"><svg class="ci"><use href="#i-users"/></svg></div>
     <div class="label">Pengguna</div><div class="value"><%= stats.users %></div>
   </div>
   <div class="stat">
-    <div class="icon" style="background:var(--green-s);color:var(--green-d)">💰</div>
+    <div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-finance"/></svg></div>
     <div class="label">Pendapatan (paid)</div><div class="value" style="font-size:20px"><%= rupiah(stats.revenue) %></div>
   </div>
 </div>

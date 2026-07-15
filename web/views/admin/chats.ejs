@@ -26,7 +26,7 @@
              var bg = mine ? 'var(--primary)' : (bot ? '#EAE2FF' : 'var(--field)');
              var col = mine ? '#fff' : 'var(--ink)'; %>
           <div style="align-self:<%= mine?'flex-end':'flex-start' %>;max-width:70%;background:<%= bg %>;color:<%= col %>;padding:9px 13px;border-radius:14px;font-size:13px">
-            <% if (bot) { %><div style="font-size:9px;font-weight:700;color:#6D28D9;margin-bottom:2px">🤖 BOT</div><% } %>
+            <% if (bot) { %><div style="font-size:9px;font-weight:700;color:#6D28D9;margin-bottom:2px">BOT</div><% } %>
             <%= m.body %>
           </div>
         <% }) %>

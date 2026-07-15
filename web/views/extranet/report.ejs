@@ -1,0 +1,50 @@
+<%- include('../partials/top', { title:'Laporan Performa', heading:'Laporan Performa', section:'extranet', active:'report', me }) %>
+
+<% var r = report || {}; var t = r.totals || {}; %>
+<% var maxRev = Math.max.apply(null, (r.months||[{revenue:0}]).map(function(m){return m.revenue}).concat([1])); %>
+
+<div class="grid-2" style="margin-bottom:16px">
+  <div class="card" style="margin:0">
+    <div class="muted" style="font-size:12px">Pendapatan (6 bln)</div>
+    <div style="font-size:26px;font-weight:800;color:var(--brand)"><%= rupiah(t.revenue||0) %></div>
+    <div class="muted" style="font-size:12px;margin-top:4px"><%= t.bookings||0 %> pesanan · <%= t.nights||0 %> malam kamar</div>
+  </div>
+  <div class="card" style="margin:0">
+    <div class="muted" style="font-size:12px">Tingkat Pembatalan</div>
+    <div style="font-size:26px;font-weight:800;color:<%= (t.cancelRate||0)>15?'#c0392b':'#1E7E38' %>"><%= t.cancelRate||0 %>%</div>
+    <div class="muted" style="font-size:12px;margin-top:4px"><%= r.hotels||0 %> properti dikelola</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Tren Pendapatan Bulanan</h2>
+  <div style="display:flex;gap:14px;align-items:end;height:200px;padding:10px 0">
+    <% (r.months||[]).forEach(function(m){ var h = Math.round((m.revenue/maxRev)*160); %>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div class="muted" style="font-size:10px"><%= m.revenue>0 ? (Math.round(m.revenue/1000)+'k') : '' %></div>
+        <div style="width:100%;max-width:46px;height:<%= Math.max(h,3) %>px;background:linear-gradient(180deg,#F59331,#E07C17);border-radius:8px 8px 0 0"></div>
+        <div class="muted" style="font-size:10.5px"><%= m.month.slice(5) %>/<%= m.month.slice(2,4) %></div>
+        <div class="muted" style="font-size:9px"><%= m.bookings %> psn</div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Performa per Kanal</h2>
+  <table style="width:100%">
+    <thead><tr><th>Kanal</th><th style="text-align:right">Pesanan</th><th style="text-align:right">Pendapatan</th></tr></thead>
+    <tbody>
+      <% (r.channels||[]).forEach(function(c){ %>
+        <tr>
+          <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= c.color %>;margin-right:6px"></span><%= c.name %></td>
+          <td style="text-align:right"><%= c.bookings %></td>
+          <td style="text-align:right"><b><%= rupiah(c.revenue) %></b></td>
+        </tr>
+      <% }) %>
+      <% if (!(r.channels||[]).length) { %><tr><td colspan="3" class="empty">Belum ada data</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

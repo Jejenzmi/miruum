@@ -8,8 +8,7 @@
       <div><label>Kota</label><input name="city" value="<%= hotel ? hotel.city : '' %>" required></div>
       <div><label>Harga / malam (Rp)</label><input name="priceFrom" type="number" value="<%= hotel ? hotel.priceFrom : 500000 %>"></div>
     </div>
-    <label>Alamat</label>
-    <input name="address" value="<%= hotel ? hotel.address : '' %>" required>
+    <%- include('../partials/region_picker', { regionId: hotel ? hotel.regionId : '', address: hotel ? hotel.address : '' }) %>
     <label>Deskripsi</label>
     <textarea name="description" rows="3"><%= hotel ? hotel.description : '' %></textarea>
     <div class="row2">
@@ -38,6 +37,26 @@
     </div>
     <label>Label Promo (opsional)</label>
     <input name="promoLabel" value="<%= hotel && hotel.promoLabel ? hotel.promoLabel : '' %>">
+
+    <div class="nav-label" style="margin-top:20px">Kontrak Modul (di luar Extranet)</div>
+    <div class="row2">
+      <div>
+        <label>Channel Manager</label>
+        <select name="productChannelManager">
+          <option value="false" <%= hotel && !hotel.productChannelManager ? 'selected':'' %>>Tidak dikontrak</option>
+          <option value="true" <%= hotel && hotel.productChannelManager ? 'selected':'' %>>Dikontrak (aktif)</option>
+        </select>
+      </div>
+      <div>
+        <label>PMS (Front Desk)</label>
+        <select name="productPMS">
+          <option value="false" <%= hotel && !hotel.productPMS ? 'selected':'' %>>Tidak dikontrak</option>
+          <option value="true" <%= hotel && hotel.productPMS ? 'selected':'' %>>Dikontrak (aktif)</option>
+        </select>
+      </div>
+    </div>
+    <p class="muted" style="font-size:11px;margin-top:6px">Extranet aktif otomatis untuk semua mitra. Channel Manager &amp; PMS hanya aktif bila dikontrak — mengatur akses portal cm.gokar.id &amp; pms.gokar.id.</p>
+
     <div style="margin-top:22px" class="actions">
       <button class="btn"><%= hotel ? 'Simpan Perubahan' : 'Tambah Hotel' %></button>
       <a class="btn ghost" href="/admin/hotels">Batal</a>

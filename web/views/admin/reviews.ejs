@@ -1,0 +1,39 @@
+<%- include('../partials/top', { title:'Ulasan', heading:'Moderasi Ulasan', section:'admin', active:'reviews', me }) %>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-reviews"/></svg></div>
+    <div class="label">Rata-rata Rating</div><div class="value"><%= stats.avg %><span style="font-size:15px;color:var(--faint)">/10</span></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-content"/></svg></div>
+    <div class="label">Total Ulasan</div><div class="value"><%= stats.total %></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Ulasan Terbaru</h2>
+  <p class="muted" style="margin-top:-8px">Tinjau ulasan tamu dan hapus konten yang tidak pantas. Menghapus ulasan otomatis menghitung ulang rating hotel.</p>
+  <table>
+    <thead><tr><th>Tamu</th><th>Hotel</th><th>Rating</th><th>Ulasan</th><th>Tanggal</th><th></th></tr></thead>
+    <tbody>
+      <% reviews.forEach(function(r){ var s=Math.round((r.rating||0)/2); %>
+        <tr>
+          <td><b><%= r.authorName || (r.user && r.user.name) || 'Tamu' %></b><% if (r.user && r.user.email) { %><br><span class="muted" style="font-size:11px"><%= r.user.email %></span><% } %></td>
+          <td><%= r.hotel ? r.hotel.name : '—' %><% if (r.hotel && r.hotel.city) { %><br><span class="muted" style="font-size:11px"><%= r.hotel.city %></span><% } %></td>
+          <td><span class="stars"><%= '★'.repeat(s) %><span class="off"><%= '★'.repeat(5-s) %></span></span><br><span class="muted" style="font-size:11px"><%= r.rating %>/10</span></td>
+          <td style="max-width:340px"><%= r.body %></td>
+          <td><span class="muted" style="font-size:12px"><%= new Date(r.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %></span></td>
+          <td>
+            <form method="post" action="/admin/reviews/<%= r.id %>/delete" data-confirm="Hapus ulasan ini? Rating hotel akan dihitung ulang.">
+              <button class="btn danger sm">Hapus</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!reviews.length) { %><tr><td colspan="6" class="empty">Belum ada ulasan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

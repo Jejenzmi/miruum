@@ -1,0 +1,87 @@
+<%- include('../partials/top', { title:'Channel Manager', heading:'Channel Manager', section:'extranet', active:'cm', me }) %>
+
+<% if (pushed !== undefined) { %><div class="notice ok">Distribusi terkirim — <%= pushed %> pemetaan didorong ke OTA (host-to-host).</div><% } %>
+<% if (saved==='1') { %><div class="notice ok">Pemetaan kamar tersimpan.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal menyimpan pemetaan.</div><% } %>
+
+<div class="welcome-hero">
+  <span class="wblob w1"></span><span class="wblob w2"></span>
+  <div class="wh-txt">
+    <div class="eyebrow" style="color:rgba(255,255,255,.85)">Channel Manager Miruum</div>
+    <h2>Distribusi ke semua OTA</h2>
+    <p>Kelola satu inventaris & harga, lalu dorong (host-to-host) ke seluruh OTA yang bekerja sama dengan Miruum — Traveloka, Agoda, Booking.com, dll. Anti-overbooking otomatis.</p>
+  </div>
+  <div class="wh-actions">
+    <form method="post" action="/extranet/distribution/push">
+      <button class="btn" style="background:#fff;color:var(--primary-d)">Distribusikan ke Semua OTA</button>
+    </form>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-hotel"/></svg></div><div class="label">Hotel Anda</div><div class="value"><%= summary.hotels %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-hotel"/></svg></div><div class="label">Kamar</div><div class="value"><%= summary.rooms %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-link"/></svg></div><div class="label">OTA Terhubung</div><div class="value"><%= summary.otaConnected %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-distribution"/></svg></div><div class="label">Pemetaan Aktif</div><div class="value"><%= summary.mapped %> <span style="font-size:13px;color:var(--faint)">(<%= summary.pushedOk %> ok)</span></div></div>
+</div>
+
+<div class="card">
+  <h2>OTA Terhubung (host-to-host)</h2>
+  <p class="muted" style="margin-top:-8px">Kanal OTA yang terintegrasi dengan Channel Manager Miruum. Petakan tipe kamar Anda ke masing-masing OTA di bawah.</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <% otaChannels.forEach(function(c){ %>
+      <span class="pill" style="background:<%= (c.color||'#888') %>1f;color:<%= c.color||'#555' %>"><%= c.name %> · +<%= c.commissionPct %>%<%= c.connectorType && c.connectorType!=='MOCK' ? ' · '+c.connectorType : '' %></span>
+    <% }) %>
+    <% if (!otaChannels.length) { %><span class="muted">Belum ada OTA terhubung — hubungi Miruum.</span><% } %>
+  </div>
+</div>
+
+<% hotels.forEach(function(h){ %>
+  <div class="card">
+    <h2><%= h.name %> <span class="muted" style="font-weight:400;font-size:13px">· <%= h.city %></span></h2>
+    <p class="muted" style="margin-top:-8px">Petakan setiap kamar ke ID/kode tipe kamar di tiap OTA. Kosongkan untuk melepas.</p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Kamar</th><% otaChannels.forEach(function(c){ %><th style="color:<%= c.color||'#555' %>"><%= c.name %></th><% }) %></tr></thead>
+        <tbody>
+          <% h.rooms.forEach(function(r){ var mapBy={}; r.channelMaps.forEach(function(m){ mapBy[m.channelId]=m; }); %>
+            <tr>
+              <td style="min-width:150px"><b><%= r.name %></b><br><span class="muted" style="font-size:11px"><%= rupiah(r.price) %> · stok <%= r.stock %> · <%= r._count.availability %> tgl</span></td>
+              <% otaChannels.forEach(function(c){ var m = mapBy[c.id]; %>
+                <td style="min-width:150px">
+                  <form method="post" action="/extranet/rooms/<%= r.id %>/map/<%= c.id %>" style="display:flex;gap:5px;align-items:center">
+                    <input name="externalRoomId" value="<%= m ? m.externalRoomId : '' %>" placeholder="kode OTA" style="width:90px;padding:7px 9px;font-size:12px">
+                    <button class="btn sm" style="padding:6px 10px" title="Simpan pemetaan">✓</button>
+                  </form>
+                  <% if (m) { %><div style="font-size:10px;margin-top:3px;color:<%= (m.pushStatus||'').startsWith('OK')?'#1E7E38':'var(--faint)' %>"><%= m.pushStatus || (m.lastPushedAt ? 'terkirim' : 'belum push') %></div><% } %>
+                </td>
+              <% }) %>
+            </tr>
+          <% }) %>
+          <% if (!h.rooms.length) { %><tr><td colspan="<%= otaChannels.length+1 %>" class="empty">Belum ada kamar. Tambah di menu Ringkasan → Kelola Kamar.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% }) %>
+<% if (!hotels.length) { %><div class="card"><p class="empty">Belum ada hotel terhubung ke akun Anda.</p></div><% } %>
+
+<h3 style="margin:22px 0 10px">Performa per OTA</h3>
+<div class="card">
+  <table>
+    <thead><tr><th>Kanal</th><th>Pesanan</th><th>Pendapatan</th><th>Pembatalan</th></tr></thead>
+    <tbody>
+      <% (channelStats||[]).forEach(function(s){ %>
+        <tr>
+          <td><span class="pill" style="background:<%= (s.color||'#888') %>1f;color:<%= s.color||'#555' %>"><%= s.name %></span></td>
+          <td><b><%= s.total %></b></td>
+          <td><%= rupiah(s.revenue) %></td>
+          <td><span style="color:<%= s.cancelRate>20?'var(--danger)':'var(--muted)' %>"><%= s.cancelled %> · <%= s.cancelRate %>%</span></td>
+        </tr>
+      <% }) %>
+      <% if (!(channelStats||[]).length) { %><tr><td colspan="4" class="empty">Belum ada data pesanan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

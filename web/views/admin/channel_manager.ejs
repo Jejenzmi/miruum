@@ -1,21 +1,62 @@
 <%- include('../partials/top', { title:'Channel Manager', heading:'Channel Manager', section:'admin', active:'channels', me }) %>
 
+<% var ov = overview || {}; %>
+<p class="muted" style="margin:-4px 0 16px">Satu pusat kendali distribusi hotel ke seluruh OTA — inventaris, harga, reservasi, pemetaan, analitik, PMS & booking engine.</p>
+
+<div class="cm-grid">
+  <a class="cm-card" href="/admin/rates">
+    <div class="cm-ic" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-box"/></svg></div>
+    <div class="cm-tt">Inventaris</div>
+    <div class="cm-mt"><b><%= ov.inventory ? ov.inventory.rooms : 0 %></b> kamar tersinkron</div>
+    <div class="cm-st ok">✓ Anti-overbooking aktif<% if (ov.inventory && ov.inventory.lowStock) { %> · <span class="warn"><%= ov.inventory.lowStock %> stok menipis</span><% } %></div>
+  </a>
+  <a class="cm-card" href="/admin/rates">
+    <div class="cm-ic" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-promos"/></svg></div>
+    <div class="cm-tt">Harga (Rate)</div>
+    <div class="cm-mt"><b><%= ov.rate ? ov.rate.rules : 0 %></b> aturan tarif/tanggal</div>
+    <div class="cm-st">Rate parity · diskon · restriksi</div>
+  </a>
+  <a class="cm-card" href="/admin/bookings">
+    <div class="cm-ic" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div>
+    <div class="cm-tt">Reservasi</div>
+    <div class="cm-mt"><b><%= ov.reservation ? ov.reservation.total : 0 %></b> total pesanan</div>
+    <div class="cm-st"><%= ov.reservation ? ov.reservation.recent30 : 0 %> dalam 30 hari terakhir</div>
+  </a>
+  <a class="cm-card" href="/admin/distribution">
+    <div class="cm-ic" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-channels"/></svg></div>
+    <div class="cm-tt">Pemetaan OTA</div>
+    <div class="cm-mt"><b><%= ov.mapping ? ov.mapping.mapped : 0 %></b> kamar ↔ tipe OTA</div>
+    <div class="cm-st"><%= ov.mapping ? ov.mapping.otaChannels : 0 %> kanal OTA aktif</div>
+  </a>
+  <a class="cm-card" href="#cm-analytics">
+    <div class="cm-ic" style="background:#EAE2FF;color:#6D28D9"><svg class="ci"><use href="#i-report"/></svg></div>
+    <div class="cm-tt">Analitik</div>
+    <div class="cm-mt"><b><%= ov.channelStats ? ov.channelStats.length : 0 %></b> kanal dianalisis</div>
+    <div class="cm-st">Performa & pembatalan per kanal ↓</div>
+  </a>
+  <a class="cm-card" href="#cm-pms">
+    <div class="cm-ic" style="background:#E5EEFF;color:#2563EB"><svg class="ci"><use href="#i-plug"/></svg></div>
+    <div class="cm-tt">Integrasi PMS</div>
+    <div class="cm-mt"><b><%= (ov.pms && ov.pms.connected) ? 'Terhubung' : 'Belum terhubung' %></b></div>
+    <div class="cm-st">Sinkron 2-arah front office ↓</div>
+  </a>
+</div>
+
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <% channels.forEach(function(c){ %>
+    <% channels.forEach(function(c){ var rule = c.feeIncluded ? 'fee inc.' : (c.markupType==='NOMINAL' ? '+'+rupiah(c.markupNominal||0) : '+'+c.commissionPct+'%'); %>
       <span class="pill" style="background:<%= (c.color||'#888') %>1f;color:<%= c.color||'#555' %>">
-        <%= c.name %> · <%= c.type %><%= c.type==='OTA' ? ' · +'+c.commissionPct+'%' : '' %>
+        <%= c.name %> · <%= c.type %><%= c.type==='OTA' ? ' · '+rule : '' %>
       </span>
     <% }) %>
   </div>
   <form method="post" action="/admin/channels/sync">
-    <button class="btn">🔄 Sync harga & ketersediaan</button>
+    <button class="btn">Sinkronkan Harga & Ketersediaan</button>
   </form>
 </div>
 
-<% if (synced) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f;margin-bottom:16px">✓ Sinkronisasi selesai — <%= synced %> penawaran diperbarui.</div><% } %>
 
-<h3 style="margin:18px 0 10px">🔌 Konektor Gateway</h3>
+<h3 style="margin:18px 0 10px">Konektor Gateway</h3>
 <p class="muted" style="font-size:12px;margin-bottom:14px">
   Colok API B2B OTA mana pun tanpa deploy ulang: set <b>connectorType = HTTP</b> lalu isi <b>config</b> (baseUrl, auth, request, map).
   Rahasia (token/API key) simpan sebagai <b>ENV var</b> di server dan rujuk lewat <code>tokenEnv</code>/<code>valueEnv</code> — jangan taruh di config.
@@ -30,20 +71,36 @@
         <span class="pill" style="background:#eee;color:#555"><%= c.connectorType %></span>
       </div>
       <form method="post" action="/admin/channels/<%= c.id %>/config">
-        <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div style="display:flex;gap:8px;margin-bottom:10px">
           <select name="connectorType" style="flex:1">
             <% ['MOCK','HTTP','DIRECT'].forEach(function(t){ %>
               <option value="<%= t %>" <%= c.connectorType===t?'selected':'' %>><%= t %></option>
             <% }) %>
           </select>
-          <input name="commissionPct" type="number" step="0.1" value="<%= c.commissionPct %>" title="markup %" style="width:90px" placeholder="markup %">
+        </div>
+        <% if (c.type === 'OTA') { %>
+        <label class="pr-check" style="margin-bottom:10px"><input type="checkbox" name="contracted" <%= (c.contracted!==false)?'checked':'' %>> Kontrak sub-agent (bisa dijual). <span class="muted" style="font-size:11px">Nonaktif = hanya pantau harga (rate intelligence)</span></label>
+        <% } %>
+        <div class="price-rule">
+          <label style="margin:0 0 6px;font-weight:600;color:var(--ink)">Kategori harga sumber</label>
+          <label class="pr-check"><input type="checkbox" name="feeIncluded" class="fee-toggle" <%= c.feeIncluded?'checked':'' %> onchange="this.closest('.price-rule').querySelector('.markup-box').style.opacity=this.checked?'.4':'1';this.closest('.price-rule').querySelectorAll('.markup-box input,.markup-box select').forEach(function(e){e.disabled=this.checked}.bind(this))"> Sudah termasuk fee (harga final, tanpa markup)</label>
+          <div class="markup-box" style="<%= c.feeIncluded?'opacity:.4':'' %>">
+            <div style="display:flex;gap:8px;align-items:center">
+              <select name="markupType" style="flex:1">
+                <option value="PCT" <%= (c.markupType||'PCT')==='PCT'?'selected':'' %>>Markup Persen (%)</option>
+                <option value="NOMINAL" <%= c.markupType==='NOMINAL'?'selected':'' %>>Markup Nominal (Rp)</option>
+              </select>
+              <input name="commissionPct" type="number" step="0.1" value="<%= c.commissionPct %>" title="markup %" style="width:80px" placeholder="%" <%= c.feeIncluded?'disabled':'' %>>
+              <input name="markupNominal" type="number" step="1000" value="<%= c.markupNominal||0 %>" title="markup Rp" style="width:100px" placeholder="Rp" <%= c.feeIncluded?'disabled':'' %>>
+            </div>
+          </div>
         </div>
         <textarea name="config" rows="8" spellcheck="false"
           style="width:100%;font-family:monospace;font-size:11px;box-sizing:border-box"
           placeholder='{"baseUrl":"https://api...","auth":{"type":"bearer","tokenEnv":"X_TOKEN"},"request":{"method":"GET","path":"/rates/{externalId}"},"map":{"basePrice":"data.price","available":"data.avail"}}'><%= c.config ? JSON.stringify(c.config, null, 2) : '' %></textarea>
         <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn sm" type="submit">💾 Simpan</button>
-          <button class="btn ghost sm" type="submit" formaction="/admin/channels/<%= c.id %>/test">▶ Test</button>
+          <button class="btn sm" type="submit">Simpan</button>
+          <button class="btn ghost sm" type="submit" formaction="/admin/channels/<%= c.id %>/test">Uji Koneksi</button>
         </div>
       </form>
       <% if (tr) { %>
@@ -57,10 +114,11 @@
   <% }) %>
 </div>
 
-<h3 style="margin:0 0 10px">💰 Harga per sumber</h3>
+<h3 style="margin:0 0 6px">Intelijen Harga — sumber termurah tampil di app</h3>
+<p class="muted" style="font-size:12px;margin:0 0 10px">Miruum otomatis membandingkan semua sub-agent & memilih <b>harga terendah yang tersedia</b> untuk ditampilkan ke tamu (kolom "Harga terbaik" = yang tampil di aplikasi).</p>
 <div class="card">
   <table>
-    <thead><tr><th>Hotel</th><th>Kota</th><th>Harga terbaik</th><th>Penawaran per sumber (termurah → termahal)</th></tr></thead>
+    <thead><tr><th>Hotel</th><th>Kota</th><th>Harga terbaik (tampil di app)</th><th>Penawaran per sumber (termurah → termahal)</th></tr></thead>
     <tbody>
       <% hotels.forEach(function(h){
            var best = (h.offers||[]).filter(function(o){return o.available}).sort(function(a,b){return a.price-b.price})[0]; %>
@@ -97,5 +155,59 @@
   <b>OTA</b> = Miruum sebagai sub-agent (Tiket.com / Agoda / Traveloka) — harga sudah termasuk markup Miruum.
   Harga headline yang tampil ke tamu selalu penawaran <b>termurah yang tersedia</b>.
 </p>
+
+<h3 id="cm-analytics" style="margin:26px 0 10px">Analitik per Kanal (Reporting & Analytics)</h3>
+<div class="card">
+  <table>
+    <thead><tr><th>Kanal</th><th>Tipe</th><th>Pesanan</th><th>Pendapatan (paid)</th><th>Pembatalan</th></tr></thead>
+    <tbody>
+      <% (ov.channelStats || []).forEach(function(s){ %>
+        <tr>
+          <td><span class="pill" style="background:<%= (s.color||'#888') %>1f;color:<%= s.color||'#555' %>"><%= s.name %></span></td>
+          <td><%= s.type %></td>
+          <td><b><%= s.total %></b></td>
+          <td><%= rupiah(s.revenue) %></td>
+          <td><span style="color:<%= s.cancelRate > 20 ? 'var(--danger)' : 'var(--muted)' %>"><%= s.cancelled %> · <%= s.cancelRate %>%</span></td>
+        </tr>
+      <% }) %>
+      <% if (!(ov.channelStats||[]).length) { %><tr><td colspan="5" class="empty">Belum ada data pesanan per kanal</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="grid-2" style="margin-top:20px">
+  <div class="card" id="cm-booking-engine">
+    <h2>Booking Engine</h2>
+    <p class="muted" style="margin-top:-8px">Pasang tombol pesan langsung di situs resmi hotel — pemesanan tanpa komisi OTA, masuk ke Reservasi Miruum.</p>
+    <label>Kode embed (salin ke situs hotel)</label>
+    <textarea id="beSnippet" rows="3" readonly spellcheck="false" style="font-family:monospace;font-size:11px"><a href="<%= ov.bookingEngine ? ov.bookingEngine.base : 'https://ota.gokar.id' %>" style="background:#E07C17;color:#fff;padding:12px 22px;border-radius:24px;font-weight:700;text-decoration:none;font-family:sans-serif">Pesan di Miruum</a></textarea>
+    <div style="margin-top:10px"><button type="button" class="btn sm" onclick="navigator.clipboard.writeText(document.getElementById('beSnippet').value);mToast&&mToast('success','Kode embed disalin')">Salin kode</button></div>
+    <div style="border-top:1.5px solid var(--line);margin-top:14px;padding-top:12px">
+      <label style="margin-top:0">Link langsung per hotel</label>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto">
+        <% hotels.forEach(function(h){ var link = (ov.bookingEngine?ov.bookingEngine.base:'https://ota.gokar.id') + '/?hotel=' + (h.slug||h.id); %>
+          <div style="display:flex;gap:8px;align-items:center;font-size:12px">
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b><%= h.name %></b> <span class="muted"><%= link %></span></span>
+            <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText('<%= link %>');mToast&&mToast('success','Link disalin')">Salin</button>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="cm-pms">
+    <h2>Integrasi PMS</h2>
+    <p class="muted" style="margin-top:-8px">Sinkron dua arah dengan Property Management System hotel (front office): pesanan online masuk ke kalender resepsionis, status check-out balik ter-update ke kanal.</p>
+    <div class="pms-row">
+      <div><b>Status koneksi</b><span class="muted" style="display:block;font-size:11.5px">Aktifkan via Konektor Gateway (set connectorType = HTTP + endpoint PMS)</span></div>
+      <span class="pill <%= (ov.pms && ov.pms.connected) ? 'PAID' : 'CANCELLED' %>"><%= (ov.pms && ov.pms.connected) ? 'Terhubung' : 'Belum terhubung' %></span>
+    </div>
+    <ul class="pms-list">
+      <li>✓ Push rate & allotment ke kanal (aktif — tombol Sync di atas)</li>
+      <li>✓ Anti-overbooking: stok berkurang otomatis lintas kanal saat ada booking</li>
+      <li>○ Pull status kamar dari PMS (butuh endpoint PMS hotel)</li>
+    </ul>
+  </div>
+</div>
 
 <%- include('../partials/bottom') %>

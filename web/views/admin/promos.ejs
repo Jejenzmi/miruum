@@ -1,6 +1,5 @@
 <%- include('../partials/top', { title:'Promo', heading:'Kelola Promo', section:'admin', active:'promos', me }) %>
 
-<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Promo disimpan.</div><% } %>
 <% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal — kode mungkin sudah ada.</div><% } %>
 
 <div class="card">
@@ -13,7 +12,7 @@
     <label>Judul</label><input name="title" placeholder="Save up to 30%" required>
     <label>Deskripsi</label><input name="description" placeholder="Diskon untuk hotel pilihan">
     <label>URL Gambar (opsional)</label><input name="imageUrl" placeholder="https://...">
-    <div style="margin-top:16px"><button class="btn">➕ Simpan Promo</button></div>
+    <div style="margin-top:16px"><button class="btn">Simpan Promo</button></div>
   </form>
 </div>
 
@@ -27,7 +26,7 @@
           <td><b><%= p.code %></b></td>
           <td><%= p.title %></td>
           <td><span class="pill PARTNER"><%= p.discountPct %>%</span></td>
-          <td><form method="post" action="/admin/promos/<%= p.id %>/delete" onsubmit="return confirm('Hapus promo <%= p.code %>?')"><button class="btn danger sm">Hapus</button></form></td>
+          <td><form method="post" action="/admin/promos/<%= p.id %>/delete" data-confirm="Hapus promo <%= p.code %>?"><button class="btn danger sm">Hapus</button></form></td>
         </tr>
       <% }) %>
       <% if (!promos.length) { %><tr><td colspan="4" class="empty">Belum ada promo</td></tr><% } %>

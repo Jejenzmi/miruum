@@ -5,15 +5,15 @@
     <div><label style="margin:0 0 4px">Dari</label><input type="date" name="from" value="<%= from %>"></div>
     <div><label style="margin:0 0 4px">Sampai</label><input type="date" name="to" value="<%= to %>"></div>
     <button class="btn">Terapkan</button>
-    <a class="btn ghost" href="/admin/finance/report/download?from=<%= from %>&to=<%= to %>">⬇️ Unduh CSV</a>
+    <a class="btn ghost" href="/admin/finance/report/download?from=<%= from %>&to=<%= to %>">Unduh CSV</a>
   </form>
 </div>
 
-<div class="stats">
-  <div class="stat"><div class="muted">Transaksi (paid)</div><b><%= report.count %></b></div>
-  <div class="stat"><div class="muted">Total Gross</div><b><%= rupiah(report.gross) %></b></div>
-  <div class="stat"><div class="muted">Total Pajak</div><b><%= rupiah(report.tax) %></b></div>
-  <div class="stat"><div class="muted">Total Diskon</div><b style="color:#E5484D"><%= rupiah(report.discount) %></b></div>
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div><div class="label">Transaksi (paid)</div><div class="value"><%= report.count %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-finance"/></svg></div><div class="label">Total Gross</div><div class="value" style="font-size:19px"><%= rupiah(report.gross) %></div></div>
+  <div class="stat"><div class="icon" style="background:#EAE2FF;color:#6D28D9"><svg class="ci"><use href="#i-report"/></svg></div><div class="label">Total Pajak</div><div class="value" style="font-size:19px"><%= rupiah(report.tax) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--danger-s);color:var(--danger)"><svg class="ci"><use href="#i-promos"/></svg></div><div class="label">Total Diskon</div><div class="value" style="font-size:19px;color:var(--danger)"><%= rupiah(report.discount) %></div></div>
 </div>
 
 <div class="card">

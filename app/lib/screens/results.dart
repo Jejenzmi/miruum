@@ -17,19 +17,24 @@ class ResultsScreen extends StatelessWidget {
   final DateTime? checkIn, checkOut;
   final int rooms;
   final FilterResult? initialFilter;
-  const ResultsScreen({super.key, this.title = 'Hasil Pencarian', this.query = '', this.checkIn, this.checkOut, this.rooms = 1, this.initialFilter});
+  final double? nearLat, nearLng;
+  final bool promoOnly;
+  const ResultsScreen({super.key, this.title = 'Hasil Pencarian', this.query = '', this.checkIn, this.checkOut, this.rooms = 1, this.initialFilter, this.nearLat, this.nearLng, this.promoOnly = false});
 
   @override
   Widget build(BuildContext context) {
     final f = initialFilter;
+    final near = nearLat != null && nearLng != null;
     return BlocProvider(
       create: (ctx) => HotelsCubit(ctx.read<Api>())..load(query: {
         if (query.isNotEmpty) 'query': query,
-        if (f != null && f.minPrice > 0) 'minPrice': f.minPrice,
-        if (f != null && f.maxPrice < 5000000) 'maxPrice': f.maxPrice,
-        if (f != null && f.star > 0) 'star': f.star,
+        if (promoOnly) 'promo': 1,
+        if (near) 'lat': nearLat,
+        if (near) 'lng': nearLng,
+        if (near) 'radius': 150,
+        if (f != null) ...f.toQuery(),
       }),
-      child: _ResultsView(title: title, query: query, checkIn: checkIn, checkOut: checkOut, rooms: rooms, initialFilter: f),
+      child: _ResultsView(title: title, query: query, checkIn: checkIn, checkOut: checkOut, rooms: rooms, initialFilter: f, near: near, nearLat: nearLat, nearLng: nearLng),
     );
   }
 }
@@ -39,7 +44,9 @@ class _ResultsView extends StatefulWidget {
   final DateTime? checkIn, checkOut;
   final int rooms;
   final FilterResult? initialFilter;
-  const _ResultsView({required this.title, required this.query, this.checkIn, this.checkOut, required this.rooms, this.initialFilter});
+  final bool near;
+  final double? nearLat, nearLng;
+  const _ResultsView({required this.title, required this.query, this.checkIn, this.checkOut, required this.rooms, this.initialFilter, this.near = false, this.nearLat, this.nearLng});
   @override
   State<_ResultsView> createState() => _ResultsViewState();
 }
@@ -51,9 +58,10 @@ class _ResultsViewState extends State<_ResultsView> {
   void _apply() {
     context.read<HotelsCubit>().load(query: {
       if (widget.query.isNotEmpty) 'query': widget.query,
-      if (_filter.minPrice > 0) 'minPrice': _filter.minPrice,
-      if (_filter.maxPrice < 5000000) 'maxPrice': _filter.maxPrice,
-      if (_filter.star > 0) 'star': _filter.star,
+      if (widget.near) 'lat': widget.nearLat,
+      if (widget.near) 'lng': widget.nearLng,
+      if (widget.near) 'radius': 150,
+      ..._filter.toQuery(),
     });
   }
 
@@ -67,9 +75,11 @@ class _ResultsViewState extends State<_ResultsView> {
 
   @override
   Widget build(BuildContext context) {
-    final dates = widget.checkIn != null && widget.checkOut != null
-        ? '${_fmt.format(widget.checkIn!)} - ${_fmt.format(widget.checkOut!)} , ${widget.rooms} Kamar'
-        : 'Hotel di sekitar kamu';
+    final dates = widget.near
+        ? 'Diurutkan dari yang terdekat dengan lokasimu'
+        : widget.checkIn != null && widget.checkOut != null
+            ? '${_fmt.format(widget.checkIn!)} - ${_fmt.format(widget.checkOut!)} , ${widget.rooms} Kamar'
+            : 'Hotel di sekitar kamu';
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),

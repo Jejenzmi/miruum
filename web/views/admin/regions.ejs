@@ -1,0 +1,88 @@
+<%- include('../partials/top', { title:'Master Wilayah', heading:'Master Data Wilayah', section:'admin', active:'regions', me }) %>
+
+<% if (added) { %><div class="notice ok">Wilayah berhasil ditambahkan.</div><% } %>
+<p class="muted" style="margin:-4px 0 16px">Data induk Provinsi → Kabupaten/Kota → Kecamatan → Desa/Kelurahan. Klik untuk menelusuri; tambah wilayah baru bila ada <b>pemekaran</b>.</p>
+
+<div class="reg-cols">
+  <!-- Provinsi -->
+  <div class="reg-col">
+    <div class="reg-hd">Provinsi <span class="muted" style="font-weight:400">(<%= provinces.length %>)</span></div>
+    <div class="reg-list">
+      <% provinces.forEach(function(r){ %>
+        <div class="reg-item <%= sel.prov===r.id?'on':'' %>">
+          <a href="/admin/regions?prov=<%= r.id %>"><%= r.name %></a>
+          <form method="post" action="/admin/regions/<%= r.id %>/delete" data-confirm="Hapus '<%= r.name %>' & seluruh wilayah di bawahnya?"><button class="reg-del">✕</button></form>
+        </div>
+      <% }) %>
+    </div>
+    <form method="post" action="/admin/regions/add" class="reg-add">
+      <input type="hidden" name="level" value="PROVINCE">
+      <input name="name" placeholder="+ provinsi baru" required><button class="btn sm">Tambah</button>
+    </form>
+  </div>
+
+  <!-- Kab/Kota -->
+  <div class="reg-col">
+    <div class="reg-hd">Kabupaten/Kota</div>
+    <div class="reg-list">
+      <% if (!sel.prov) { %><div class="muted" style="padding:14px;font-size:12px">Pilih provinsi</div><% } %>
+      <% cities.forEach(function(r){ %>
+        <div class="reg-item <%= sel.city===r.id?'on':'' %>">
+          <a href="/admin/regions?prov=<%= sel.prov %>&city=<%= r.id %>"><%= r.name %></a>
+          <form method="post" action="/admin/regions/<%= r.id %>/delete" data-confirm="Hapus '<%= r.name %>' & wilayah di bawahnya?"><button class="reg-del">✕</button></form>
+        </div>
+      <% }) %>
+      <% if (sel.prov && !cities.length) { %><div class="muted" style="padding:14px;font-size:12px">Belum ada</div><% } %>
+    </div>
+    <% if (sel.prov) { %>
+      <form method="post" action="/admin/regions/add" class="reg-add">
+        <input type="hidden" name="level" value="CITY"><input type="hidden" name="parentId" value="<%= sel.prov %>"><input type="hidden" name="prov" value="<%= sel.prov %>">
+        <input name="name" placeholder="+ kab/kota baru" required><button class="btn sm">Tambah</button>
+      </form>
+    <% } %>
+  </div>
+
+  <!-- Kecamatan -->
+  <div class="reg-col">
+    <div class="reg-hd">Kecamatan</div>
+    <div class="reg-list">
+      <% if (!sel.city) { %><div class="muted" style="padding:14px;font-size:12px">Pilih kab/kota</div><% } %>
+      <% dists.forEach(function(r){ %>
+        <div class="reg-item <%= sel.dist===r.id?'on':'' %>">
+          <a href="/admin/regions?prov=<%= sel.prov %>&city=<%= sel.city %>&dist=<%= r.id %>"><%= r.name %></a>
+          <form method="post" action="/admin/regions/<%= r.id %>/delete" data-confirm="Hapus '<%= r.name %>' & desa di bawahnya?"><button class="reg-del">✕</button></form>
+        </div>
+      <% }) %>
+      <% if (sel.city && !dists.length) { %><div class="muted" style="padding:14px;font-size:12px">Belum ada</div><% } %>
+    </div>
+    <% if (sel.city) { %>
+      <form method="post" action="/admin/regions/add" class="reg-add">
+        <input type="hidden" name="level" value="DISTRICT"><input type="hidden" name="parentId" value="<%= sel.city %>"><input type="hidden" name="prov" value="<%= sel.prov %>"><input type="hidden" name="city" value="<%= sel.city %>">
+        <input name="name" placeholder="+ kecamatan baru" required><button class="btn sm">Tambah</button>
+      </form>
+    <% } %>
+  </div>
+
+  <!-- Desa/Kelurahan -->
+  <div class="reg-col">
+    <div class="reg-hd">Desa/Kelurahan</div>
+    <div class="reg-list">
+      <% if (!sel.dist) { %><div class="muted" style="padding:14px;font-size:12px">Pilih kecamatan</div><% } %>
+      <% vills.forEach(function(r){ %>
+        <div class="reg-item">
+          <span><%= r.name %></span>
+          <form method="post" action="/admin/regions/<%= r.id %>/delete" data-confirm="Hapus '<%= r.name %>'?"><button class="reg-del">✕</button></form>
+        </div>
+      <% }) %>
+      <% if (sel.dist && !vills.length) { %><div class="muted" style="padding:14px;font-size:12px">Belum ada</div><% } %>
+    </div>
+    <% if (sel.dist) { %>
+      <form method="post" action="/admin/regions/add" class="reg-add">
+        <input type="hidden" name="level" value="VILLAGE"><input type="hidden" name="parentId" value="<%= sel.dist %>"><input type="hidden" name="prov" value="<%= sel.prov %>"><input type="hidden" name="city" value="<%= sel.city %>"><input type="hidden" name="dist" value="<%= sel.dist %>">
+        <input name="name" placeholder="+ desa/kelurahan baru" required><button class="btn sm">Tambah</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

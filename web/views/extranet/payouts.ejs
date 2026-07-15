@@ -1,0 +1,81 @@
+<%- include('../partials/top', { title:'Pencairan', heading:'Pencairan / Klaim Pendapatan', section:'extranet', active:'payouts', me }) %>
+
+<% if (done) { %><div class="notice ok">Pengajuan pencairan terkirim. Miruum akan memproses & mentransfer ke rekening Anda.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 16px">Pendapatan dari pemesanan <b>DIRECT</b> (harga kamar dikurangi komisi platform <%= earnings.platformPct %>%). Ajukan pencairan (klaim) untuk saldo yang tersedia — Miruum verifikasi lalu transfer ke rekening Anda.</p>
+
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-finance"/></svg></div><div class="label">Total Pendapatan</div><div class="value" style="font-size:19px"><%= rupiah(earnings.total.payout) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-box"/></svg></div><div class="label">Sudah Dicairkan</div><div class="value" style="font-size:19px"><%= rupiah(earnings.total.settled) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-trend"/></svg></div><div class="label">Dalam Proses</div><div class="value" style="font-size:19px"><%= rupiah(earnings.total.pending) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-promos"/></svg></div><div class="label">Bisa Dicairkan</div><div class="value" style="font-size:19px;color:var(--primary-d)"><%= rupiah(earnings.total.claimable) %></div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Saldo per Hotel</h2>
+    <table>
+      <thead><tr><th>Hotel</th><th>Pesanan</th><th>Pendapatan</th><th>Bisa Dicairkan</th></tr></thead>
+      <tbody>
+        <% earnings.hotels.forEach(function(h){ %>
+          <tr>
+            <td><b><%= h.name %></b></td>
+            <td><%= h.bookings %></td>
+            <td><%= rupiah(h.payout) %></td>
+            <td><b style="color:<%= h.claimable>0?'var(--primary-d)':'var(--faint)' %>"><%= rupiah(h.claimable) %></b><% if (h.pending) { %><br><span class="muted" style="font-size:10px">proses <%= rupiah(h.pending) %></span><% } %></td>
+          </tr>
+        <% }) %>
+        <% if (!earnings.hotels.length) { %><tr><td colspan="4" class="empty">Belum ada hotel DIRECT / pendapatan</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Ajukan Pencairan</h2>
+    <% var claimable = earnings.hotels.filter(function(h){return h.claimable>0}); %>
+    <% if (!claimable.length) { %>
+      <p class="empty">Belum ada saldo yang bisa dicairkan.</p>
+    <% } else { %>
+      <form method="post" action="/extranet/payouts/claim">
+        <label>Hotel</label>
+        <select name="hotelId" id="clHotel" onchange="var o=this.options[this.selectedIndex];document.getElementById('clAmt').value=o.getAttribute('data-max');document.getElementById('clMax').textContent=o.getAttribute('data-maxfmt');">
+          <% claimable.forEach(function(h){ %><option value="<%= h.id ? h.id : h.hotelId %>" data-max="<%= h.claimable %>" data-maxfmt="<%= rupiah(h.claimable) %>"><%= h.name %> — <%= rupiah(h.claimable) %></option><% }) %>
+        </select>
+        <label>Jumlah Pencairan (Rp)</label>
+        <input name="amount" id="clAmt" type="number" min="1" value="<%= claimable[0].claimable %>" required>
+        <div class="muted" style="font-size:11px;margin-top:3px">Maksimal <span id="clMax"><%= rupiah(claimable[0].claimable) %></span></div>
+        <div class="row2">
+          <div><label>Bank</label><input name="bankName" placeholder="mis. BCA" required></div>
+          <div><label>No. Rekening</label><input name="bankAccount" placeholder="1234567890" required></div>
+        </div>
+        <label>Atas Nama</label>
+        <input name="accountHolder" placeholder="Nama pemilik rekening" required>
+        <label>Catatan (opsional)</label>
+        <input name="note" placeholder="mis. pencairan periode Juli">
+        <div style="margin-top:16px"><button class="btn">Ajukan Pencairan</button></div>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Riwayat Pencairan</h2>
+  <table>
+    <thead><tr><th>Tanggal</th><th>Hotel</th><th>Jumlah</th><th>Rekening</th><th>Status</th></tr></thead>
+    <tbody>
+      <% claims.forEach(function(c){ %>
+        <tr>
+          <td style="font-size:12px"><%= new Date(c.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %></td>
+          <td><%= c.hotel.name %></td>
+          <td><b><%= rupiah(c.amount) %></b></td>
+          <td style="font-size:12px"><%= c.bankName || '—' %> <%= c.bankAccount || '' %></td>
+          <td><span class="pill <%= c.status==='PAID'?'PAID':c.status==='REJECTED'?'CANCELLED':'PENDING' %>"><%= c.status==='PAID'?'Dibayar':c.status==='REJECTED'?'Ditolak':'Menunggu' %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!claims.length) { %><tr><td colspan="5" class="empty">Belum ada pengajuan pencairan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -10,15 +10,48 @@
   </div>
 </div>
 
+<% if (saved==='konten') { %><div class="notice ok">Konten properti tersimpan.</div><% } %>
+<% if (saved==='fasilitas') { %><div class="notice ok">Fasilitas tersimpan.</div><% } %>
+
 <div class="card">
-  <h2>🖼️ Foto Hotel</h2>
+  <h2>Konten Properti</h2>
+  <p class="muted" style="margin-top:-8px">Deskripsi & kebijakan yang tampil di halaman hotel pada aplikasi.</p>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/content">
+    <label>Deskripsi Hotel</label>
+    <textarea name="description" rows="4" style="width:100%;box-sizing:border-box"><%= hotel.description || '' %></textarea>
+    <div class="row2">
+      <div><label>Info Check-in</label><input name="checkInInfo" value="<%= hotel.checkInInfo || '' %>" placeholder="Dari jam 14.00"></div>
+      <div><label>Info Check-out</label><input name="checkOutInfo" value="<%= hotel.checkOutInfo || '' %>" placeholder="Sebelum 12.00"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn sm">Simpan Konten</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Fasilitas Hotel</h2>
+  <p class="muted" style="margin-top:-8px">Pilih fasilitas yang tersedia — memengaruhi filter pencarian tamu.</p>
+  <% var have = (hotel.facilities||[]).map(function(f){ return f.facilityId; }); %>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/facilities">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <% (facilities||[]).forEach(function(f){ %>
+        <label style="display:flex;align-items:center;gap:6px;margin:0;padding:7px 12px;border:1px solid var(--line);border-radius:10px">
+          <input type="checkbox" name="facilityIds" value="<%= f.id %>" style="width:auto" <%= have.indexOf(f.id)>=0?'checked':'' %>> <%= f.name %>
+        </label>
+      <% }) %>
+    </div>
+    <div style="margin-top:14px"><button class="btn sm">Simpan Fasilitas</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Foto Hotel</h2>
   <p class="muted" style="margin-top:-8px">Kelola galeri foto yang tampil di aplikasi.</p>
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
     <% (hotel.photos||[]).forEach(function(ph){ %>
       <div style="position:relative">
         <img src="<%= ph.url %>" style="width:110px;height:80px;object-fit:cover;border-radius:12px">
-        <form method="post" action="/extranet/photos/<%= ph.id %>/delete" onsubmit="return confirm('Hapus foto?')" style="position:absolute;top:4px;right:4px">
-          <button class="btn danger sm" style="padding:2px 8px">✕</button>
+        <form method="post" action="/extranet/photos/<%= ph.id %>/delete" data-confirm="Hapus foto?" style="position:absolute;top:4px;right:4px">
+          <button class="btn danger sm" style="padding:2px 8px"></button>
         </form>
       </div>
     <% }) %>
@@ -26,13 +59,13 @@
   </div>
   <form method="post" action="/extranet/hotels/<%= hotel.id %>/photos" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:center;max-width:520px">
     <input type="file" name="photo" accept="image/*" required style="flex:1">
-    <button class="btn sm">⬆️ Unggah Foto</button>
+    <button class="btn sm">Unggah Foto</button>
   </form>
   <p class="muted" style="font-size:11px;margin-top:6px">Format JPG/PNG/WebP, maks 6MB.</p>
 </div>
 
 <div class="card">
-  <h2>🏷️ Promo Hotel</h2>
+  <h2>Promo Hotel</h2>
   <p class="muted" style="margin-top:-8px">Tandai hotel sedang promo & tampilkan label di kartu hotel.</p>
   <form method="post" action="/extranet/hotels/<%= hotel.id %>/promo" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <label style="display:flex;align-items:center;gap:6px;margin:0"><input type="checkbox" name="isPromo" style="width:auto" <%= hotel.isPromo?'checked':'' %>> Aktifkan promo</label>
@@ -42,31 +75,34 @@
 </div>
 
 <div class="card">
-  <h2>Kamar & Ketersediaan</h2>
-  <p class="muted" style="margin-top:-8px">Ubah harga & stok kamar Anda.</p>
-  <table>
-    <thead><tr><th>Kamar</th><th>Tipe</th><th>Atur Harga & Stok</th></tr></thead>
-    <tbody>
-      <% hotel.rooms.forEach(function(r){ %>
-        <tr>
-          <td><b><%= r.name %></b><br><span class="muted" style="font-size:11px"><%= r.bedInfo %></span></td>
-          <td><%= r.refundable ? 'Refundable' : 'Non-refundable' %><%= r.breakfast ? ' · Sarapan' : '' %></td>
-          <td>
-            <form method="post" action="/extranet/rooms/<%= r.id %>" style="display:flex;gap:8px;align-items:center">
-              <input name="price" type="number" value="<%= r.price %>" style="max-width:140px" title="Harga/malam">
-              <input name="stock" type="number" value="<%= r.stock %>" style="max-width:80px" title="Stok">
-              <button class="btn sm">Simpan</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-      <% if (!hotel.rooms.length) { %><tr><td colspan="5" class="empty">Belum ada kamar</td></tr><% } %>
-    </tbody>
-  </table>
+  <h2>Kamar, Atribut & Promo</h2>
+  <p class="muted" style="margin-top:-8px">Atur harga, stok, kapasitas, kebijakan kamar, dan buat promo (diskon) sendiri.</p>
+  <% hotel.rooms.forEach(function(r){ var dealPct = (r.originalPrice && r.originalPrice>r.price) ? Math.round((1 - r.price/r.originalPrice)*100) : 0; %>
+    <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <b><%= r.name %></b>
+        <% if (dealPct>0) { %><span class="pill PAID">Promo -<%= dealPct %>% · <s style="opacity:.6"><%= rupiah(r.originalPrice) %></s> → <%= rupiah(r.price) %></span><% } %>
+      </div>
+      <form method="post" action="/extranet/rooms/<%= r.id %>" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px">
+        <div><label style="margin:0 0 4px">Harga/malam</label><input name="price" type="number" value="<%= r.originalPrice && r.originalPrice>r.price ? r.originalPrice : r.price %>" style="max-width:130px"></div>
+        <div><label style="margin:0 0 4px">Stok</label><input name="stock" type="number" value="<%= r.stock %>" style="max-width:80px"></div>
+        <div><label style="margin:0 0 4px">Kapasitas</label><input name="capacity" type="number" value="<%= r.capacity %>" style="max-width:90px"></div>
+        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="refundable" <%= r.refundable?'checked':'' %>> Refundable</label>
+        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="freeCancellation" <%= r.freeCancellation?'checked':'' %>> Gratis batal</label>
+        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="breakfast" <%= r.breakfast?'checked':'' %>> Sarapan</label>
+        <button class="btn sm" style="margin-bottom:2px">Simpan Kamar</button>
+      </form>
+      <form method="post" action="/extranet/rooms/<%= r.id %>/deal" style="display:flex;gap:8px;align-items:end;margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)">
+        <div><label style="margin:0 0 4px">Promo diskon (%)</label><input name="dealPct" type="number" min="0" max="90" value="<%= dealPct %>" style="max-width:110px" placeholder="0 = nonaktif"></div>
+        <button class="btn ghost sm" style="margin-bottom:2px">Terapkan Promo</button>
+      </form>
+    </div>
+  <% }) %>
+  <% if (!hotel.rooms.length) { %><p class="empty">Belum ada kamar</p><% } %>
 </div>
 
 <div class="card">
-  <h2>🗓️ Kalender Rate & Ketersediaan</h2>
+  <h2>Kalender Rate & Ketersediaan</h2>
   <p class="muted" style="margin-top:-8px">Atur harga & jatah kamar (allotment) per rentang tanggal. Kosongkan harga/jatah jika tidak ingin mengubahnya.</p>
   <% hotel.rooms.forEach(function(r){ %>
     <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px">

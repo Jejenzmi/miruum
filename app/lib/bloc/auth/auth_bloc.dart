@@ -1,8 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../api.dart';
 import '../../models.dart';
+import '../../push.dart';
+import '../../token_store.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -13,6 +14,8 @@ part 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final Api api;
   AuthBloc(this.api) : super(const AuthState()) {
+    // When the refresh token is rejected, force the app back to logged-out.
+    api.onSessionExpired = () async => add(const AuthLoggedOut());
     on<AuthStarted>(_onStarted);
     on<AuthSessionGranted>(_onGranted);
     on<AuthLoggedOut>(_onLoggedOut);
@@ -22,8 +25,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onStarted(AuthStarted e, Emitter<AuthState> emit) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    final token = await TokenStore.readAccess();
+    api.refreshToken = await TokenStore.readRefresh();
     if (token == null) {
       emit(state.copyWith(status: AuthStatus.unauthenticated));
       return;
@@ -32,26 +35,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = await api.me();
       emit(state.copyWith(status: AuthStatus.authenticated, user: user));
+      Push.register(api); // map FCM device token to this user
       add(const AuthFavoritesRequested());
     } catch (_) {
       api.token = null;
-      await prefs.remove('token');
+      api.refreshToken = null;
+      await TokenStore.clear();
       emit(state.copyWith(status: AuthStatus.unauthenticated, clearUser: true));
     }
   }
 
   Future<void> _onGranted(AuthSessionGranted e, Emitter<AuthState> emit) async {
+    // The access + refresh pair is already persisted by Api on login/register/
+    // google (Api._adoptSession). Just sync the in-memory token and state.
     api.token = e.token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', e.token);
     emit(state.copyWith(status: AuthStatus.authenticated, user: e.user, favoriteIds: {}));
+    Push.register(api); // map FCM device token to this user
     add(const AuthFavoritesRequested());
   }
 
   Future<void> _onLoggedOut(AuthLoggedOut e, Emitter<AuthState> emit) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    api.token = null;
+    await api.logout(); // revoke refresh token server-side + clear local
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 

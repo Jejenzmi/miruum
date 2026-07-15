@@ -1,0 +1,62 @@
+<%- include('../partials/top', { title:'Penagihan', heading:'Penagihan Korporat & Government', section:'admin', active:'billing', me }) %>
+
+<% if (done) { %><div class="notice ok">Tagihan <b><%= done %></b> diterbitkan & dikirim ke instansi.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Terbitkan tagihan (invoice) untuk pemesanan kredit instansi. Setiap tagihan mencakup pesanan yang belum ditagih; instansi membayar sebelum jatuh tempo.</p>
+
+<% corporates.forEach(function(c){ %>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap">
+      <div>
+        <span class="pill <%= c.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= c.type==='GOVERNMENT'?'Pemerintah':'Korporat' %></span>
+        <b style="display:block;margin-top:6px;font-size:15px"><%= c.name %></b>
+        <span class="muted" style="font-size:12px"><%= c.email || '' %></span>
+      </div>
+      <div style="text-align:right">
+        <div class="muted" style="font-size:11px">Belum ditagih</div>
+        <div style="font-weight:800;font-size:17px;color:var(--primary-d)"><%= rupiah(c.unbilled) %></div>
+        <div class="muted" style="font-size:11px"><%= c.unbilledCount %> pesanan · outstanding <%= rupiah(c.outstanding) %></div>
+      </div>
+    </div>
+    <% if (c.unbilled > 0) { %>
+      <form method="post" action="/admin/corporate-invoices" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
+        <input type="hidden" name="corporateId" value="<%= c.id %>">
+        <div><label style="margin-top:0">Jatuh tempo (hari)</label><input name="dueDays" type="number" min="1" value="14" style="max-width:120px"></div>
+        <div style="flex:1;min-width:160px"><label style="margin-top:0">Catatan (opsional)</label><input name="note" placeholder="mis. Tagihan perjalanan dinas Juli 2026"></div>
+        <button class="btn" data-confirm="Terbitkan tagihan <%= rupiah(c.unbilled) %> (<%= c.unbilledCount %> pesanan) ke <%= c.name %>?" data-confirm-ok="Ya, terbitkan">Terbitkan Tagihan</button>
+      </form>
+    <% } else { %>
+      <p class="muted" style="font-size:12.5px;margin:12px 0 0;border-top:1px solid var(--line);padding-top:12px">Tidak ada pesanan yang belum ditagih.</p>
+    <% } %>
+    <% if (c.invoices.length) { %>
+      <div style="overflow-x:auto;margin-top:14px">
+        <table>
+          <thead><tr><th>No. Tagihan</th><th>Jumlah</th><th>Jatuh Tempo</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody>
+            <% c.invoices.forEach(function(inv){ %>
+              <tr>
+                <td><b><%= inv.number %></b><br><span class="muted" style="font-size:11px"><%= inv.bookingsCount %> pesanan</span></td>
+                <td><b><%= rupiah(inv.amount) %></b></td>
+                <td style="font-size:12px"><%= inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—' %></td>
+                <td><span class="pill <%= inv.status==='PAID'?'PAID':inv.status==='CANCELLED'?'REFUNDED':'PENDING' %>"><%= inv.status==='PAID'?'Lunas':inv.status==='CANCELLED'?'Batal':'Belum Bayar' %></span></td>
+                <td>
+                  <div class="actions">
+                    <a class="btn ghost sm" href="/api/corporate-invoices/<%= inv.id %>" target="_blank">Lihat</a>
+                    <% if (inv.status==='UNPAID') { %>
+                      <form method="post" action="/admin/corporate-invoices/<%= inv.id %>/paid" data-confirm="Tandai tagihan <%= inv.number %> LUNAS?" data-confirm-ok="Ya, lunas"><button class="btn sm">Tandai Lunas</button></form>
+                      <form method="post" action="/admin/corporate-invoices/<%= inv.id %>/cancel" data-confirm="Batalkan tagihan <%= inv.number %>? Pesanan akan bisa ditagih ulang."><button class="btn danger sm">Batal</button></form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+<% }) %>
+<% if (!corporates.length) { %><div class="card"><p class="empty">Belum ada akun korporat</p></div><% } %>
+
+<%- include('../partials/bottom') %>

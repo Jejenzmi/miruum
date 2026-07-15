@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../api.dart';
+import '../feedback.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
@@ -73,16 +75,59 @@ class BookingDetailScreen extends StatelessWidget {
           if (b.status == 'PENDING')
             PrimaryButton('Lanjutkan Pembayaran', icon: Icons.payment_rounded,
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id))))
-          else if (b.status == 'PAID' || b.status == 'COMPLETED')
-            OutlineButtonX('Lihat E-Voucher', icon: Icons.receipt_long_rounded, onPressed: () async {
+          else if (b.status == 'PAID' || b.status == 'COMPLETED') ...[
+            PrimaryButton('Lihat E-Voucher', icon: Icons.confirmation_number_rounded, onPressed: () async {
               final ok = await openUrl(context.read<Api>().voucherUrl(b.code));
-              if (!ok && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak dapat membuka e-voucher')));
-              }
+              if (!ok && context.mounted) showSnack(context, 'Tidak dapat membuka e-voucher.', kind: SnackKind.error);
             }),
+            const SizedBox(height: 10),
+            OutlineButtonX('Lihat Invoice', icon: Icons.description_rounded, onPressed: () async {
+              final ok = await openUrl(context.read<Api>().invoiceUrl(b.code));
+              if (!ok && context.mounted) showSnack(context, 'Tidak dapat membuka invoice.', kind: SnackKind.error);
+            }),
+            if (b.status == 'PAID') ...[
+              const SizedBox(height: 10),
+              if (b.onlineCheckedIn && (b.keyCode ?? '').isNotEmpty)
+                PrimaryButton('Kunci Digital Kamar', icon: Icons.vpn_key_rounded, onPressed: () => _showKey(context, b.keyCode!))
+              else
+                OutlineButtonX('Check-in Online', icon: Icons.login_rounded, onPressed: () => _doCheckin(context)),
+            ],
+          ],
         ]),
       ),
     );
+  }
+
+  Future<void> _doCheckin(BuildContext context) async {
+    try {
+      final (_, key) = await context.read<Api>().digitalCheckin(booking.id);
+      if (context.mounted) _showKey(context, key, justChecked: true);
+    } on ApiException catch (e) {
+      if (context.mounted) showSnack(context, e.message, kind: SnackKind.error);
+    }
+  }
+
+  void _showKey(BuildContext context, String code, {bool justChecked = false}) {
+    showDialog(context: context, builder: (_) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.vpn_key_rounded, color: MC.primary, size: 30),
+          const SizedBox(height: 8),
+          Text(justChecked ? 'Check-in Online Berhasil!' : 'Kunci Digital Kamar', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17), textAlign: TextAlign.center),
+          const SizedBox(height: 4),
+          Text('Tunjukkan kode ini di resepsionis / gerbang kamar.', textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 12.5)),
+          const SizedBox(height: 16),
+          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: MC.line)),
+              child: QrImageView(data: code, size: 170, version: QrVersions.auto)),
+          const SizedBox(height: 12),
+          Text(code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, letterSpacing: 2, color: MC.primaryDark)),
+          const SizedBox(height: 16),
+          SizedBox(width: double.infinity, child: PrimaryButton('Tutup', onPressed: () => Navigator.pop(context))),
+        ]),
+      ),
+    ));
   }
 
   Widget _row(String k, String v, {bool bold = false, Color? color}) => Padding(

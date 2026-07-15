@@ -1,9 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../api.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../feedback.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
+import 'content_screen.dart';
 
 class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
@@ -60,18 +67,59 @@ class _SettingScreenState extends State<SettingScreen> {
             const SizedBox(height: 18),
             _section(tr('INFORMASI', 'INFORMATION')),
             _card(child: Column(children: [
-              _tile(Icons.description_outlined, tr('Syarat & Ketentuan', 'Terms & Conditions'), MC.blue, () => _info(context)),
+              _tile(Icons.description_outlined, tr('Syarat & Ketentuan', 'Terms & Conditions'), MC.blue,
+                  () => _openContent(context, 'terms', tr('Syarat & Ketentuan', 'Terms & Conditions'))),
               Divider(height: 1, color: MC.line, indent: 60),
-              _tile(Icons.shield_outlined, tr('Kebijakan Privasi', 'Privacy Policy'), MC.success, () => _info(context)),
+              _tile(Icons.shield_outlined, tr('Kebijakan Privasi', 'Privacy Policy'), MC.success,
+                  () => _openContent(context, 'privacy', tr('Kebijakan Privasi', 'Privacy Policy'))),
               Divider(height: 1, color: MC.line, indent: 60),
-              _tile(Icons.info_outline_rounded, tr('Tentang Miruum', 'About Miruum'), MC.primary, () => _info(context)),
+              _tile(Icons.info_outline_rounded, tr('Tentang Miruum', 'About Miruum'), MC.primary,
+                  () => _openContent(context, 'about', tr('Tentang Miruum', 'About Miruum'))),
             ])),
+            const SizedBox(height: 16),
+            // UU PDP — data subject rights
+            if (context.read<AuthBloc>().state.isLoggedIn)
+              _card(child: Column(children: [
+                _tile(Icons.download_rounded, tr('Unduh Data Saya', 'Download My Data'), MC.blue, _exportData),
+                Divider(height: 1, color: MC.line, indent: 60),
+                _tile(Icons.delete_outline_rounded, tr('Hapus Akun', 'Delete Account'), MC.danger, _deleteAccount),
+              ])),
             const SizedBox(height: 24),
-            Center(child: Text('Miruum · Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+            Center(child: Text('Miruum · Version 1.1', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final data = await context.read<Api>().exportMyData();
+      const encoder = JsonEncoder.withIndent('  ');
+      await Share.share(encoder.convert(data), subject: 'Data Miruum Saya');
+    } catch (_) {
+      if (mounted) showSnack(context, tr('Gagal mengunduh data.', 'Failed to export data.'), kind: SnackKind.error);
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final ok = await confirmDialog(context,
+        title: tr('Hapus Akun?', 'Delete Account?'),
+        message: tr(
+            'Akun & data pribadi Anda akan dihapus permanen. Catatan transaksi disimpan secara anonim sesuai kewajiban hukum. Tindakan ini tak bisa dibatalkan.',
+            'Your account & personal data will be permanently deleted. Transaction records are kept anonymized per legal obligations. This cannot be undone.'),
+        confirmText: tr('Ya, Hapus Akun', 'Yes, Delete'), cancelText: tr('Batal', 'Cancel'),
+        icon: Icons.delete_forever_rounded, danger: true);
+    if (!ok || !mounted) return;
+    try {
+      await context.read<Api>().deleteAccount();
+      if (!mounted) return;
+      context.read<AuthBloc>().add(const AuthLoggedOut());
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      showSnack(context, tr('Akun Anda telah dihapus.', 'Your account has been deleted.'), kind: SnackKind.info);
+    } catch (e) {
+      if (mounted) showSnack(context, e is ApiException ? e.message : tr('Gagal menghapus akun.', 'Failed to delete account.'), kind: SnackKind.error);
+    }
   }
 
   Widget _section(String label) => Padding(
@@ -126,6 +174,6 @@ class _SettingScreenState extends State<SettingScreen> {
         onTap: onTap,
       );
 
-  void _info(BuildContext context) => ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(tr('Segera hadir', 'Coming soon')), backgroundColor: MC.primary));
+  void _openContent(BuildContext context, String slug, String title) => Navigator.push(
+      context, MaterialPageRoute(builder: (_) => ContentScreen(slug: slug, fallbackTitle: title)));
 }

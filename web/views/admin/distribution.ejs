@@ -1,13 +1,11 @@
 <%- include('../partials/top', { title:'Distribusi OTA', heading:'Distribusi OTA (Room Mapping & Push)', section:'admin', active:'distribution', me }) %>
 
-<% if (pushed !== undefined) { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">🚀 Push selesai — <%= pushed %> pemetaan terkirim ke OTA.</div><% } %>
-<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Pemetaan disimpan.</div><% } %>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
   <p class="muted" style="font-size:12.5px;margin:0;max-width:640px">
     Petakan tiap kamar Miruum (hotel DIRECT) ke <b>ID tipe kamar di OTA</b>, lalu <b>Push</b> untuk mendorong rate & ketersediaan ke OTA tersebut. (Push saat ini mock — aktif otomatis saat kredensial API OTA tersedia.)
   </p>
-  <form method="post" action="/admin/distribution/push"><button class="btn">🚀 Push ke Semua OTA</button></form>
+  <form method="post" action="/admin/distribution/push"><button class="btn">Distribusikan ke Semua OTA</button></form>
 </div>
 
 <% hotels.forEach(function(h){ %>

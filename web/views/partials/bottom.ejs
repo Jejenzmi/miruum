@@ -1,4 +1,86 @@
   </main>
 </div>
+
+<!-- Animated confirm dialog (replaces native confirm) -->
+<div id="mDialog" class="mdlg-backdrop" aria-hidden="true">
+  <div class="mdlg" role="dialog" aria-modal="true">
+    <div class="mdlg-ic" id="mDlgIc">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h3 id="mDlgTitle">Konfirmasi</h3>
+    <p id="mDlgMsg">Anda yakin?</p>
+    <div class="mdlg-actions">
+      <button type="button" class="btn ghost sm" id="mDlgCancel">Batal</button>
+      <button type="button" class="btn danger sm" id="mDlgOk">Ya, lanjutkan</button>
+    </div>
+  </div>
+</div>
+<div id="mToasts" class="mtoast-host" aria-live="polite"></div>
+
+<script>
+(function(){
+  var dlg=document.getElementById('mDialog'), icon=document.getElementById('mDlgIc'),
+      title=document.getElementById('mDlgTitle'), msg=document.getElementById('mDlgMsg'),
+      ok=document.getElementById('mDlgOk'), cancel=document.getElementById('mDlgCancel');
+  var pending=null;
+  function open(){ dlg.classList.add('show'); document.body.style.overflow='hidden'; }
+  function close(){ dlg.classList.remove('show'); document.body.style.overflow=''; pending=null; }
+  function arm(el, isLink){
+    msg.textContent=el.getAttribute('data-confirm')||'Anda yakin ingin melanjutkan?';
+    title.textContent=el.getAttribute('data-confirm-title')||'Konfirmasi';
+    ok.textContent=el.getAttribute('data-confirm-ok')||'Ya, lanjutkan';
+    icon.className='mdlg-ic'+(el.getAttribute('data-confirm-kind')==='logout'?' logout':'');
+    pending={el:el, isLink:isLink}; open();
+  }
+  // Intercept any form asking for confirmation.
+  document.querySelectorAll('form[data-confirm]').forEach(function(f){
+    f.addEventListener('submit', function(e){
+      if(f.__confirmed) return; // allow the programmatic submit through
+      e.preventDefault(); arm(f, false);
+    });
+  });
+  // Intercept links (e.g. Keluar / logout) asking for confirmation.
+  document.querySelectorAll('a[data-confirm]').forEach(function(a){
+    a.addEventListener('click', function(e){ e.preventDefault(); arm(a, true); });
+  });
+  ok.addEventListener('click', function(){
+    if(pending){
+      if(pending.isLink){ window.location.href=pending.el.getAttribute('href'); }
+      else { pending.el.__confirmed=true; pending.el.submit(); }
+    }
+    close();
+  });
+  cancel.addEventListener('click', close);
+  dlg.addEventListener('click', function(e){ if(e.target===dlg) close(); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && dlg.classList.contains('show')) close(); });
+
+  // Toast host
+  function toast(type, text){
+    var host=document.getElementById('mToasts');
+    var t=document.createElement('div'); t.className='mtoast '+type;
+    var ic = type==='error' ? '&#10005;' : type==='info' ? '&#8505;' : '&#10003;';
+    t.innerHTML='<span class="mt-ic">'+ic+'</span><span>'+text+'</span>';
+    host.appendChild(t);
+    requestAnimationFrame(function(){ t.classList.add('in'); });
+    setTimeout(function(){ t.classList.remove('in'); setTimeout(function(){ t.remove(); }, 350); }, 3600);
+  }
+  window.mToast=toast;
+
+  // Auto-flash from query params (universal CRUD response), unless page shows an inline notice.
+  if(!document.querySelector('.notice')){
+    var q=new URLSearchParams(location.search), shown=false, sv=q.get('saved');
+    if(q.get('err')){ toast('error','Terjadi kesalahan, coba lagi.'); shown=true; }
+    else if(sv==='err'){ toast('error','Gagal menyimpan. Periksa isian Anda.'); shown=true; }
+    else if(sv){ toast('success', sv==='1' ? 'Perubahan berhasil disimpan.' : 'Konten "'+sv+'" tersimpan & langsung tayang.'); shown=true; }
+    else if(q.get('added')){ toast('success','Data baru berhasil ditambahkan.'); shown=true; }
+    else if(q.get('deleted')){ toast('success','Data berhasil dihapus.'); shown=true; }
+    else if(q.get('sent')){ toast('success','Broadcast berhasil dikirim ke pengguna.'); shown=true; }
+    else if(q.get('paid')){ toast('success','Payout berhasil dicatat.'); shown=true; }
+    else if(q.get('pushed')!==null){ toast('success','Distribusi terkirim — '+q.get('pushed')+' pemetaan didorong ke OTA.'); shown=true; }
+    else if(q.get('synced')!==null){ toast('success','Sinkronisasi selesai — '+q.get('synced')+' penawaran diperbarui.'); shown=true; }
+    if(shown){ history.replaceState(null,'',location.pathname); }
+  }
+})();
+</script>
 </body>
 </html>

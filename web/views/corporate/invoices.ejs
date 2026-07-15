@@ -1,0 +1,40 @@
+<%- include('../partials/top', { title:'Tagihan', heading:'Tagihan & Pembayaran', section:'corporate', active:'invoices', me }) %>
+
+<p class="muted" style="margin:-4px 0 16px">Tagihan yang diterbitkan Miruum atas pemesanan instansi Anda. Unduh untuk keperluan pembayaran & pembukuan.</p>
+
+<%
+  var unpaid = invoices.filter(function(i){return i.status==='UNPAID'});
+  var totalDue = unpaid.reduce(function(s,i){return s+i.amount},0);
+%>
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--danger-s);color:var(--danger)"><svg class="ci"><use href="#i-finance"/></svg></div><div class="label">Total Belum Dibayar</div><div class="value" style="font-size:19px;color:var(--danger)"><%= rupiah(totalDue) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-bookings"/></svg></div><div class="label">Tagihan Aktif</div><div class="value"><%= unpaid.length %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-box"/></svg></div><div class="label">Total Tagihan</div><div class="value"><%= invoices.length %></div></div>
+</div>
+
+<div class="card">
+  <h2>Daftar Tagihan</h2>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>No. Tagihan</th><th>Terbit</th><th>Jatuh Tempo</th><th>Jumlah</th><th>Status</th><th>Dokumen</th></tr></thead>
+      <tbody>
+        <% invoices.forEach(function(inv){ var overdue = inv.status==='UNPAID' && inv.dueDate && new Date(inv.dueDate) < new Date(); %>
+          <tr>
+            <td><b><%= inv.number %></b><br><span class="muted" style="font-size:11px"><%= inv.bookingsCount %> pesanan</span></td>
+            <td style="font-size:12px"><%= new Date(inv.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %></td>
+            <td style="font-size:12px;<%= overdue?'color:var(--danger);font-weight:600':'' %>"><%= inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '—' %><%= overdue?' (lewat)':'' %></td>
+            <td><b><%= rupiah(inv.amount) %></b></td>
+            <td><span class="pill <%= inv.status==='PAID'?'PAID':inv.status==='CANCELLED'?'REFUNDED':'PENDING' %>"><%= inv.status==='PAID'?'Lunas':inv.status==='CANCELLED'?'Batal':'Belum Dibayar' %></span></td>
+            <td><a class="btn ghost sm" href="/api/corporate-invoices/<%= inv.id %>" target="_blank">Lihat / Unduh</a></td>
+          </tr>
+        <% }) %>
+        <% if (!invoices.length) { %><tr><td colspan="6" class="empty">Belum ada tagihan</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+  <% if (totalDue > 0) { %>
+    <p class="muted" style="font-size:12px;margin-top:14px">Pembayaran ditransfer ke rekening Miruum sesuai instruksi pada dokumen tagihan. Konfirmasi otomatis setelah dana diterima.</p>
+  <% } %>
+</div>
+
+<%- include('../partials/bottom') %>

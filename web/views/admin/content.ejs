@@ -1,0 +1,25 @@
+<%- include('../partials/top', { title:'Konten', heading:'Konten Statis', section:'admin', active:'content', me }) %>
+
+<% if (saved) { %><div class="notice ok">Konten "<%= saved %>" berhasil disimpan & langsung tayang di aplikasi.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Kelola halaman legal & informasi yang tampil di aplikasi Miruum (menu Pengaturan). Perubahan langsung diambil aplikasi.</p>
+
+<% var meta = { terms:{hint:'Syarat & Ketentuan penggunaan'}, privacy:{hint:'Kebijakan Privasi & data'}, about:{hint:'Tentang Miruum'} };
+   var order = ['terms','privacy','about'];
+   var bySlug = {}; content.forEach(function(c){ bySlug[c.slug]=c; }); %>
+
+<% order.forEach(function(slug){ var c = bySlug[slug] || { slug:slug, title:'', body:'' }; var m = meta[slug]||{hint:''}; %>
+  <div class="card">
+    <h2><%= c.title || slug %> <span class="tag-slug"><%= slug %></span></h2>
+    <p class="muted" style="margin-top:-8px"><%= m.hint %><% if (c.updatedAt) { %> · diperbarui <%= new Date(c.updatedAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %><% } %></p>
+    <form method="post" action="/admin/content/<%= slug %>">
+      <label>Judul</label>
+      <input name="title" value="<%= c.title %>" required>
+      <label>Isi</label>
+      <textarea name="body" rows="10" style="font-family:inherit;line-height:1.6"><%= c.body %></textarea>
+      <div style="margin-top:14px"><button class="btn">Simpan <%= c.title || slug %></button></div>
+    </form>
+  </div>
+<% }) %>
+
+<%- include('../partials/bottom') %>

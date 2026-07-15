@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pengajuan Layanan Corporate — Miruum</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="auth">
+  <div class="auth-form-wrap" style="align-items:start">
+    <div class="auth-card" style="max-width:440px;padding-top:40px;padding-bottom:40px">
+      <img src="/static/logo.png" alt="Miruum" class="auth-logo">
+      <span class="eyebrow">Corporate &amp; Government</span>
+      <h2>Ajukan Layanan Corporate</h2>
+      <p class="lead">Lengkapi data instansi Anda. Tim Miruum akan meninjau &amp; mengaktifkan akun (kredensial dikirim ke email PIC).</p>
+
+      <% if (done) { %>
+        <div class="notice ok" style="margin-bottom:16px">Pengajuan terkirim! Tim Miruum akan menghubungi PIC via email. <a href="/corporate/login">Kembali ke login</a></div>
+      <% } %>
+      <% if (error) { %><div class="error"><%= error %></div><% } %>
+
+      <form method="post" action="/corporate/register">
+        <label>Jenis Instansi</label>
+        <select name="type"><option value="CORPORATE">Perusahaan / Korporat</option><option value="GOVERNMENT">Instansi Pemerintah</option></select>
+        <label>Nama Instansi / Perusahaan</label>
+        <input name="companyName" placeholder="mis. PT Nusantara Jaya" required>
+        <div class="row2">
+          <div><label>Nama PIC</label><input name="picName" placeholder="Penanggung jawab" required></div>
+          <div><label>Jabatan PIC</label><input name="picPosition" placeholder="mis. Manajer GA"></div>
+        </div>
+        <div class="row2">
+          <div><label>Email PIC</label><input name="email" type="email" placeholder="email@instansi.id" required></div>
+          <div><label>No. Telepon</label><input name="phone" placeholder="08xx / 021xxx" required></div>
+        </div>
+        <%- include('../partials/region_picker') %>
+        <div class="row2">
+          <div><label>NPWP (opsional)</label><input name="taxId" placeholder="00.000.000.0-000.000"></div>
+          <div><label>Estimasi Karyawan</label><input name="employees" type="number" min="0" placeholder="mis. 250"></div>
+        </div>
+        <label>Kebutuhan / Catatan</label>
+        <textarea name="note" rows="2" placeholder="mis. rata-rata 30 pemesanan/bulan untuk perjalanan dinas"></textarea>
+        <div style="margin-top:18px"><button class="btn" style="width:100%;justify-content:center">Kirim Pengajuan</button></div>
+      </form>
+      <p style="text-align:center;margin-top:16px;font-size:13px">Sudah punya akun? <a href="/corporate/login">Masuk di sini</a></p>
+    </div>
+  </div>
+  <%- include('../partials/auth_brand', { variant: 'corp' }) %>
+</div>
+</body>
+</html>

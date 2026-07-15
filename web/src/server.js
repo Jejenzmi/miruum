@@ -1,6 +1,8 @@
 const path = require("path");
 const express = require("express");
 const session = require("express-session");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 6 * 1024 * 1024 } });
 
@@ -11,14 +13,47 @@ const APK_URL = process.env.APK_URL || "";
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "..", "views"));
+// Security headers. CSP disabled — portals use inline styles/handlers; the other
+// helmet protections (frameguard/clickjacking, HSTS, noSniff, referrer) stay on.
+// referrerPolicy=same-origin keeps the Referer header on same-origin requests,
+// which the CSRF middleware below falls back on when Origin is absent.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, referrerPolicy: { policy: "same-origin" } }));
 app.use(express.urlencoded({ extended: true }));
 app.use("/static", express.static(path.join(__dirname, "..", "public")));
+app.set("trust proxy", 1); // behind nginx TLS terminator
+
+// CSRF protection: every state-changing request must carry an Origin/Referer
+// whose host matches this portal. Combined with the SameSite=lax session cookie,
+// this blocks cross-site forged POST/PUT/DELETE. Same-origin forms are unaffected.
+app.use((req, res, next) => {
+  if (!["POST", "PUT", "DELETE", "PATCH"].includes(req.method)) return next();
+  const host = req.get("host");
+  const src = req.get("origin") || req.get("referer") || "";
+  let ok = false;
+  try { ok = !!src && new URL(src).host === host; } catch { ok = false; }
+  if (!ok) return res.status(403).send("Permintaan ditolak (proteksi CSRF: asal tidak cocok).");
+  next();
+});
 app.use(session({
+  name: "miruum.sid",
   secret: process.env.SESSION_SECRET || "miruum-web-secret",
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 12 },
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 12,
+    httpOnly: true,                                  // not readable by JS (XSS-safe)
+    sameSite: "lax",                                 // block cross-site cookie sending (CSRF)
+    secure: process.env.NODE_ENV === "production",   // HTTPS-only in prod
+  },
 }));
+
+// ── Portal detection by hostname: admin / cm / extranet ──
+// Same app + data, but each subdomain renders its own focused sidebar menu.
+app.use((req, res, next) => {
+  const h = (req.hostname || "").toLowerCase();
+  res.locals.portal = h.startsWith("cm.") ? "cm" : h.startsWith("pms.") ? "pms" : h.startsWith("corporate.") ? "corporate" : h.startsWith("admin.") ? "admin" : h.startsWith("extranet.") ? "extranet" : null;
+  next();
+});
 
 // ── API helper (server-side calls to the core backend) ──
 async function api(pathname, { method = "GET", token, body } = {}) {
@@ -54,11 +89,29 @@ function guard(role, loginPath) {
     if (!s || !s.token) return res.redirect(loginPath);
     res.locals.me = s.user;
     res.locals.token = s.token;
+    if (role === "partner") res.locals.ent = s.ent || { extranet: true, channelManager: false, pms: false };
     next();
   };
 }
 const adminGuard = guard("admin", "/admin/login");
 const partnerGuard = guard("partner", "/extranet/login");
+const corporateGuard = guard("corporate", "/corporate/login");
+
+// Brute-force protection for portal logins, per real client IP (trust proxy set).
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false,
+  handler: (req, res) => res.status(429).send("Terlalu banyak percobaan masuk. Coba lagi dalam beberapa menit."),
+});
+
+// Gate a paid module (Channel Manager / PMS) behind the partner's contract.
+// Runs after partnerGuard, so the session & entitlements are loaded.
+function productGuard(product, label) {
+  return (req, res, next) => {
+    const ent = req.session.partner?.ent;
+    if (ent && ent[product]) return next();
+    res.status(403).render("extranet/locked", { module: label, active: product === "channelManager" ? "cm" : "pms" });
+  };
+}
 
 // ═══════════════════════ LANDING ═══════════════════════
 app.get("/", (_req, res) => res.render("landing"));
@@ -66,7 +119,7 @@ app.get("/health", (_req, res) => res.json({ ok: true, service: "miruum-web" }))
 
 // ═══════════════════════ BACK OFFICE (ADMIN) ═══════════════════════
 app.get("/admin/login", (req, res) => res.render("admin/login", { error: null, base: "/admin" }));
-app.post("/admin/login", async (req, res) => {
+app.post("/admin/login", loginLimiter, async (req, res) => {
   try {
     const { token, user } = await api("/auth/login", { method: "POST", body: { email: req.body.email, password: req.body.password } });
     if (user.role !== "ADMIN") throw new Error("Akun ini bukan admin");
@@ -119,11 +172,11 @@ app.post("/admin/hotels/:id/delete", adminGuard, async (req, res) => {
 });
 
 app.get("/admin/channels", adminGuard, async (req, res) => {
-  const [{ hotels }, { channels }] = await Promise.all([
+  const [cm, { channels }] = await Promise.all([
     api("/admin/channel-manager", { token: res.locals.token }),
     api("/admin/channels", { token: res.locals.token }),
   ]);
-  res.render("admin/channel_manager", { hotels, channels, active: "channels", synced: req.query.synced, testResult: null });
+  res.render("admin/channel_manager", { hotels: cm.hotels, overview: cm.overview, channels, active: "channels", synced: req.query.synced, testResult: null });
 });
 
 app.post("/admin/channels/sync", adminGuard, async (req, res) => {
@@ -131,19 +184,70 @@ app.post("/admin/channels/sync", adminGuard, async (req, res) => {
   res.redirect(`/admin/channels?synced=${r.offers || 0}`);
 });
 
+app.get("/admin/rate-intelligence", adminGuard, async (req, res) => {
+  const { rows } = await api("/admin/rate-intelligence", { token: res.locals.token });
+  res.render("admin/rate_intelligence", { rows, active: "rate-intel" });
+});
+
+// Rate parity monitor
+app.get("/admin/parity", adminGuard, async (req, res) => {
+  const data = await api("/admin/parity", { token: res.locals.token });
+  res.render("admin/parity", { ...data, active: "parity", saved: req.query.saved });
+});
+app.post("/admin/parity/alert", adminGuard, async (req, res) => {
+  try { await api("/admin/parity/alert", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/parity?saved=alert");
+});
+
+// Metasearch & GDS
+app.get("/admin/meta-channels", adminGuard, async (req, res) => {
+  const data = await api("/admin/meta-channels", { token: res.locals.token });
+  res.render("admin/meta_channels", { ...data, active: "meta", saved: req.query.saved });
+});
+app.post("/admin/meta-channels/:id", adminGuard, async (req, res) => {
+  await api(`/admin/meta-channels/${req.params.id}`, { method: "PUT", token: res.locals.token, body: { connected: req.body.connected === "on" } });
+  res.redirect("/admin/meta-channels");
+});
+app.post("/admin/meta-channels/push", adminGuard, async (req, res) => {
+  await api("/admin/meta-channels/push", { method: "POST", token: res.locals.token, body: {} });
+  res.redirect("/admin/meta-channels?saved=push");
+});
+
+// Revenue management & forecast
+app.get("/admin/revenue-management", adminGuard, async (req, res) => {
+  const data = await api("/admin/revenue-management", { token: res.locals.token });
+  res.render("admin/revenue_management", { ...data, active: "rm" });
+});
+
+app.get("/admin/audit", adminGuard, async (req, res) => {
+  const q = req.query.action ? `?action=${encodeURIComponent(req.query.action)}` : "";
+  const { logs, actions } = await api(`/admin/audit${q}`, { token: res.locals.token });
+  res.render("admin/audit", { logs, actions, filter: req.query.action || "", active: "audit" });
+});
+app.post("/admin/rate-intelligence/sync", adminGuard, async (req, res) => {
+  await api("/admin/offers/sync", { method: "POST", token: res.locals.token });
+  res.redirect("/admin/rate-intelligence");
+});
+
 async function renderChannels(res, extra = {}) {
-  const [{ hotels }, { channels }] = await Promise.all([
+  const [cm, { channels }] = await Promise.all([
     api("/admin/channel-manager", { token: res.locals.token }),
     api("/admin/channels", { token: res.locals.token }),
   ]);
-  res.render("admin/channel_manager", { hotels, channels, active: "channels", synced: null, testResult: null, ...extra });
+  res.render("admin/channel_manager", { hotels: cm.hotels, overview: cm.overview, channels, active: "channels", synced: null, testResult: null, ...extra });
 }
 
 app.post("/admin/channels/:id/config", adminGuard, async (req, res) => {
   try {
     await api(`/admin/channels/${req.params.id}`, {
       method: "PUT", token: res.locals.token,
-      body: { connectorType: req.body.connectorType, config: req.body.config, commissionPct: req.body.commissionPct },
+      body: {
+        connectorType: req.body.connectorType, config: req.body.config,
+        commissionPct: req.body.commissionPct,
+        feeIncluded: req.body.feeIncluded === "on",
+        markupType: req.body.markupType || "PCT",
+        markupNominal: req.body.markupNominal || 0,
+      },
     });
     await renderChannels(res, { testResult: { id: req.params.id, ok: true, saved: true } });
   } catch (e) {
@@ -162,11 +266,20 @@ app.get("/admin/bookings", adminGuard, async (req, res) => {
 });
 
 app.get("/admin/finance", adminGuard, async (req, res) => {
-  const [finance, { settlements }] = await Promise.all([
+  const [finance, { settlements }, { claims }] = await Promise.all([
     api("/admin/finance", { token: res.locals.token }),
     api("/admin/settlements", { token: res.locals.token }),
+    api("/admin/claims", { token: res.locals.token }),
   ]);
-  res.render("admin/finance", { finance, settlements, active: "finance", paid: req.query.paid });
+  res.render("admin/finance", { finance, settlements, claims, active: "finance", paid: req.query.paid, claimDone: req.query.claim });
+});
+app.post("/admin/claims/:id/pay", adminGuard, async (req, res) => {
+  try { await api("/admin/claims/" + req.params.id + "/pay", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/finance?claim=paid");
+});
+app.post("/admin/claims/:id/reject", adminGuard, async (req, res) => {
+  try { await api("/admin/claims/" + req.params.id + "/reject", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/finance?claim=rejected");
 });
 
 app.post("/admin/settlements/pay", adminGuard, async (req, res) => {
@@ -180,6 +293,124 @@ app.post("/admin/settlements/pay", adminGuard, async (req, res) => {
 app.get("/admin/users", adminGuard, async (req, res) => {
   const { users } = await api("/admin/users", { token: res.locals.token });
   res.render("admin/users", { users, active: "users" });
+});
+
+// ── Penagihan Korporat (Miruum → tagihan ke instansi) ──
+app.get("/admin/corporate-billing", adminGuard, async (req, res) => {
+  const { corporates } = await api("/admin/corporate-billing", { token: res.locals.token });
+  res.render("admin/corporate_billing", { corporates, active: "billing", done: req.query.done, err: req.query.err });
+});
+app.post("/admin/corporate-invoices", adminGuard, async (req, res) => {
+  try { const r = await api("/admin/corporate-invoices", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/corporate-billing?done=" + r.invoice.number); }
+  catch (e) { res.redirect("/admin/corporate-billing?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/corporate-invoices/:id/paid", adminGuard, async (req, res) => {
+  try { await api("/admin/corporate-invoices/" + req.params.id + "/paid", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/corporate-billing");
+});
+app.post("/admin/corporate-invoices/:id/cancel", adminGuard, async (req, res) => {
+  try { await api("/admin/corporate-invoices/" + req.params.id + "/cancel", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/corporate-billing");
+});
+
+// ── Master Data Wilayah (Provinsi → Kab/Kota → Kecamatan → Desa) ──
+app.get("/admin/regions", adminGuard, async (req, res) => {
+  const t = res.locals.token;
+  const { regions: provinces } = await api("/admin/regions?level=PROVINCE", { token: t });
+  let cities = [], dists = [], vills = [];
+  if (req.query.prov) cities = (await api("/admin/regions?parentId=" + req.query.prov, { token: t })).regions;
+  if (req.query.city) dists = (await api("/admin/regions?parentId=" + req.query.city, { token: t })).regions;
+  if (req.query.dist) vills = (await api("/admin/regions?parentId=" + req.query.dist, { token: t })).regions;
+  res.render("admin/regions", { provinces, cities, dists, vills, sel: { prov: req.query.prov, city: req.query.city, dist: req.query.dist }, active: "regions", added: req.query.added });
+});
+app.post("/admin/regions/add", adminGuard, async (req, res) => {
+  try { await api("/admin/regions", { method: "POST", token: res.locals.token, body: { name: req.body.name, level: req.body.level, parentId: req.body.parentId || undefined } }); } catch (_) {}
+  const q = new URLSearchParams();
+  ["prov", "city", "dist"].forEach((k) => { if (req.body[k]) q.set(k, req.body[k]); });
+  q.set("added", "1");
+  res.redirect("/admin/regions?" + q.toString());
+});
+app.post("/admin/regions/:id/delete", adminGuard, async (req, res) => {
+  try { await api("/admin/regions/" + req.params.id, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect(req.get("referer") || "/admin/regions");
+});
+
+// ── Pengajuan Akun Korporat ──
+app.get("/admin/corporate", adminGuard, async (req, res) => {
+  const { applications } = await api("/admin/corporate-applications", { token: res.locals.token });
+  res.render("admin/corporate", { applications, active: "corporate",
+    creds: req.query.email ? { email: req.query.email, password: req.query.pass } : null, err: req.query.err });
+});
+app.post("/admin/corporate/:id/approve", adminGuard, async (req, res) => {
+  try {
+    const r = await api("/admin/corporate-applications/" + req.params.id + "/approve", { method: "POST", token: res.locals.token, body: {} });
+    res.redirect("/admin/corporate?email=" + encodeURIComponent(r.credentials.email) + "&pass=" + encodeURIComponent(r.credentials.password));
+  } catch (e) { res.redirect("/admin/corporate?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/corporate/:id/reject", adminGuard, async (req, res) => {
+  try { await api("/admin/corporate-applications/" + req.params.id + "/reject", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/corporate");
+});
+
+// ── Program Promo & Campaign ──
+app.get("/admin/programs", adminGuard, async (req, res) => {
+  const { programs } = await api("/admin/programs", { token: res.locals.token });
+  res.render("admin/programs", { programs, active: "programs", created: req.query.created });
+});
+app.post("/admin/programs", adminGuard, async (req, res) => {
+  try {
+    const r = await api("/admin/programs", { method: "POST", token: res.locals.token, body: req.body });
+    res.redirect("/admin/programs?created=" + (r.invited || 0));
+  } catch (e) { res.redirect("/admin/programs?created=err"); }
+});
+app.post("/admin/programs/:id/delete", adminGuard, async (req, res) => {
+  try { await api("/admin/programs/" + req.params.id, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/admin/programs");
+});
+
+// ── Moderasi Ulasan ──
+app.get("/admin/reviews", adminGuard, async (req, res) => {
+  const { reviews, stats } = await api("/admin/reviews", { token: res.locals.token });
+  res.render("admin/reviews", { reviews, stats, active: "reviews", deleted: req.query.deleted });
+});
+app.post("/admin/reviews/:id/delete", adminGuard, async (req, res) => {
+  try { await api("/admin/reviews/" + req.params.id, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/admin/reviews?deleted=1");
+});
+
+// ── Konten Statis (T&C / Privasi / Tentang) ──
+app.get("/admin/content", adminGuard, async (req, res) => {
+  const { content } = await api("/admin/content", { token: res.locals.token });
+  res.render("admin/content", { content, active: "content", saved: req.query.saved });
+});
+app.post("/admin/content/:slug", adminGuard, async (req, res) => {
+  await api("/admin/content/" + req.params.slug, { method: "PUT", token: res.locals.token,
+    body: { title: req.body.title, body: req.body.body } });
+  res.redirect("/admin/content?saved=" + req.params.slug);
+});
+
+// ── Moderasi Fasilitas Hotel ──
+app.get("/admin/facilities", adminGuard, async (req, res) => {
+  const { facilities, hotels } = await api("/admin/facilities", { token: res.locals.token });
+  res.render("admin/facilities", { facilities, hotels, active: "facilities",
+    saved: req.query.saved, added: req.query.added, err: req.query.err });
+});
+app.post("/admin/facilities", adminGuard, async (req, res) => {
+  try {
+    await api("/admin/facilities", { method: "POST", token: res.locals.token,
+      body: { name: req.body.name, icon: req.body.icon } });
+    res.redirect("/admin/facilities?added=1");
+  } catch (e) { res.redirect("/admin/facilities?err=1"); }
+});
+app.post("/admin/facilities/:id/delete", adminGuard, async (req, res) => {
+  try { await api("/admin/facilities/" + req.params.id, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/admin/facilities");
+});
+app.post("/admin/hotels/:id/facilities", adminGuard, async (req, res) => {
+  let ids = req.body.facilityIds;
+  ids = Array.isArray(ids) ? ids : (ids ? [ids] : []);
+  await api("/admin/hotels/" + req.params.id + "/facilities", { method: "PUT", token: res.locals.token, body: { facilityIds: ids } });
+  res.redirect("/admin/facilities?saved=1");
 });
 
 // ── Laporan Keuangan ──
@@ -265,6 +496,42 @@ app.post("/admin/settings", adminGuard, async (req, res) => {
   await api("/admin/settings", { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/settings?saved=1");
 });
 
+// ── Pop-up & Update aplikasi ──
+app.get("/admin/app-popup", adminGuard, async (req, res) => {
+  const [{ popup }, { settings }] = await Promise.all([
+    api("/admin/app-popup", { token: res.locals.token }),
+    api("/admin/settings", { token: res.locals.token }),
+  ]);
+  res.render("admin/app_popup", { popup, settings, active: "app-popup", saved: req.query.saved, err: req.query.err });
+});
+app.post("/admin/app-popup", adminGuard, async (req, res) => {
+  try { await api("/admin/app-popup", { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/app-popup?saved=popup"); }
+  catch (e) { res.redirect("/admin/app-popup?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/app-update", adminGuard, async (req, res) => {
+  await api("/admin/settings", { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/app-popup?saved=update");
+});
+
+// ── Integrasi (Email/FCM/WhatsApp) ──
+app.get("/admin/integrations", adminGuard, async (req, res) => {
+  const { integrations } = await api("/admin/integrations", { token: res.locals.token });
+  res.render("admin/integrations", { integrations, active: "integrations", saved: req.query.saved, msg: req.query.msg });
+});
+app.post("/admin/integrations", adminGuard, async (req, res) => {
+  const body = { ...req.body };
+  ["mail_enabled", "smtp_secure", "fcm_enabled", "wa_enabled"].forEach((k) => { body[k] = req.body[k] === "on" ? "1" : "0"; });
+  await api("/admin/integrations", { method: "PUT", token: res.locals.token, body });
+  res.redirect("/admin/integrations?saved=1");
+});
+app.post("/admin/integrations/test-email", adminGuard, async (req, res) => {
+  try { await api("/admin/integrations/test-email", { method: "POST", token: res.locals.token, body: { to: req.body.to } }); res.redirect("/admin/integrations?saved=testmail"); }
+  catch (e) { res.redirect("/admin/integrations?saved=testmailerr&msg=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/integrations/test-fcm", adminGuard, async (req, res) => {
+  try { await api("/admin/integrations/test-fcm", { method: "POST", token: res.locals.token, body: {} }); res.redirect("/admin/integrations?saved=testfcm"); }
+  catch (e) { res.redirect("/admin/integrations?saved=testfcmerr&msg=" + encodeURIComponent(e.message)); }
+});
+
 // ── Broadcast ──
 app.get("/admin/broadcast", adminGuard, (req, res) => res.render("admin/broadcast", { active: "broadcast", sent: req.query.sent }));
 app.post("/admin/broadcast", adminGuard, async (req, res) => {
@@ -300,12 +567,15 @@ app.post("/admin/rates/:roomId", adminGuard, async (req, res) => {
 
 // ═══════════════════════ EXTRANET (PARTNER) ═══════════════════════
 app.get("/extranet/login", (req, res) => res.render("extranet/login", { error: null }));
-app.post("/extranet/login", async (req, res) => {
+app.post("/extranet/login", loginLimiter, async (req, res) => {
   try {
     const { token, user } = await api("/auth/login", { method: "POST", body: { email: req.body.email, password: req.body.password } });
     if (user.role !== "PARTNER" && user.role !== "ADMIN") throw new Error("Akun ini bukan mitra hotel");
-    req.session.partner = { token, user };
-    res.redirect("/extranet");
+    let ent = { extranet: true, channelManager: false, pms: false };
+    try { ent = await api("/partner/entitlements", { token }); } catch { /* default: extranet only */ }
+    req.session.partner = { token, user, ent };
+    const home = res.locals.portal === "cm" ? "/extranet/channel-manager" : res.locals.portal === "pms" ? "/pms" : "/extranet";
+    res.redirect(home);
   } catch (e) {
     res.render("extranet/login", { error: e.message });
   }
@@ -318,13 +588,242 @@ app.get("/extranet", partnerGuard, async (req, res) => {
 });
 
 app.get("/extranet/hotels/:id", partnerGuard, async (req, res) => {
-  const { hotel } = await api(`/partner/hotels/${req.params.id}`, { token: res.locals.token });
-  res.render("extranet/hotel", { hotel, active: "dashboard" });
+  const [{ hotel }, { facilities }] = await Promise.all([
+    api(`/partner/hotels/${req.params.id}`, { token: res.locals.token }),
+    api(`/facilities`),
+  ]);
+  res.render("extranet/hotel", { hotel, facilities, active: "dashboard", saved: req.query.saved });
+});
+
+// ── Channel Manager (partner-facing, cm.gokar.id) ──
+app.get("/extranet/channel-manager", partnerGuard, productGuard("channelManager", "Channel Manager"), async (req, res) => {
+  const cm = await api("/partner/channel-manager", { token: res.locals.token });
+  res.render("extranet/channel_manager", { ...cm, active: "cm", pushed: req.query.pushed, saved: req.query.saved });
+});
+app.post("/extranet/rooms/:roomId/map/:channelId", partnerGuard, productGuard("channelManager", "Channel Manager"), async (req, res) => {
+  try {
+    if ((req.body.externalRoomId || "").trim()) {
+      await api(`/partner/rooms/${req.params.roomId}/channel-maps/${req.params.channelId}`, {
+        method: "PUT", token: res.locals.token, body: { externalRoomId: req.body.externalRoomId, enabled: req.body.enabled === "on" || req.body.enabled === undefined },
+      });
+    } else {
+      await api(`/partner/rooms/${req.params.roomId}/channel-maps/${req.params.channelId}`, { method: "DELETE", token: res.locals.token });
+    }
+    res.redirect("/extranet/channel-manager?saved=1");
+  } catch (e) { res.redirect("/extranet/channel-manager?saved=err"); }
+});
+app.post("/extranet/distribution/push", partnerGuard, productGuard("channelManager", "Channel Manager"), async (req, res) => {
+  const r = await api("/partner/distribution/push", { method: "POST", token: res.locals.token, body: {} });
+  res.redirect(`/extranet/channel-manager?pushed=${r.pushed || 0}`);
+});
+
+// ═══════════════════ CORPORATE & GOVERNMENT (corporate.gokar.id) ═══════════════════
+app.get("/corporate/login", (req, res) => res.render("corporate/login", { error: null }));
+app.post("/corporate/login", loginLimiter, async (req, res) => {
+  try {
+    const { token, user } = await api("/auth/login", { method: "POST", body: { email: req.body.email, password: req.body.password } });
+    if (user.role !== "CORPORATE") throw new Error("Akun ini bukan akun korporat/instansi");
+    req.session.corporate = { token, user };
+    res.redirect("/corporate");
+  } catch (e) { res.render("corporate/login", { error: e.message }); }
+});
+app.get("/corporate/logout", (req, res) => { delete req.session.corporate; res.redirect("/corporate/login"); });
+
+// Public: apply for a corporate account (pengajuan layanan).
+app.get("/corporate/register", (req, res) => res.render("corporate/register", { done: req.query.done, error: null }));
+app.post("/corporate/register", async (req, res) => {
+  try { await api("/corporate/apply", { method: "POST", body: req.body }); res.redirect("/corporate/register?done=1"); }
+  catch (e) { res.render("corporate/register", { done: null, error: e.message }); }
+});
+
+app.get("/corporate", corporateGuard, async (req, res) => {
+  const data = await api("/corporate/overview", { token: res.locals.token });
+  res.render("corporate/dashboard", { ...data, active: "dashboard" });
+});
+app.get("/corporate/book", corporateGuard, async (req, res) => {
+  const { hotels } = await api("/corporate/rooms", { token: res.locals.token });
+  res.render("corporate/book", { hotels, active: "book", booked: req.query.booked, err: req.query.err });
+});
+app.post("/corporate/book", corporateGuard, async (req, res) => {
+  try {
+    const r = await api("/corporate/bookings", { method: "POST", token: res.locals.token, body: req.body });
+    res.redirect("/corporate/book?booked=" + r.booking.code);
+  } catch (e) { res.redirect("/corporate/book?err=1"); }
+});
+app.get("/corporate/bookings", corporateGuard, async (req, res) => {
+  const { bookings } = await api("/corporate/bookings", { token: res.locals.token });
+  res.render("corporate/bookings", { bookings, active: "bookings" });
+});
+app.get("/corporate/invoices", corporateGuard, async (req, res) => {
+  const { invoices } = await api("/corporate/invoices", { token: res.locals.token });
+  res.render("corporate/invoices", { invoices, active: "invoices" });
+});
+
+// ── Program Promo & Campaign (partner opt-in) ──
+app.get("/extranet/programs", partnerGuard, async (req, res) => {
+  const { participations } = await api("/partner/programs", { token: res.locals.token });
+  res.render("extranet/programs", { participations, active: "programs", done: req.query.done });
+});
+app.post("/extranet/programs/:id/join", partnerGuard, async (req, res) => {
+  try { await api(`/partner/programs/${req.params.id}/join`, { method: "POST", token: res.locals.token, body: { offerPct: req.body.offerPct, note: req.body.note } }); res.redirect("/extranet/programs?done=join"); }
+  catch (e) { res.redirect("/extranet/programs?done=err"); }
+});
+app.post("/extranet/programs/:id/decline", partnerGuard, async (req, res) => {
+  try { await api(`/partner/programs/${req.params.id}/decline`, { method: "POST", token: res.locals.token, body: {} }); res.redirect("/extranet/programs?done=decline"); }
+  catch (e) { res.redirect("/extranet/programs?done=err"); }
+});
+
+// ── Pencairan / Klaim (partner earnings & payout claims) ──
+app.get("/extranet/payouts", partnerGuard, async (req, res) => {
+  const [earnings, { claims }] = await Promise.all([
+    api("/partner/earnings", { token: res.locals.token }),
+    api("/partner/claims", { token: res.locals.token }),
+  ]);
+  res.render("extranet/payouts", { earnings, claims, active: "payouts", done: req.query.done, err: req.query.err });
+});
+app.post("/extranet/payouts/claim", partnerGuard, async (req, res) => {
+  try { await api("/partner/claims", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/extranet/payouts?done=1"); }
+  catch (e) { res.redirect("/extranet/payouts?err=" + encodeURIComponent(e.message)); }
+});
+
+// ── PMS — Property Management System (pms.gokar.id) ──
+app.get("/pms", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
+  const pms = await api("/partner/pms", { token: res.locals.token });
+  res.render("pms/dashboard", { ...pms, active: "pms", done: req.query.done });
+});
+app.post("/pms/checkin/:id", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
+  try { await api(`/partner/bookings/${req.params.id}/checkin`, { method: "POST", token: res.locals.token, body: {} }); res.redirect("/pms?done=checkin"); }
+  catch (e) { res.redirect("/pms?done=err"); }
+});
+app.post("/pms/checkout/:id", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
+  try { await api(`/partner/bookings/${req.params.id}/checkout`, { method: "POST", token: res.locals.token, body: {} }); res.redirect("/pms?done=checkout"); }
+  catch (e) { res.redirect("/pms?done=err"); }
+});
+app.post("/pms/housekeeping/:id", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
+  try { await api(`/partner/rooms/${req.params.id}/housekeeping`, { method: "POST", token: res.locals.token, body: { status: req.body.status } }); res.redirect("/pms?done=hk"); }
+  catch (e) { res.redirect("/pms?done=err"); }
+});
+
+// Reservation detail: folio + room assignment.
+const pmsG = [partnerGuard, productGuard("pms", "PMS")];
+app.get("/pms/booking/:id", ...pmsG, async (req, res) => {
+  try {
+    const [folio, units] = await Promise.all([
+      api(`/partner/bookings/${req.params.id}/folio`, { token: res.locals.token }),
+      api(`/partner/bookings/${req.params.id}/room-units`, { token: res.locals.token }),
+    ]);
+    res.render("pms/booking", { id: req.params.id, ...folio, units: units.units, active: "pms", saved: req.query.saved });
+  } catch (e) { res.redirect("/pms"); }
+});
+app.post("/pms/booking/:id/checkin", ...pmsG, async (req, res) => {
+  try { await api(`/partner/bookings/${req.params.id}/checkin`, { method: "POST", token: res.locals.token, body: { roomUnitId: req.body.roomUnitId } }); } catch (_) {}
+  res.redirect(`/pms/booking/${req.params.id}?saved=checkin`);
+});
+app.post("/pms/booking/:id/folio", ...pmsG, async (req, res) => {
+  try { await api(`/partner/bookings/${req.params.id}/folio`, { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect(`/pms/booking/${req.params.id}?saved=charge`);
+});
+app.post("/pms/folio/:cid/delete/:bid", ...pmsG, async (req, res) => {
+  try { await api(`/partner/folio/${req.params.cid}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect(`/pms/booking/${req.params.bid}`);
+});
+app.post("/pms/night-audit", ...pmsG, async (req, res) => {
+  try { await api("/partner/pms/night-audit", { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/pms/reports?done=audit");
+});
+app.get("/pms/reports", ...pmsG, async (req, res) => {
+  const { reports } = await api("/partner/pms/reports", { token: res.locals.token });
+  res.render("pms/reports", { reports, active: "reports", done: req.query.done });
+});
+
+// POS terminal
+app.get("/pms/pos", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pos/rooms", { token: res.locals.token });
+  res.render("pms/pos", { ...data, active: "pos", saved: req.query.saved });
+});
+app.post("/pms/pos/charge", ...pmsG, async (req, res) => {
+  try { await api("/partner/pos/charge", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/pos?saved=1"); }
+  catch (e) { res.redirect("/pms/pos?saved=err"); }
+});
+
+// Maintenance / work orders
+app.get("/pms/maintenance", ...pmsG, async (req, res) => {
+  const data = await api("/partner/work-orders", { token: res.locals.token });
+  res.render("pms/maintenance", { ...data, active: "maintenance", saved: req.query.saved });
+});
+app.post("/pms/maintenance", ...pmsG, async (req, res) => {
+  try { await api("/partner/work-orders", { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect("/pms/maintenance?saved=1");
+});
+app.post("/pms/maintenance/:id/status", ...pmsG, async (req, res) => {
+  try { await api(`/partner/work-orders/${req.params.id}`, { method: "PUT", token: res.locals.token, body: { status: req.body.status } }); } catch (_) {}
+  res.redirect("/pms/maintenance");
+});
+app.get("/pms/guests", ...pmsG, async (req, res) => {
+  const { guests } = await api("/partner/guests", { token: res.locals.token });
+  let detail = null;
+  if (req.query.e) { try { detail = await api(`/partner/guests/${encodeURIComponent(req.query.e)}`, { token: res.locals.token }); } catch (_) {} }
+  res.render("pms/guests", { guests, detail, active: "guests" });
+});
+app.post("/pms/guests/:email/note", ...pmsG, async (req, res) => {
+  try { await api(`/partner/guests/${encodeURIComponent(req.params.email)}/note`, { method: "PUT", token: res.locals.token, body: { note: req.body.note, preferences: req.body.preferences } }); } catch (_) {}
+  res.redirect(`/pms/guests?e=${encodeURIComponent(req.params.email)}`);
 });
 
 app.post("/extranet/rooms/:id", partnerGuard, async (req, res) => {
-  await api(`/partner/rooms/${req.params.id}`, { method: "PUT", token: res.locals.token, body: { price: req.body.price, stock: req.body.stock } });
-  res.redirect("back");
+  await api(`/partner/rooms/${req.params.id}`, { method: "PUT", token: res.locals.token, body: {
+    price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+    refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on", breakfast: req.body.breakfast === "on",
+  } });
+  res.redirect(req.get("referer") || "/extranet");
+});
+
+// Partner deal (buat promo sendiri) — % off a room.
+app.post("/extranet/rooms/:id/deal", partnerGuard, async (req, res) => {
+  await api(`/partner/rooms/${req.params.id}/deal`, { method: "PUT", token: res.locals.token, body: { dealPct: req.body.dealPct } });
+  res.redirect(req.get("referer") || "/extranet");
+});
+
+// Edit property content + facilities.
+app.post("/extranet/hotels/:id/content", partnerGuard, async (req, res) => {
+  await api(`/partner/hotels/${req.params.id}/content`, { method: "PUT", token: res.locals.token, body: {
+    description: req.body.description, checkInInfo: req.body.checkInInfo, checkOutInfo: req.body.checkOutInfo } });
+  res.redirect(`/extranet/hotels/${req.params.id}?saved=konten`);
+});
+app.post("/extranet/hotels/:id/facilities", partnerGuard, async (req, res) => {
+  const ids = Array.isArray(req.body.facilityIds) ? req.body.facilityIds : (req.body.facilityIds ? [req.body.facilityIds] : []);
+  await api(`/partner/hotels/${req.params.id}/facilities`, { method: "PUT", token: res.locals.token, body: { facilityIds: ids } });
+  res.redirect(`/extranet/hotels/${req.params.id}?saved=fasilitas`);
+});
+
+// Guest reviews + reply.
+app.get("/extranet/reviews", partnerGuard, async (req, res) => {
+  const { reviews } = await api("/partner/reviews", { token: res.locals.token });
+  res.render("extranet/reviews", { reviews, active: "reviews", saved: req.query.saved });
+});
+app.post("/extranet/reviews/:id/reply", partnerGuard, async (req, res) => {
+  try { await api(`/partner/reviews/${req.params.id}/reply`, { method: "POST", token: res.locals.token, body: { reply: req.body.reply } }); } catch (_) {}
+  res.redirect("/extranet/reviews?saved=1");
+});
+
+// Guest messages inbox + thread + reply.
+app.get("/extranet/messages", partnerGuard, async (req, res) => {
+  const { threads } = await api("/partner/messages", { token: res.locals.token });
+  let thread = null, messages = [];
+  if (req.query.t) {
+    try { const d = await api(`/partner/messages/${req.query.t}`, { token: res.locals.token }); thread = d.thread; messages = d.messages; } catch (_) {}
+  }
+  res.render("extranet/messages", { threads, thread, messages, active: "messages" });
+});
+app.post("/extranet/messages/:id/reply", partnerGuard, async (req, res) => {
+  try { await api(`/partner/messages/${req.params.id}`, { method: "POST", token: res.locals.token, body: { reply: req.body.reply } }); } catch (_) {}
+  res.redirect(`/extranet/messages?t=${req.params.id}`);
+});
+
+// Performance report.
+app.get("/extranet/report", partnerGuard, async (req, res) => {
+  const report = await api("/partner/report", { token: res.locals.token });
+  res.render("extranet/report", { report, active: "report" });
 });
 
 // Bulk-set rate / allotment / closed over a date range (Channel Manager calendar).

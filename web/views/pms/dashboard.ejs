@@ -1,0 +1,92 @@
+<%- include('../partials/top', { title:'PMS', heading:'Front Desk', section:'extranet', active:'pms', me }) %>
+
+<% if (done==='checkin') { %><div class="notice ok">Tamu berhasil check-in.</div><% } %>
+<% if (done==='checkout') { %><div class="notice ok">Tamu check-out — kamar ditandai perlu dibersihkan & inventaris dilepas ke kanal.</div><% } %>
+<% if (done==='hk') { %><div class="notice ok">Status housekeeping diperbarui.</div><% } %>
+<% if (done==='audit') { %><div class="notice ok">Night audit selesai — no-show ditandai & tanggal digulung.</div><% } %>
+<% if (done==='err') { %><div class="notice bad">Aksi gagal. Coba lagi.</div><% } %>
+
+<% function fmt(d){ return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}); } %>
+
+<div class="welcome-hero">
+  <span class="wblob w1"></span><span class="wblob w2"></span>
+  <div class="wh-txt">
+    <div class="eyebrow" style="color:rgba(255,255,255,.85)">Property Management System</div>
+    <h2>Operasional hari ini</h2>
+    <p>Kelola check-in, check-out & housekeeping. Reservasi dari OTA (via Channel Manager) dan langsung, semua di satu layar.</p>
+  </div>
+  <div class="wh-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <span class="wh-chip">Okupansi <%= today.occupancyPct %>%</span>
+    <form method="post" action="/pms/night-audit" data-confirm="Jalankan Night Audit? No-show akan ditandai & tanggal digulung." data-confirm-title="Night Audit" data-confirm-ok="Jalankan">
+      <button class="btn sm" style="background:#fff;color:var(--brand)">🌙 Night Audit</button>
+    </form>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-arrival"/></svg></div><div class="label">Kedatangan (arrival)</div><div class="value"><%= today.arrivals %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-departure"/></svg></div><div class="label">Keberangkatan (departure)</div><div class="value"><%= today.departures %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-hotel"/></svg></div><div class="label">Menginap (in-house)</div><div class="value"><%= today.inhouse %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-trend"/></svg></div><div class="label">Okupansi</div><div class="value"><%= today.occupancyPct %>%</div></div>
+</div>
+
+<div class="card" id="reservations">
+  <h2>Reservasi & Front Desk</h2>
+  <p class="muted" style="margin-top:-8px">Semua reservasi aktif (OTA + langsung). Lakukan check-in saat tamu tiba, check-out saat pulang.</p>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Kode</th><th>Tamu</th><th>Hotel · Kamar</th><th>Menginap</th><th>Sumber</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody>
+        <% reservations.forEach(function(r){ %>
+          <tr>
+            <td><b><%= r.code %></b></td>
+            <td><%= r.bookerName %><br><span class="muted" style="font-size:11px"><%= r.guests %> tamu</span></td>
+            <td><%= r.hotel.name %><br><span class="muted" style="font-size:11px"><%= r.room.name %></span></td>
+            <td style="font-size:12px"><%= fmt(r.checkIn) %> → <%= fmt(r.checkOut) %></td>
+            <td><% if (r.channel) { %><span class="pill" style="background:#eef;color:#556"><%= r.channel.name %></span><% } else { %><span class="muted" style="font-size:11px">Langsung</span><% } %></td>
+            <td>
+              <% if (r.checkedOutAt) { %><span class="pill COMPLETED">Check-out</span>
+              <% } else if (r.checkedInAt) { %><span class="pill PAID">In-house</span>
+              <% } else { %><span class="pill PENDING">Menunggu</span><% } %>
+            </td>
+            <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <% if (!r.checkedInAt && !r.checkedOutAt) { %>
+                <a class="btn sm" href="/pms/booking/<%= r.id %>">Check-in / Kamar</a>
+              <% } else if (r.checkedInAt && !r.checkedOutAt) { %>
+                <form method="post" action="/pms/checkout/<%= r.id %>" data-confirm="Check-out tamu <%= r.bookerName %>? Pastikan folio sudah lunas." data-confirm-title="Check-out" data-confirm-ok="Ya, check-out"><button class="btn ghost sm">Check-out</button></form>
+              <% } else { %><span class="muted" style="font-size:11px">selesai</span><% } %>
+              <a class="btn ghost sm" href="/pms/booking/<%= r.id %>">Folio</a>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!reservations.length) { %><tr><td colspan="7" class="empty">Belum ada reservasi aktif</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="housekeeping">
+  <h2>Housekeeping — Status Kamar</h2>
+  <p class="muted" style="margin-top:-8px"><%= today.dirty %> kamar perlu perhatian · <%= today.rooms %> total kamar</p>
+  <div class="hk-grid">
+    <% rooms.forEach(function(r){ var st = r.housekeeping; %>
+      <div class="hk-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div><b style="font-size:13px"><%= r.name %></b><br><span class="muted" style="font-size:10.5px"><%= r.hotel %></span></div>
+          <% if (r.occupied) { %><span class="pill PAID" style="font-size:9.5px">Terisi</span><% } else { %><span class="pill" style="background:#eef1f4;color:#889;font-size:9.5px">Kosong</span><% } %>
+        </div>
+        <div style="margin-top:8px">
+          <span class="pill <%= st==='CLEAN'?'PAID':st==='DIRTY'?'CANCELLED':'PENDING' %>"><%= st==='CLEAN'?'Bersih':st==='DIRTY'?'Kotor':'Inspeksi' %></span>
+        </div>
+        <div class="hk-actions">
+          <% ['CLEAN','DIRTY','INSPECT'].forEach(function(s){ if (s!==st) { %>
+            <form method="post" action="/pms/housekeeping/<%= r.id %>"><input type="hidden" name="status" value="<%= s %>"><button class="btn ghost sm" style="padding:4px 9px;font-size:11px"><%= s==='CLEAN'?'Bersih':s==='DIRTY'?'Kotor':'Inspeksi' %></button></form>
+          <% } }) %>
+        </div>
+      </div>
+    <% }) %>
+    <% if (!rooms.length) { %><span class="muted">Belum ada kamar.</span><% } %>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

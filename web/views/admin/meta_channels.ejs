@@ -1,0 +1,36 @@
+<%- include('../partials/top', { title:'Metasearch & GDS', heading:'Metasearch & GDS', section:'admin', active:'meta', me }) %>
+
+<% if (saved==='push') { %><div class="notice ok">Feed harga didorong ke kanal terhubung.</div><% } %>
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+  <p class="muted" style="margin:0;max-width:620px;line-height:1.6">
+    Distribusi rate ke <b>metasearch</b> (Google Hotel Ads, Trivago, TripAdvisor) &amp; <b>GDS</b> (Amadeus, Sabre).
+    Aktifkan koneksi, lalu dorong feed. <span class="muted">(Koneksi mock — colok kredensial/feed riil di config.)</span>
+  </p>
+  <form method="post" action="/admin/meta-channels/push"><button class="btn">↑ Dorong Feed ke Kanal Aktif</button></form>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <b>Feed harga publik:</b> <code style="font-size:12px"><%= feedUrl %></code>
+  <span class="muted" style="font-size:12px">· <%= feedHotels %> hotel dalam feed</span>
+</div>
+
+<% ['METASEARCH','GDS'].forEach(function(kind){ %>
+  <h3 style="margin:16px 0 8px"><%= kind==='METASEARCH'?'Metasearch':'GDS (Global Distribution System)' %></h3>
+  <div class="grid-2">
+    <% (channels||[]).filter(function(c){return c.kind===kind}).forEach(function(c){ %>
+      <div class="card" style="margin:0;display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>
+          <b style="color:<%= c.color||'#333' %>"><%= c.name %></b>
+          <div class="muted" style="font-size:11.5px"><%= c.lastPushAt ? ('Feed terakhir: '+new Date(c.lastPushAt).toLocaleString('id-ID')) : 'Belum ada feed' %></div>
+        </div>
+        <form method="post" action="/admin/meta-channels/<%= c.id %>" style="display:flex;align-items:center;gap:8px">
+          <span class="pill <%= c.connected?'PAID':'CANCELLED' %>"><%= c.connected?'Terhubung':'Nonaktif' %></span>
+          <label class="pr-check" style="margin:0"><input type="checkbox" name="connected" onchange="this.form.submit()" <%= c.connected?'checked':'' %>> Aktif</label>
+        </form>
+      </div>
+    <% }) %>
+  </div>
+<% }) %>
+
+<%- include('../partials/bottom') %>

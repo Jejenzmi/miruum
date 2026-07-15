@@ -1,0 +1,14 @@
+<div class="region-picker" data-region-id="<%= (typeof regionId !== 'undefined' && regionId) ? regionId : '' %>">
+  <label>Provinsi</label>
+  <select class="rp-prov"><option value="">— pilih provinsi —</option></select>
+  <div class="row2">
+    <div><label>Kabupaten/Kota</label><select class="rp-city"><option value="">—</option></select></div>
+    <div><label>Kecamatan</label><select class="rp-dist"><option value="">—</option></select></div>
+  </div>
+  <label>Desa/Kelurahan</label>
+  <select class="rp-vill"><option value="">—</option></select>
+  <input type="hidden" name="regionId" class="rp-id" value="<%= (typeof regionId !== 'undefined' && regionId) ? regionId : '' %>">
+  <label>Detail Alamat</label>
+  <textarea name="address" rows="2" placeholder="Nama jalan, No., RT/RW, patokan"><%= (typeof address !== 'undefined' && address) ? address : '' %></textarea>
+</div>
+<script src="/static/region-picker.js"></script>

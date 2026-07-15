@@ -1,29 +1,44 @@
 /// Data models for Miruum OTA — mirror the backend JSON shapes.
+import 'package:equatable/equatable.dart';
 
-class AppUser {
+class AppUser extends Equatable {
   final String id, name, email;
   final String? phone, gender, birthDate, avatarUrl;
-  AppUser({required this.id, required this.name, required this.email, this.phone, this.gender, this.birthDate, this.avatarUrl});
+  final String? title, nationality, idType, idNumber, address, city;
+  const AppUser({
+    required this.id, required this.name, required this.email,
+    this.phone, this.gender, this.birthDate, this.avatarUrl,
+    this.title, this.nationality, this.idType, this.idNumber, this.address, this.city,
+  });
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
         id: j['id'], name: j['name'] ?? '', email: j['email'] ?? '',
         phone: j['phone'], gender: j['gender'], birthDate: j['birthDate'], avatarUrl: j['avatarUrl'],
+        title: j['title'], nationality: j['nationality'], idType: j['idType'],
+        idNumber: j['idNumber'], address: j['address'], city: j['city'],
       );
+
+  // Full value equality so any profile change (photo, name, id, …) is detected
+  // by the AuthBloc and triggers a rebuild.
+  @override
+  List<Object?> get props =>
+      [id, name, email, phone, gender, birthDate, avatarUrl, title, nationality, idType, idNumber, address, city];
 }
 
 class Facility {
-  final String name, icon;
-  Facility({required this.name, required this.icon});
-  factory Facility.fromJson(Map<String, dynamic> j) => Facility(name: j['name'], icon: j['icon']);
+  final String id, name, icon;
+  Facility({this.id = '', required this.name, required this.icon});
+  factory Facility.fromJson(Map<String, dynamic> j) => Facility(id: j['id'] ?? '', name: j['name'], icon: j['icon']);
 }
 
 class Review {
   final String authorName, body;
   final double rating;
-  final String? createdAt;
-  Review({required this.authorName, required this.body, required this.rating, this.createdAt});
+  final String? createdAt, reply;
+  Review({required this.authorName, required this.body, required this.rating, this.createdAt, this.reply});
   factory Review.fromJson(Map<String, dynamic> j) => Review(
         authorName: j['authorName'] ?? 'Tamu',
         body: j['body'] ?? '',
+        reply: j['reply'],
         rating: (j['rating'] ?? 0).toDouble(),
         createdAt: j['createdAt'],
       );
@@ -132,12 +147,38 @@ class Promo {
       );
 }
 
+/// A guest saved by the user for faster "booking for someone else".
+class SavedGuest {
+  final String id, name;
+  final String? email, phone;
+  SavedGuest({required this.id, required this.name, this.email, this.phone});
+  factory SavedGuest.fromJson(Map<String, dynamic> j) =>
+      SavedGuest(id: j['id'] ?? '', name: j['name'] ?? '', email: j['email'], phone: j['phone']);
+}
+
+/// A Miruum promo/campaign PROGRAM + the hotels that joined it.
+class Program {
+  final String id, type, title, description;
+  final int discountPct;
+  final String? imageUrl;
+  final List<Hotel> hotels;
+  Program({required this.id, required this.type, required this.title, required this.description, required this.discountPct, this.imageUrl, required this.hotels});
+  bool get isCampaign => type == 'CAMPAIGN';
+  factory Program.fromJson(Map<String, dynamic> j) => Program(
+        id: j['id'] ?? '', type: j['type'] ?? 'PROMO', title: j['title'] ?? '', description: j['description'] ?? '',
+        discountPct: (j['discountPct'] is int) ? j['discountPct'] : int.tryParse('${j['discountPct']}') ?? 0,
+        imageUrl: j['imageUrl'],
+        hotels: ((j['hotels'] ?? []) as List).map((h) => Hotel.fromJson(h)).toList(),
+      );
+}
+
 class HotelPackage {
   final String id, slug, title, city, imageUrl;
   final String? description, badge;
   final int nights, days, guests, originalPrice, price, discountPct, reviewCount, starRating;
   final double rating;
   final bool isPopular;
+  final String boardBasis; // ROOM_ONLY | BREAKFAST | HALF_BOARD | FULL_BOARD | ALL_INCLUSIVE
   final List<String> inclusions;
   final Hotel? hotel; // present on detail fetch
   final Room? room; // present on detail fetch
@@ -147,8 +188,29 @@ class HotelPackage {
     required this.imageUrl, this.description, this.badge, required this.nights,
     required this.days, required this.guests, required this.originalPrice, required this.price,
     required this.discountPct, required this.reviewCount, required this.starRating,
-    required this.rating, required this.isPopular, this.inclusions = const [], this.hotel, this.room,
+    required this.rating, required this.isPopular, this.boardBasis = 'BREAKFAST',
+    this.inclusions = const [], this.hotel, this.room,
   });
+
+  /// Short label for the meal plan (board basis).
+  String get boardLabel => const {
+        'ROOM_ONLY': 'Tanpa Makan',
+        'BREAKFAST': 'Termasuk Sarapan',
+        'HALF_BOARD': 'Sarapan + Makan Malam',
+        'FULL_BOARD': '3x Makan (Pagi, Siang, Malam)',
+        'ALL_INCLUSIVE': 'All-Inclusive (Makan + Minuman)',
+      }[boardBasis] ??
+      'Termasuk Sarapan';
+
+  /// Which meals are covered — for rendering meal chips.
+  List<String> get meals => const {
+        'ROOM_ONLY': <String>[],
+        'BREAKFAST': ['Sarapan'],
+        'HALF_BOARD': ['Sarapan', 'Makan Malam'],
+        'FULL_BOARD': ['Sarapan', 'Makan Siang', 'Makan Malam'],
+        'ALL_INCLUSIVE': ['Sarapan', 'Makan Siang', 'Makan Malam', 'Minuman'],
+      }[boardBasis] ??
+      const ['Sarapan'];
 
   factory HotelPackage.fromJson(Map<String, dynamic> j) => HotelPackage(
         id: j['id'], slug: j['slug'] ?? '', title: j['title'] ?? '', city: j['city'] ?? '',
@@ -157,6 +219,7 @@ class HotelPackage {
         originalPrice: j['originalPrice'] ?? 0, price: j['price'] ?? 0, discountPct: j['discountPct'] ?? 0,
         reviewCount: j['reviewCount'] ?? 0, starRating: j['starRating'] ?? 4,
         rating: (j['rating'] ?? 0).toDouble(), isPopular: j['isPopular'] ?? false,
+        boardBasis: j['boardBasis'] ?? 'BREAKFAST',
         inclusions: (j['inclusions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,
@@ -178,6 +241,8 @@ class Booking {
   final int nights, guests, rooms, roomPrice, taxFee, totalPrice, discount;
   final String checkIn, checkOut, bookerName, bookerEmail, bookerPhone;
   final String? paymentMethod, bank, packageTitle, promoCode;
+  final bool onlineCheckedIn;
+  final String? keyCode;
   final Hotel? hotel;
   final Room? room;
   Booking({
@@ -185,7 +250,8 @@ class Booking {
     required this.guests, required this.rooms, required this.roomPrice, required this.taxFee,
     required this.totalPrice, required this.checkIn, required this.checkOut,
     required this.bookerName, required this.bookerEmail, required this.bookerPhone,
-    this.paymentMethod, this.bank, this.packageTitle, this.promoCode, this.discount = 0, this.hotel, this.room,
+    this.paymentMethod, this.bank, this.packageTitle, this.promoCode, this.discount = 0,
+    this.onlineCheckedIn = false, this.keyCode, this.hotel, this.room,
   });
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'], code: j['code'], status: j['status'] ?? 'PENDING',
@@ -195,6 +261,7 @@ class Booking {
         checkIn: j['checkIn'] ?? '', checkOut: j['checkOut'] ?? '',
         bookerName: j['bookerName'] ?? '', bookerEmail: j['bookerEmail'] ?? '', bookerPhone: j['bookerPhone'] ?? '',
         paymentMethod: j['paymentMethod'], bank: j['bank'], packageTitle: j['packageTitle'], promoCode: j['promoCode'],
+        onlineCheckedIn: j['onlineCheckedIn'] ?? false, keyCode: j['keyCode'],
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,
       );

@@ -1,0 +1,53 @@
+<%- include('../partials/top', { title:'Dashboard', heading:'Dashboard Korporat', section:'corporate', active:'dashboard', me }) %>
+
+<div class="welcome-hero">
+  <span class="wblob w1"></span><span class="wblob w2"></span>
+  <div class="wh-txt">
+    <div class="eyebrow" style="color:rgba(255,255,255,.85)"><%= corporate.type==='GOVERNMENT' ? 'Government' : 'Corporate' %></div>
+    <h2><%= corporate.name %></h2>
+    <p>Pesan hotel untuk karyawan/pegawai Anda dengan tagihan &amp; laporan terpusat. Semua transaksi ditagihkan ke instansi.</p>
+  </div>
+  <div class="wh-actions">
+    <a href="/corporate/book" class="wh-chip">+ Pesan Hotel</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div><div class="label">Total Pemesanan</div><div class="value"><%= stats.bookings %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-finance"/></svg></div><div class="label">Total Belanja</div><div class="value" style="font-size:19px"><%= rupiah(stats.spend) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-trend"/></svg></div><div class="label">30 Hari Terakhir</div><div class="value"><%= stats.recent30 %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-box"/></svg></div><div class="label">Limit Kredit</div><div class="value" style="font-size:19px"><%= rupiah(corporate.creditLimit) %></div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Profil Instansi</h2>
+    <div class="row"><span class="k" style="color:var(--muted)">Nama</span><span style="font-weight:600"><%= corporate.name %></span></div>
+    <div class="row" style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Jenis</span><span class="pill <%= corporate.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= corporate.type==='GOVERNMENT'?'Instansi Pemerintah':'Korporat' %></span></div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Email</span><span style="font-weight:600"><%= corporate.email || '—' %></span></div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Telepon</span><span style="font-weight:600"><%= corporate.phone || '—' %></span></div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">NPWP</span><span style="font-weight:600"><%= corporate.taxId || '—' %></span></div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">PIC</span><span style="font-weight:600"><%= corporate.picName || corporate.contactName || '—' %><% if (corporate.picPosition) { %> · <span class="muted" style="font-weight:400"><%= corporate.picPosition %></span><% } %></span></div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0"><span style="color:var(--muted)">Alamat</span><span style="font-weight:600;text-align:right;max-width:60%"><%= corporate.address || '—' %></span></div>
+  </div>
+
+  <div class="card">
+    <h2>Pemesanan Terbaru</h2>
+    <table>
+      <thead><tr><th>Kode</th><th>Hotel</th><th>Tamu</th><th>Total</th></tr></thead>
+      <tbody>
+        <% recent.forEach(function(b){ %>
+          <tr>
+            <td><a href="/api/invoices/<%= b.code %>" target="_blank" style="font-weight:700"><%= b.code %></a></td>
+            <td><%= b.hotel.name %><br><span class="muted" style="font-size:11px"><%= b.room.name %></span></td>
+            <td><%= b.bookerName %></td>
+            <td><b><%= rupiah(b.totalPrice) %></b></td>
+          </tr>
+        <% }) %>
+        <% if (!recent.length) { %><tr><td colspan="4" class="empty">Belum ada pemesanan</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

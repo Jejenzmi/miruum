@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "987023196687",
+    "project_id": "miruum-1f8e3",
+    "storage_bucket": "miruum-1f8e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:987023196687:android:9a09eb0dc825e7a321997a",
+        "android_client_info": {
+          "package_name": "id.gokar.miruum"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "987023196687-10mdnev5j8h3r3335sj428f43pve7g7c.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "id.gokar.miruum",
+            "certificate_hash": "276c77e5df5c9534a3bbcabe99b844c9c2056119"
+          }
+        },
+        {
+          "client_id": "987023196687-0dj97fungsqi4ai98mqcs92nqboghlqg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9kSDZ62dQf9EOHrF80GhSRSPppzGA0VA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "987023196687-0dj97fungsqi4ai98mqcs92nqboghlqg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

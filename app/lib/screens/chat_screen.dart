@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../feedback.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -150,9 +151,14 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (!mine) Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Text(m.isBot ? '🤖 Asisten' : '🧑‍💼 Agen',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: m.isBot ? MC.blue : MC.primaryDark)),
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(m.isBot ? Icons.smart_toy_rounded : Icons.support_agent_rounded,
+                  size: 12, color: m.isBot ? MC.blue : MC.primaryDark),
+              const SizedBox(width: 4),
+              Text(m.isBot ? 'Asisten' : 'Agen',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: m.isBot ? MC.blue : MC.primaryDark)),
+            ]),
           ),
           Text(m.body, style: TextStyle(color: mine ? Colors.white : MC.ink, fontSize: 13.5, height: 1.35)),
         ]),

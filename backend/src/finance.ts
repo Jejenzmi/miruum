@@ -25,7 +25,7 @@ export async function computeFinance(prisma: PrismaClient) {
   const directPayout: Record<string, { hotelId: string; name: string; gross: number; payout: number; bookings: number }> = {};
 
   for (const b of bookings) {
-    const gross = b.roomPrice;
+    const gross = Number(b.roomPrice);
     const ch = b.channel;
     const isDirect = !ch || ch.type === "DIRECT";
     let revenue = 0, supplierCost = 0, hotelPayout = 0;
@@ -56,7 +56,7 @@ export async function computeFinance(prisma: PrismaClient) {
 
   // Subtract already-disbursed settlements from each DIRECT hotel's due.
   const settlements = await prisma.settlement.groupBy({ by: ["hotelId"], _sum: { amount: true } });
-  const settledByHotel: Record<string, number> = Object.fromEntries(settlements.map((s) => [s.hotelId, s._sum.amount ?? 0]));
+  const settledByHotel: Record<string, number> = Object.fromEntries(settlements.map((s) => [s.hotelId, Number(s._sum.amount ?? 0)]));
   const payouts = Object.values(directPayout).map((h) => {
     const settled = settledByHotel[h.hotelId] ?? 0;
     return { ...h, settled, due: Math.max(0, h.payout - settled) };

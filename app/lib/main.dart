@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'push.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
@@ -15,9 +16,11 @@ Future<void> main() async {
 
   // Load saved settings.
   final prefs = await SharedPreferences.getInstance();
-  final tm = prefs.getString('miruum_theme') ?? 'system';
-  AppSettings.themeMode.value = tm == 'dark' ? ThemeMode.dark : tm == 'light' ? ThemeMode.light : ThemeMode.system;
+  final tm = prefs.getString('miruum_theme') ?? 'light'; // default: mode terang
+  AppSettings.themeMode.value = tm == 'dark' ? ThemeMode.dark : tm == 'system' ? ThemeMode.system : ThemeMode.light;
   AppSettings.locale.value = Locale(prefs.getString('miruum_lang') ?? 'id');
+
+  await Push.init(); // Firebase + FCM (guarded; app runs even if unavailable)
 
   final api = Api();
   runApp(

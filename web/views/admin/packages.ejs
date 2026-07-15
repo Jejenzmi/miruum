@@ -1,6 +1,5 @@
 <%- include('../partials/top', { title:'Paket Hotel', heading:'Kelola Paket Hotel', section:'admin', active:'packages', me }) %>
 
-<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Paket disimpan.</div><% } %>
 <% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan paket.</div><% } %>
 
 <div class="card">
@@ -24,29 +23,39 @@
       <div><label>Tamu</label><input name="guests" type="number" value="2"></div>
       <div><label>Badge</label><input name="badge" placeholder="Best Seller"></div>
     </div>
-    <label>Inklusi (satu per baris)</label>
-    <textarea name="inclusions" rows="4" placeholder="Menginap 2 malam Deluxe&#10;Sarapan 2 orang/hari&#10;Antar-jemput bandara"></textarea>
+    <label>Paket Makan (Board Basis)</label>
+    <select name="boardBasis">
+      <option value="ROOM_ONLY">Tanpa Makan (Room Only)</option>
+      <option value="BREAKFAST" selected>Termasuk Sarapan (Breakfast)</option>
+      <option value="HALF_BOARD">Sarapan + Makan Malam (Half Board)</option>
+      <option value="FULL_BOARD">3x Makan: Pagi, Siang, Malam (Full Board)</option>
+      <option value="ALL_INCLUSIVE">All-Inclusive (Makan + Minuman)</option>
+    </select>
+    <label>Inklusi Ekstra — non-makan (satu per baris)</label>
+    <textarea name="inclusions" rows="4" placeholder="Laundry 3 potong/hari&#10;Antar-jemput bandara&#10;Spa 60 menit&#10;Late check-out 14.00"></textarea>
     <label>URL Gambar (opsional)</label><input name="imageUrl" placeholder="https://...">
     <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="isPopular" style="width:auto"> Tandai populer</label>
-    <div style="margin-top:16px"><button class="btn">➕ Simpan Paket</button></div>
+    <div style="margin-top:16px"><button class="btn">Simpan Paket</button></div>
   </form>
 </div>
 
 <div class="card">
   <h3>Daftar Paket</h3>
   <table>
-    <thead><tr><th>Paket</th><th>Hotel</th><th>Durasi</th><th>Harga</th><th>Aksi</th></tr></thead>
+    <% var BOARD_LABELS = { ROOM_ONLY:'Tanpa Makan', BREAKFAST:'Sarapan', HALF_BOARD:'Half Board', FULL_BOARD:'Full Board (3x)', ALL_INCLUSIVE:'All-Inclusive' }; %>
+    <thead><tr><th>Paket</th><th>Hotel</th><th>Durasi</th><th>Makan</th><th>Harga</th><th>Aksi</th></tr></thead>
     <tbody>
       <% packages.forEach(function(p){ %>
         <tr>
           <td><b><%= p.title %></b><% if(p.badge){ %> <span class="pill PARTNER"><%= p.badge %></span><% } %></td>
           <td><%= p.hotel ? p.hotel.name : '—' %></td>
           <td><%= p.nights %>N<%= p.days %>D</td>
+          <td><span class="pill PAID"><%= BOARD_LABELS[p.boardBasis] || 'Sarapan' %></span></td>
           <td><b style="color:#E07C17"><%= rupiah(p.price) %></b><br><span class="muted" style="font-size:11px;text-decoration:line-through"><%= rupiah(p.originalPrice) %></span></td>
-          <td><form method="post" action="/admin/packages/<%= p.id %>/delete" onsubmit="return confirm('Hapus paket?')"><button class="btn danger sm">Hapus</button></form></td>
+          <td><form method="post" action="/admin/packages/<%= p.id %>/delete" data-confirm="Hapus paket?"><button class="btn danger sm">Hapus</button></form></td>
         </tr>
       <% }) %>
-      <% if (!packages.length) { %><tr><td colspan="5" class="empty">Belum ada paket</td></tr><% } %>
+      <% if (!packages.length) { %><tr><td colspan="6" class="empty">Belum ada paket</td></tr><% } %>
     </tbody>
   </table>
 </div>

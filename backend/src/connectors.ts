@@ -46,6 +46,24 @@ function jitter(seed: string, spread: number): number {
 }
 const round1k = (n: number) => Math.max(1000, Math.round(n / 1000) * 1000);
 
+/** Apply a supply source's pricing rule to a nett base price.
+ *  - feeIncluded → basePrice is final (no markup)
+ *  - NOMINAL     → basePrice + flat Rupiah markup
+ *  - PCT (default)→ basePrice × (1 + commissionPct/100)
+ *  Returns the guest-facing price and the effective markup % (for reporting). */
+export function applyMarkup(
+  base: number,
+  ch: { feeIncluded?: boolean; markupType?: string; markupNominal?: number; commissionPct?: number },
+): { price: number; markupPct: number } {
+  if (ch.feeIncluded) return { price: round1k(base), markupPct: 0 };
+  if (ch.markupType === "NOMINAL") {
+    const price = round1k(base + (ch.markupNominal ?? 0));
+    return { price, markupPct: base > 0 ? Math.round(((price - base) / base) * 1000) / 10 : 0 };
+  }
+  const pct = ch.commissionPct ?? 0;
+  return { price: round1k(base * (1 + pct / 100)), markupPct: pct };
+}
+
 // Own Channel Manager — the hotel's own managed rate.
 const directConnector: OtaConnector = {
   code: "DIRECT",
@@ -126,8 +144,9 @@ export async function syncOffers(prisma: PrismaClient): Promise<{ hotels: number
         });
         continue;
       }
-      const markupPct = ch.commissionPct; // Miruum margin on top of nett
-      const price = round1k(r.basePrice * (1 + markupPct / 100));
+      // Apply Miruum's pricing rule for this source: fee-included = no markup;
+      // otherwise markup is a percentage or a flat nominal (Rp).
+      const { price, markupPct } = applyMarkup(r.basePrice, ch as any);
       await prisma.hotelOffer.upsert({
         where: { hotelId_channelId: { hotelId: hotel.id, channelId: ch.id } },
         create: {
@@ -153,9 +172,11 @@ export async function syncOffers(prisma: PrismaClient): Promise<{ hotels: number
       orderBy: { price: "asc" },
     });
     if (best) {
+      // Only record the cheapest SOURCE — never write the marked-up price back
+      // into priceFrom, or it would feed the mock base and compound each sync.
       await prisma.hotel.update({
         where: { id: hotel.id },
-        data: { priceFrom: best.price, channelId: best.channelId },
+        data: { channelId: best.channelId },
       });
     }
   }

@@ -1,0 +1,83 @@
+<%- include('../partials/top', { title:'Integrasi', heading:'Integrasi & Kredensial', section:'admin', active:'integrations', me }) %>
+
+<% var i = integrations || {}; %>
+<% if (saved==='1') { %><div class="notice ok">Konfigurasi integrasi tersimpan.</div><% } %>
+<% if (saved==='testmail') { %><div class="notice ok">Email uji terkirim — cek inbox tujuan.</div><% } %>
+<% if (saved==='testmailerr') { %><div class="notice bad">Gagal kirim email uji: <%= msg %></div><% } %>
+<% if (saved==='testfcm') { %><div class="notice ok">Service account FCM valid — koneksi berhasil.</div><% } %>
+<% if (saved==='testfcmerr') { %><div class="notice bad">FCM gagal: <%= msg %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Masukkan semua kredensial di sini — tanpa perlu ubah server. Email (SMTP), Push (FCM), dan WhatsApp langsung aktif setelah diaktifkan &amp; disimpan.</p>
+
+<form method="post" action="/admin/integrations">
+  <div class="grid-2">
+    <div class="card">
+      <h2>Email (SMTP)</h2>
+      <label class="pr-check" style="margin-bottom:10px"><input type="checkbox" name="mail_enabled" style="width:auto" <%= i.mail_enabled==='1'?'checked':'' %>> Aktifkan pengiriman email</label>
+      <div class="row2">
+        <div><label style="margin-top:0">Host SMTP</label><input name="smtp_host" value="<%= i.smtp_host %>" placeholder="smtp.gmail.com"></div>
+        <div><label style="margin-top:0">Port</label><input name="smtp_port" value="<%= i.smtp_port %>" placeholder="587"></div>
+      </div>
+      <div class="row2">
+        <div><label>Username</label><input name="smtp_user" value="<%= i.smtp_user %>" placeholder="user@domain.com"></div>
+        <div><label>Password / App Password</label><input name="smtp_pass" type="password" value="<%= i.smtp_pass %>" placeholder="••••••••"></div>
+      </div>
+      <div class="row2">
+        <div><label>Email Pengirim (From)</label><input name="smtp_from" value="<%= i.smtp_from %>" placeholder="Miruum <no-reply@miruum.id>"></div>
+        <div><label>SSL/TLS (port 465)</label><br><label class="pr-check" style="margin-top:8px"><input type="checkbox" name="smtp_secure" style="width:auto" <%= i.smtp_secure==='1'?'checked':'' %>> Secure</label></div>
+      </div>
+      <p class="muted" style="font-size:11px;margin-top:6px">Gmail: pakai App Password (bukan sandi akun). Port 587 (TLS) atau 465 (Secure).</p>
+    </div>
+
+    <div class="card">
+      <h2>Push Notification (FCM)</h2>
+      <label class="pr-check" style="margin-bottom:10px"><input type="checkbox" name="fcm_enabled" style="width:auto" <%= i.fcm_enabled==='1'?'checked':'' %>> Aktifkan push FCM</label>
+      <label style="margin-top:0">Service Account JSON (Firebase)</label>
+      <textarea name="fcm_service_account" rows="8" spellcheck="false" style="font-family:monospace;font-size:11px" placeholder='{"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...","client_email":"...@...iam.gserviceaccount.com"}'><%= i.fcm_service_account %></textarea>
+      <p class="muted" style="font-size:11px;margin-top:6px">Firebase Console → Project Settings → Service accounts → Generate new private key. Tempel isi JSON-nya di sini (memakai FCM HTTP v1).</p>
+    </div>
+
+    <div class="card">
+      <h2>WhatsApp Gateway</h2>
+      <label class="pr-check" style="margin-bottom:10px"><input type="checkbox" name="wa_enabled" style="width:auto" <%= i.wa_enabled==='1'?'checked':'' %>> Aktifkan notifikasi WhatsApp</label>
+      <label style="margin-top:0">URL API Gateway</label>
+      <input name="wa_api_url" value="<%= i.wa_api_url %>" placeholder="https://gateway.example.com/send">
+      <label>Token / API Key</label>
+      <input name="wa_api_token" type="password" value="<%= i.wa_api_token %>" placeholder="••••••••">
+      <p class="muted" style="font-size:11px;margin-top:6px">Gateway HTTP generik (mengirim {to, message}). Kosongkan bila belum ada.</p>
+    </div>
+
+    <div class="card">
+      <h2>Login Google (OAuth)</h2>
+      <label style="margin-top:0">OAuth Web Client ID</label>
+      <input name="google_client_id" value="<%= i.google_client_id %>" placeholder="xxxxx.apps.googleusercontent.com">
+      <p class="muted" style="font-size:11px;margin-top:6px">Dari Firebase Console → Authentication → Sign-in method → Google (Enable) → "Web SDK configuration" → Web client ID. Backend verifikasi audience token dengan ini.</p>
+    </div>
+
+    <div class="card">
+      <h2>Status Kanal</h2>
+      <div class="pms-row"><div><b>Email (SMTP)</b></div><span class="pill <%= i.mail_enabled==='1'&&i.smtp_host?'PAID':'CANCELLED' %>"><%= i.mail_enabled==='1'&&i.smtp_host?'Aktif':'Nonaktif' %></span></div>
+      <div class="pms-row"><div><b>Push (FCM)</b></div><span class="pill <%= i.fcm_enabled==='1'&&i.fcm_service_account?'PAID':'CANCELLED' %>"><%= i.fcm_enabled==='1'&&i.fcm_service_account?'Aktif':'Nonaktif' %></span></div>
+      <div class="pms-row" style="border-bottom:none"><div><b>WhatsApp</b></div><span class="pill <%= i.wa_enabled==='1'&&i.wa_api_url?'PAID':'CANCELLED' %>"><%= i.wa_enabled==='1'&&i.wa_api_url?'Aktif':'Nonaktif' %></span></div>
+      <p class="muted" style="font-size:11px;margin-top:12px">Semua kredensial tersimpan di server &amp; hanya bisa diakses admin.</p>
+    </div>
+  </div>
+  <div style="margin-top:6px"><button class="btn">Simpan Semua Konfigurasi</button></div>
+</form>
+
+<div class="grid-2" style="margin-top:20px">
+  <div class="card">
+    <h3 style="margin:0 0 10px">Uji Email</h3>
+    <form method="post" action="/admin/integrations/test-email" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+      <div style="flex:1;min-width:180px"><label style="margin-top:0">Kirim email uji ke</label><input name="to" type="email" placeholder="anda@email.com" required></div>
+      <button class="btn ghost">Kirim Uji</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 10px">Uji FCM</h3>
+    <p class="muted" style="font-size:12px;margin-top:-4px">Validasi Service Account bisa memperoleh token (simpan dulu bila baru diubah).</p>
+    <form method="post" action="/admin/integrations/test-fcm"><button class="btn ghost">Uji Koneksi FCM</button></form>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

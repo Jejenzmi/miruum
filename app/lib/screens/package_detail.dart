@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../api.dart';
+import '../feedback.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../models.dart';
@@ -117,10 +118,40 @@ class _PackageViewState extends State<_PackageView> {
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   TagChip('${pkg.nights} Malam / ${pkg.days} Hari', Icons.calendar_month_rounded),
                   TagChip('${pkg.guests} Tamu', Icons.people_alt_rounded),
+                  TagChip(pkg.boardLabel, Icons.restaurant_rounded),
                   StarRow(pkg.starRating),
                 ]),
                 const SizedBox(height: 20),
-                const Text('Yang termasuk dalam paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                const Text('Paket Makan', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 12),
+                cardBox(child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(11)),
+                    child: const Icon(Icons.restaurant_menu_rounded, color: MC.primary, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(pkg.boardLabel, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                    const SizedBox(height: 6),
+                    if (pkg.meals.isEmpty)
+                      Text('Belum termasuk makan', style: TextStyle(color: MC.inkMuted, fontSize: 12.5))
+                    else
+                      Wrap(spacing: 6, runSpacing: 6, children: [
+                        for (final m in pkg.meals)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(20)),
+                            child: Text(m, style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w600, fontSize: 11.5)),
+                          ),
+                      ]),
+                    Text(' • per orang, per hari selama ${pkg.nights} malam',
+                        style: TextStyle(color: MC.inkFaint, fontSize: 11, height: 1.6)),
+                  ])),
+                ])),
+                if (pkg.inclusions.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text('Fasilitas & inklusi lain', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 12),
                 cardBox(child: Column(children: [
                   for (var i = 0; i < pkg.inclusions.length; i++) ...[
@@ -132,6 +163,7 @@ class _PackageViewState extends State<_PackageView> {
                     ]),
                   ],
                 ])),
+                ],
                 if (pkg.description != null) ...[
                   const SizedBox(height: 20),
                   const Text('Tentang paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),

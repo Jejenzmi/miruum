@@ -1,0 +1,37 @@
+<%- include('../partials/top', { title:'Pesan Hotel', heading:'Pesan Hotel', section:'corporate', active:'book', me }) %>
+
+<% if (booked) { %><div class="notice ok">Pemesanan berhasil — kode <b><%= booked %></b> ditagihkan ke instansi. <a href="/api/invoices/<%= booked %>" target="_blank">Lihat Invoice</a> · <a href="/api/vouchers/<%= booked %>" target="_blank">E-Voucher</a></div><% } %>
+<% if (err) { %><div class="notice bad">Pemesanan gagal. Periksa isian Anda.</div><% } %>
+
+<div class="card" style="max-width:640px">
+  <h2>Pesanan Baru untuk Karyawan/Pegawai</h2>
+  <p class="muted" style="margin-top:-8px">Pilih hotel &amp; kamar, tanggal menginap, dan nama tamu. Tagihan otomatis atas nama instansi.</p>
+  <form method="post" action="/corporate/book">
+    <label>Hotel &amp; Tipe Kamar</label>
+    <select name="roomId" required>
+      <option value="">— pilih kamar —</option>
+      <% hotels.forEach(function(h){ if(h.rooms.length){ %>
+        <optgroup label="<%= h.name %> · <%= h.city %>">
+          <% h.rooms.forEach(function(r){ %>
+            <option value="<%= r.id %>"><%= r.name %> — <%= rupiah(r.price) %>/malam</option>
+          <% }) %>
+        </optgroup>
+      <% }}) %>
+    </select>
+    <div class="row2">
+      <div><label>Check-in</label><input name="checkIn" type="date" required></div>
+      <div><label>Check-out</label><input name="checkOut" type="date" required></div>
+    </div>
+    <label>Nama Tamu (karyawan/pegawai)</label>
+    <input name="travelerName" placeholder="Nama sesuai identitas" required>
+    <div class="row2">
+      <div><label>Jumlah Tamu</label><input name="guests" type="number" min="1" value="1"></div>
+      <div><label>Jumlah Kamar</label><input name="rooms" type="number" min="1" value="1"></div>
+    </div>
+    <label>Catatan / No. SPD (opsional)</label>
+    <input name="note" placeholder="mis. Perjalanan Dinas No. 123/2026">
+    <div style="margin-top:18px"><button class="btn">Pesan &amp; Tagih ke Instansi</button></div>
+  </form>
+</div>
+
+<%- include('../partials/bottom') %>

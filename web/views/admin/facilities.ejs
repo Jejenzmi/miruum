@@ -1,0 +1,84 @@
+<%- include('../partials/top', { title:'Fasilitas', heading:'Moderasi Fasilitas', section:'admin', active:'facilities', me }) %>
+
+<% if (added) { %><div class="notice ok">Fasilitas baru ditambahkan.</div><% } %>
+<% if (saved) { %><div class="notice ok">Fasilitas hotel diperbarui.</div><% } %>
+<% if (err) { %><div class="notice bad">Gagal menambah fasilitas (nama mungkin sudah ada).</div><% } %>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Katalog Fasilitas</h2>
+    <p class="muted" style="margin-top:-8px">Daftar fasilitas yang bisa dipasang ke hotel. Nama & ikon mengikuti aplikasi.</p>
+    <table>
+      <thead><tr><th>Fasilitas</th><th>Ikon</th><th>Dipakai</th><th></th></tr></thead>
+      <tbody>
+        <% facilities.forEach(function(f){ %>
+          <tr>
+            <td><b><%= f.name %></b></td>
+            <td><code class="chip-code"><%= f.icon %></code></td>
+            <td><%= f._count.hotels %> hotel</td>
+            <td>
+              <form method="post" action="/admin/facilities/<%= f.id %>/delete" data-confirm="Hapus fasilitas '<%= f.name %>'? Akan lepas dari semua hotel.">
+                <button class="btn danger sm">Hapus</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!facilities.length) { %><tr><td colspan="4" class="empty">Belum ada fasilitas</td></tr><% } %>
+      </tbody>
+    </table>
+
+    <div style="border-top:1.5px solid var(--line);margin-top:16px;padding-top:16px">
+      <b style="font-size:13px">Tambah Fasilitas</b>
+      <form method="post" action="/admin/facilities" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px">
+        <div style="flex:1;min-width:150px"><label style="margin-top:0">Nama</label><input name="name" placeholder="mis. Kolam Renang" required></div>
+        <div style="min-width:170px"><label style="margin-top:0">Ikon (Material key)</label>
+          <input name="icon" list="iconlist" placeholder="pool" required>
+          <datalist id="iconlist">
+            <option value="wifi"><option value="tv"><option value="pool"><option value="ac_unit">
+            <option value="restaurant"><option value="local_parking"><option value="fitness_center">
+            <option value="spa"><option value="free_breakfast"><option value="local_bar"><option value="pets">
+            <option value="smoke_free"><option value="elevator"><option value="room_service">
+            <option value="beach_access"><option value="business_center"><option value="airport_shuttle">
+            <option value="local_laundry_service"><option value="meeting_room">
+          </datalist>
+        </div>
+        <button class="btn sm" style="margin-bottom:1px">Tambah</button>
+      </form>
+      <p class="muted" style="font-size:11px;margin-top:6px">Ikon memakai <a href="https://fonts.google.com/icons" target="_blank" rel="noopener">Material Symbols key</a> (mis. <code>pool</code>, <code>wifi</code>).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Fasilitas per Hotel</h2>
+    <p class="muted" style="margin-top:-8px">Pilih hotel lalu centang fasilitas yang tersedia.</p>
+    <label>Hotel</label>
+    <select id="hotelPick" onchange="pickHotel(this.value)">
+      <option value="">— pilih hotel —</option>
+      <% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %> · <%= h.city %></option><% }) %>
+    </select>
+
+    <% hotels.forEach(function(h){ var have = {}; h.facilities.forEach(function(x){ have[x.facilityId]=true; }); %>
+      <form method="post" action="/admin/hotels/<%= h.id %>/facilities" class="fac-group" id="fac-<%= h.id %>" style="display:none;margin-top:16px">
+        <div class="fac-checks">
+          <% facilities.forEach(function(f){ %>
+            <label class="fac-item"><input type="checkbox" name="facilityIds" value="<%= f.id %>" <%= have[f.id]?'checked':'' %>> <%= f.name %></label>
+          <% }) %>
+          <% if (!facilities.length) { %><span class="muted">Tambah fasilitas dulu di katalog.</span><% } %>
+        </div>
+        <div style="margin-top:14px"><button class="btn sm">Simpan Fasilitas Hotel</button></div>
+      </form>
+    <% }) %>
+    <p class="muted empty" id="fac-empty" style="padding:28px">Pilih hotel untuk mengatur fasilitasnya.</p>
+  </div>
+</div>
+
+<script>
+  function pickHotel(id){
+    document.querySelectorAll('.fac-group').forEach(function(el){ el.style.display='none'; });
+    var empty=document.getElementById('fac-empty');
+    if(id){ var g=document.getElementById('fac-'+id); if(g) g.style.display='block'; empty.style.display='none'; }
+    else { empty.style.display='block'; }
+  }
+</script>
+
+<%- include('../partials/bottom') %>

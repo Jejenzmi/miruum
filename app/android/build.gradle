@@ -9,6 +9,22 @@ rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+// Some plugins (e.g. geolocator_android) don't declare compileSdkVersion and
+// rely on it being set. Force a consistent SDK + namespace across all Android
+// subprojects so the release build doesn't fail on AGP 7. Registered BEFORE the
+// evaluationDependsOn below so projects aren't already evaluated.
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileSdkVersion 34
+                if (namespace == null) {
+                    namespace project.group.toString()
+                }
+            }
+        }
+    }
+}
 subprojects {
     project.evaluationDependsOn(':app')
 }

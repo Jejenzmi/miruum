@@ -1,0 +1,67 @@
+<%- include('../partials/top', { title:'Pop-up & Update', heading:'Pop-up & Update Aplikasi', section:'admin', active:'app-popup', me }) %>
+
+<% var p = popup || {}; var s = settings || {}; %>
+<% if (saved==='popup') { %><div class="notice ok">Pop-up pengumuman tersimpan.</div><% } %>
+<% if (saved==='update') { %><div class="notice ok">Konfigurasi update tersimpan.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="grid-2">
+  <!-- Announcement popup -->
+  <div class="card">
+    <h2>Pop-up Pengumuman</h2>
+    <p class="muted" style="font-size:12px;margin-top:-4px">Muncul beranimasi saat pengguna membuka aplikasi. Ditampilkan sekali sampai pengguna menutupnya (kecuali diubah).</p>
+    <form method="post" action="/admin/app-popup">
+      <label class="pr-check" style="margin:6px 0 12px"><input type="checkbox" name="active" style="width:auto" <%= p.active?'checked':'' %>> Aktifkan pop-up</label>
+      <label style="margin-top:0">Judul</label>
+      <input name="title" value="<%= p.title || '' %>" placeholder="Promo Akhir Pekan!" required>
+      <label>Isi Pesan</label>
+      <textarea name="body" rows="3" placeholder="Nikmati diskon hingga 30% untuk semua hotel di Yogyakarta." required><%= p.body || '' %></textarea>
+      <label>URL Gambar (opsional)</label>
+      <input name="imageUrl" value="<%= p.imageUrl || '' %>" placeholder="https://...">
+      <div class="row2">
+        <div><label>Teks Tombol (opsional)</label><input name="ctaText" value="<%= p.ctaText || '' %>" placeholder="Lihat Promo"></div>
+        <div><label>Link Tombol (opsional)</label><input name="ctaUrl" value="<%= p.ctaUrl || '' %>" placeholder="https://..."></div>
+      </div>
+      <div style="margin-top:16px"><button class="btn">Simpan Pop-up</button></div>
+    </form>
+  </div>
+
+  <!-- Update config -->
+  <div class="card">
+    <h2>Pembaruan Aplikasi (Update)</h2>
+    <p class="muted" style="font-size:12px;margin-top:-4px">Saat aplikasi dibuka, jika versi pengguna lebih lama dari <b>Versi Terbaru</b> → pop-up update opsional. Jika lebih lama dari <b>Versi Minimum</b> → update <b>wajib</b> (tak bisa ditutup).</p>
+    <form method="post" action="/admin/app-update">
+      <div class="row2">
+        <div><label style="margin-top:0">Versi Terbaru</label><input name="app_latest_version" value="<%= s.app_latest_version || '' %>" placeholder="1.1.0"></div>
+        <div><label style="margin-top:0">Versi Minimum (wajib)</label><input name="app_min_version" value="<%= s.app_min_version || '' %>" placeholder="1.1.0"></div>
+      </div>
+      <label>Link Unduh APK</label>
+      <input name="app_update_url" value="<%= s.app_update_url || '' %>" placeholder="https://ota.gokar.id/ota.apk">
+      <label>Catatan Rilis (opsional)</label>
+      <textarea name="app_update_notes" rows="3" placeholder="• Login Google&#10;• Mode terang default&#10;• Perbaikan keamanan"><%= s.app_update_notes || '' %></textarea>
+      <div style="margin-top:16px"><button class="btn">Simpan Update</button></div>
+      <p class="muted" style="font-size:11px;margin-top:10px">Kosongkan Versi Terbaru/Minimum untuk menonaktifkan pop-up update. Format versi: <code>MAYOR.MINOR.PATCH</code> (mis. 1.1.0).</p>
+    </form>
+  </div>
+</div>
+
+<!-- Live preview -->
+<div class="card" style="margin-top:18px">
+  <h3 style="margin:0 0 12px">Pratinjau Pop-up</h3>
+  <div style="display:flex;justify-content:center;background:#eef0f4;border-radius:14px;padding:26px">
+    <div style="width:300px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 18px 44px rgba(20,24,30,.18)">
+      <% if (p.imageUrl) { %><img src="<%= p.imageUrl %>" style="width:100%;height:130px;object-fit:cover" onerror="this.style.display='none'"><% } else { %>
+      <div style="height:96px;background:linear-gradient(120deg,#F59331,#E07C17);display:flex;align-items:center;justify-content:center;color:#fff;font-size:34px">🔔</div><% } %>
+      <div style="padding:18px 18px 20px">
+        <div style="font-weight:800;font-size:17px;margin-bottom:6px"><%= p.title || 'Judul Pop-up' %></div>
+        <div style="color:#6b7280;font-size:13px;line-height:1.5"><%= p.body || 'Isi pesan pop-up akan tampil di sini.' %></div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <div style="flex:1;text-align:center;padding:10px;border-radius:11px;background:#f1f2f4;color:#6b7280;font-size:13px;font-weight:600">Nanti</div>
+          <div style="flex:1;text-align:center;padding:10px;border-radius:11px;background:#F59331;color:#fff;font-size:13px;font-weight:700"><%= p.ctaText || 'Oke' %></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

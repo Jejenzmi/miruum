@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Corporate & Government — Miruum</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="auth">
+  <div class="auth-form-wrap">
+    <div class="auth-card">
+      <img src="/static/logo.png" alt="Miruum" class="auth-logo">
+      <span class="eyebrow">Corporate &amp; Government</span>
+      <h2>Portal Pemesanan Instansi</h2>
+      <p class="lead">Masuk untuk memesan hotel bagi karyawan/pegawai, dengan tagihan &amp; laporan terpusat.</p>
+      <% if (error) { %><div class="error"><%= error %></div><% } %>
+      <form method="post" action="/corporate/login">
+        <div class="ffield">
+          <input id="email" name="email" type="email" placeholder="email instansi" value="corp@nusantara.id" required>
+          <label for="email">Email</label>
+        </div>
+        <div class="ffield">
+          <input id="pass" name="password" type="password" placeholder="kata sandi" value="corp123" required>
+          <label for="pass">Kata Sandi</label>
+        </div>
+        <button class="btn" style="width:100%;justify-content:center;margin-top:8px">Masuk Portal Korporat</button>
+      </form>
+      <div class="hint">Demo: corp@nusantara.id / corp123 · gov@disparprov.id / gov123</div>
+      <p style="text-align:center;margin-top:16px;font-size:13px">Belum punya akun instansi? <a href="/corporate/register"><b>Ajukan Layanan Corporate</b></a></p>
+      <div class="auth-foot">© 2026 Miruum · Corporate. All rights reserved.</div>
+    </div>
+  </div>
+  <%- include('../partials/auth_brand', { variant: 'corp' }) %>
+</div>
+</body>
+</html>

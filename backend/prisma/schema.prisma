@@ -12,6 +12,101 @@ enum Role {
   USER
   ADMIN
   PARTNER
+  CORPORATE
+}
+
+enum CorporateType {
+  CORPORATE
+  GOVERNMENT
+}
+
+// A company / government agency with a booking account (corporate.gokar.id).
+model Corporate {
+  id          String        @id @default(cuid())
+  type        CorporateType @default(CORPORATE)
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  taxId       String?       // NPWP
+  picName     String?       // person in charge
+  picPosition String?
+  website     String?
+  regionId    String?       // leaf region (Desa/Kelurahan) — full path derivable
+  creditLimit BigInt        @default(0)
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  users       User[]
+  bookings    Booking[]
+  invoices    CorporateInvoice[]
+}
+
+enum CorporateInvoiceStatus {
+  UNPAID
+  PAID
+  CANCELLED
+}
+
+// A billing statement (tagihan) Miruum issues to a corporate/government account
+// covering its credit bookings. UNPAID → instansi pays → admin marks PAID.
+model CorporateInvoice {
+  id            String                 @id @default(cuid())
+  corporateId   String
+  number        String                 @unique
+  amount        BigInt
+  bookingsCount Int                    @default(0)
+  status        CorporateInvoiceStatus @default(UNPAID)
+  dueDate       DateTime?
+  note          String?
+  createdAt     DateTime               @default(now())
+  paidAt        DateTime?
+  corporate     Corporate              @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RegionLevel {
+  PROVINCE
+  CITY
+  DISTRICT
+  VILLAGE
+}
+
+// Master data of Indonesian administrative regions (4 levels, self-referencing).
+// Supports pemekaran: admins can add new regions at any level.
+model Region {
+  id       String      @id @default(cuid())
+  code     String?     // official BPS/Kemendagri code (optional)
+  name     String
+  level    RegionLevel
+  parentId String?
+  parent   Region?     @relation("RegionTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Region[]    @relation("RegionTree")
+
+  @@index([level, parentId])
+}
+
+// A company/agency's application to open a corporate booking account.
+model CorporateApplication {
+  id          String            @id @default(cuid())
+  type        CorporateType     @default(CORPORATE)
+  companyName String
+  picName     String
+  picPosition String?
+  email       String
+  phone       String
+  address     String?
+  taxId       String?
+  regionId    String?
+  employees   Int               @default(0)
+  note        String?
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
 }
 
 model User {
@@ -24,6 +119,12 @@ model User {
   gender       String?
   birthDate    String?
   avatarUrl    String?
+  title        String?  // salutation: Tuan | Nyonya | Nona
+  nationality  String?  // e.g. Indonesia
+  idType       String?  // KTP | PASSPORT | SIM
+  idNumber     String?
+  address      String?
+  city         String?
   createdAt    DateTime @default(now())
 
   bookings     Booking[]
@@ -32,6 +133,141 @@ model User {
   reviews      Review[]
   ownedHotels  Hotel[]  @relation("HotelOwner")
   chats        ChatConversation[]
+  savedGuests  SavedGuest[]
+  corporateId  String?
+  corporate    Corporate? @relation(fields: [corporateId], references: [id])
+  refreshTokens RefreshToken[]
+  verificationCodes VerificationCode[]
+  loyaltyPoints Int      @default(0) // current redeemable balance (denormalized)
+  loyaltyTxns   LoyaltyTxn[]
+  hotelThreads  HotelThread[]
+}
+
+// Direct guest ↔ hotel messaging (one thread per user+hotel).
+model HotelThread {
+  id        String   @id @default(cuid())
+  userId    String
+  hotelId   String
+  createdAt DateTime @default(now())
+  lastAt    DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  messages  HotelMessage[]
+
+  @@unique([userId, hotelId])
+  @@index([hotelId])
+}
+
+model HotelMessage {
+  id          String   @id @default(cuid())
+  threadId    String
+  fromGuest   Boolean  // true = guest, false = hotel
+  body        String
+  readByHotel Boolean  @default(false)
+  readByGuest Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  thread      HotelThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+}
+
+// Loyalty points ledger — earned on paid bookings, redeemable as discount.
+model LoyaltyTxn {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int      // + earn, − redeem
+  type      String   // EARN | REDEEM
+  bookingId String?
+  note      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// One-time codes for OTP (phone/email verification) and password reset.
+// Only the SHA-256 hash of the code is stored.
+model VerificationCode {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String    // OTP | RESET
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
+
+// Metasearch & GDS distribution targets (Google Hotel Ads, Trivago, Amadeus…).
+// Unlike SupplyChannel (where inventory comes FROM), these are where Miruum
+// pushes its rates TO. Connections are mock until real feeds/credentials added.
+model MetaChannel {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  kind        String   // METASEARCH | GDS
+  connected   Boolean  @default(false)
+  logoUrl     String?
+  color       String?
+  config      Json?    // feed/credential config for the real integration
+  lastPushAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// Admin-managed in-app announcement popup (single active row).
+model AppPopup {
+  id        String   @id @default(cuid())
+  active    Boolean  @default(false)
+  title     String
+  body      String
+  imageUrl  String?
+  ctaText   String?
+  ctaUrl    String?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// Immutable audit trail of sensitive admin/partner actions.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  String?
+  actorEmail String?
+  action     String   // e.g. "hotel.update", "claim.pay"
+  entity     String?  // "Hotel", "PayoutClaim"…
+  entityId   String?
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Server-side refresh tokens — enable short-lived access tokens plus
+// revocable sessions (logout, rotation). Only the SHA-256 hash is stored.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A reusable guest saved by a user for faster "booking for someone else".
+model SavedGuest {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum ChatSender {
@@ -72,6 +308,7 @@ model Hotel {
   slug        String   @unique
   city        String
   address     String
+  regionId    String?  // leaf region (Desa/Kelurahan)
   lat         Float?
   lng         Float?
   description String
@@ -85,6 +322,10 @@ model Hotel {
   isPromo     Boolean  @default(false)
   promoLabel  String?
   ownerId     String?
+  // Contracted products (a hotel on Extranet doesn't automatically contract
+  // Channel Manager or PMS — those are separate paid modules).
+  productChannelManager Boolean @default(false)
+  productPMS            Boolean @default(false)
   channelId   String?  // supply source: own Channel Manager (DIRECT) or an OTA
   externalId  String?  // hotel id / deeplink at the source OTA
   createdAt   DateTime @default(now())
@@ -100,6 +341,9 @@ model Hotel {
   packages    HotelPackage[]
   offers      HotelOffer[]
   settlements Settlement[]
+  payoutClaims PayoutClaim[]
+  programParticipations PromoParticipation[]
+  threads     HotelThread[]
 }
 
 // A payout to a DIRECT hotel (own Channel Manager) for its confirmed bookings,
@@ -107,11 +351,28 @@ model Hotel {
 model Settlement {
   id            String   @id @default(cuid())
   hotelId       String
-  amount        Int      // rupiah paid out to the hotel
+  amount        BigInt   // rupiah paid out to the hotel
   bookingsCount Int      @default(0)
   note          String?
   createdAt     DateTime @default(now())
   hotel         Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+}
+
+// A partner's payout claim (pencairan) for earnings owed on DIRECT bookings.
+// PENDING → admin pays (creates a Settlement) or rejects.
+model PayoutClaim {
+  id            String    @id @default(cuid())
+  hotelId       String
+  amount        BigInt
+  bookingsCount Int       @default(0)
+  bankName      String?
+  bankAccount   String?
+  accountHolder String?
+  note          String?
+  status        String    @default("PENDING") // PENDING | PAID | REJECTED
+  createdAt     DateTime  @default(now())
+  paidAt        DateTime?
+  hotel         Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
 }
 
 // Supply source for hotel inventory. Miruum aggregates two kinds:
@@ -127,7 +388,15 @@ model SupplyChannel {
   code          String      @unique // DIRECT, TIKETCOM, AGODA, TRAVELOKA…
   name          String
   type          ChannelType @default(OTA)
-  commissionPct Float       @default(0) // sub-agent margin / markup
+  // Contracted = Miruum is a sub-agent and may resell this source (sellable).
+  // Non-contracted = read-only competitor, tracked for rate intelligence only.
+  contracted    Boolean     @default(true)
+  commissionPct Float       @default(0) // markup % (when markupType = PCT)
+  // Pricing intelligence: is the source price already final (fee included) or
+  // does Miruum add a markup? Markup can be a percentage or a flat nominal (Rp).
+  feeIncluded   Boolean     @default(false) // true = basePrice is final, no markup
+  markupType    String      @default("PCT") // PCT | NOMINAL
+  markupNominal Int         @default(0)      // flat markup in Rupiah (when NOMINAL)
   logoUrl       String?
   color         String?     // badge color (hex)
   active        Boolean     @default(true)
@@ -202,11 +471,13 @@ model Room {
   freeWifi          Boolean @default(true)
   freeCancellation  Boolean @default(true)
   stock             Int     @default(5)
+  housekeeping      String  @default("CLEAN") // PMS: CLEAN | DIRTY | INSPECT
   hotel             Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   bookings          Booking[]
   packages          HotelPackage[]
   availability      RoomAvailability[]
   channelMaps       RoomChannelMap[]
+  units             RoomUnit[]
 }
 
 // Maps a Miruum room to an OTA's room-type id — the basis for two-way sync and
@@ -262,6 +533,24 @@ model Setting {
   updatedAt DateTime @default(now()) @updatedAt
 }
 
+// FCM device token for push notifications (registered by the mobile app).
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String?
+  token     String   @unique
+  platform  String?  // android | ios
+  createdAt DateTime @default(now())
+}
+
+// Static/legal content pages (T&C, Privacy, About) managed from Back Office
+// and shown in the mobile app. slug ∈ {terms, privacy, about}.
+model Content {
+  slug      String   @id
+  title     String
+  body      String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
 // A curated bundle: hotel stay + inclusions (breakfast, transfer, spa…) at one bundled price.
 // The "Hotel Package" side of Miruum, alongside plain "Hotel" room booking.
 model HotelPackage {
@@ -276,7 +565,8 @@ model HotelPackage {
   nights        Int      @default(2)
   days          Int      @default(3)
   guests        Int      @default(2)
-  inclusions    String[] // e.g. ["Sarapan 2 orang", "Antar-jemput bandara", "Spa 60 menit"]
+  boardBasis    String   @default("BREAKFAST") // ROOM_ONLY | BREAKFAST | HALF_BOARD | FULL_BOARD | ALL_INCLUSIVE (meal plan)
+  inclusions    String[] // ekstra non-makan, e.g. ["Laundry 3 potong/hari", "Antar-jemput bandara", "Spa 60 menit"]
   originalPrice Int      // sum of à-la-carte value (rupiah, whole bundle)
   price         Int      // bundled price (rupiah, whole bundle)
   discountPct   Int      @default(0)
@@ -299,9 +589,88 @@ model Review {
   authorName String
   rating     Float
   body       String
+  reply      String?  // partner's response to the guest review
+  repliedAt  DateTime?
   createdAt  DateTime @default(now())
   hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   user       User?    @relation(fields: [userId], references: [id])
+}
+
+// Individual numbered rooms within a room type (PMS room assignment).
+model RoomUnit {
+  id          String   @id @default(cuid())
+  roomId      String   // room type
+  number      String   // e.g. "301"
+  status      String   @default("CLEAN") // CLEAN | DIRTY | INSPECT | OOO (out of order)
+  createdAt   DateTime @default(now())
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+
+  @@index([roomId])
+}
+
+// Guest folio charge lines (PMS billing).
+model FolioCharge {
+  id          String   @id @default(cuid())
+  bookingId   String
+  kind        String   // ROOM | MINIBAR | FNB | LAUNDRY | SPA | OTHER
+  description String
+  amount      BigInt   // unit price (rupiah)
+  qty         Int      @default(1)
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+// Night audit / manager's daily report (D-report) snapshot.
+model NightAuditLog {
+  id           String   @id @default(cuid())
+  hotelId      String?
+  businessDate DateTime
+  rooms        Int      @default(0)
+  occupiedRooms Int     @default(0)
+  occupancyPct Float    @default(0)
+  adr          BigInt   @default(0)   // average daily rate
+  revpar       BigInt   @default(0)   // revenue per available room
+  arrivals     Int      @default(0)
+  departures   Int      @default(0)
+  inhouse      Int      @default(0)
+  noShows      Int      @default(0)
+  roomRevenue  BigInt   @default(0)
+  extraRevenue BigInt   @default(0)
+  totalRevenue BigInt   @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Maintenance / housekeeping work orders.
+model WorkOrder {
+  id          String    @id @default(cuid())
+  hotelId     String
+  roomNumber  String?
+  category    String    @default("MAINTENANCE") // MAINTENANCE | HOUSEKEEPING | IT | OTHER
+  title       String
+  description String    @default("")
+  priority    String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  status      String    @default("OPEN")   // OPEN | IN_PROGRESS | DONE
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  @@index([hotelId])
+}
+
+// Guest CRM note/preferences per hotel+email (front-desk profile extra).
+model GuestNote {
+  id          String   @id @default(cuid())
+  hotelId     String
+  email       String
+  note        String   @default("")
+  preferences String   @default("")
+  updatedAt   DateTime @updatedAt
+
+  @@unique([hotelId, email])
 }
 
 model Favorite {
@@ -330,6 +699,8 @@ model Booking {
   packageId      String?       // set when the booking is a Hotel Package bundle
   packageTitle   String?
   channelId      String?       // supply source this booking was routed to
+  corporateId    String?       // set when booked via a corporate/government account
+  corporateInvoiceId String?   // billing statement this booking was billed on
   supplierRef    String?       // reference at the OTA when routed to an external source
   checkIn        DateTime
   checkOut       DateTime
@@ -341,22 +712,36 @@ model Booking {
   bookerPhone    String
   forSelf        Boolean       @default(true)
   specialRequest String?
-  roomPrice      Int
-  taxFee         Int
-  discount       Int           @default(0)
+  roomPrice      BigInt
+  taxFee         BigInt
+  discount       BigInt        @default(0)
   promoCode      String?
-  totalPrice     Int
+  totalPrice     BigInt
   status         BookingStatus @default(PENDING)
   paymentMethod  String?
   bank           String?
   paidAt         DateTime?
+  checkedInAt    DateTime?     // PMS front desk: guest checked in
+  checkedOutAt   DateTime?     // PMS front desk: guest checked out
+  roomUnitId     String?       // assigned physical room (number)
+  noShow         Boolean       @default(false)
+  onlineCheckedIn Boolean      @default(false) // guest completed digital check-in
+  keyCode        String?       // digital room key / access code
+  // Refund disbursement details (collected on cancellation of a paid booking).
+  refundBankName      String?
+  refundBankAccount   String?
+  refundAccountHolder String?
   createdAt      DateTime      @default(now())
+  roomUnit       RoomUnit?     @relation(fields: [roomUnitId], references: [id])
+  folioCharges   FolioCharge[]
 
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   hotel          Hotel         @relation(fields: [hotelId], references: [id])
   room           Room          @relation(fields: [roomId], references: [id])
   package        HotelPackage? @relation(fields: [packageId], references: [id])
   channel        SupplyChannel? @relation(fields: [channelId], references: [id])
+  corporate      Corporate?     @relation(fields: [corporateId], references: [id])
+  corporateInvoice CorporateInvoice? @relation(fields: [corporateInvoiceId], references: [id])
   payments       Payment[]
 }
 
@@ -376,7 +761,7 @@ model Payment {
   provider     String        @default("MOCK") // MOCK | FLIP | MIDTRANS | XENDIT
   method       String        // VA_BCA, EWALLET_GOPAY, QRIS, …
   methodLabel  String
-  amount       Int
+  amount       BigInt
   status       PaymentStatus @default(PENDING)
   externalId   String?       // provider payment/bill id
   vaNumber     String?       // virtual account number
@@ -398,6 +783,50 @@ model Promo {
   discountPct Int      @default(0)
   imageUrl    String
   validUntil  String?
+}
+
+enum ProgramType {
+  PROMO
+  CAMPAIGN
+}
+
+enum ParticipationStatus {
+  INVITED
+  JOINED
+  DECLINED
+}
+
+// A promo/campaign PROGRAM created by Miruum, broadcast to hotels who opt in.
+// PROMO = discount program; CAMPAIGN = marketing/thematic campaign.
+model PromoProgram {
+  id          String      @id @default(cuid())
+  type        ProgramType @default(PROMO)
+  title       String
+  description String
+  discountPct Int         @default(0)
+  imageUrl    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  terms       String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  participations PromoParticipation[]
+}
+
+// A hotel's participation in a program (invited → joined/declined + its offer).
+model PromoParticipation {
+  id        String              @id @default(cuid())
+  programId String
+  hotelId   String
+  status    ParticipationStatus @default(INVITED)
+  offerPct  Int                 @default(0) // discount the hotel offers for this program
+  note      String?
+  joinedAt  DateTime?
+  createdAt DateTime            @default(now())
+  program   PromoProgram        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  hotel     Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, hotelId])
 }
 
 model Notification {

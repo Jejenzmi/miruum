@@ -4,26 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Back Office — Miruum</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="login-wrap">
-  <div class="login-card">
-    <div class="brand"><img src="/static/logo.png" alt="Miruum" style="height:38px"></div>
-    <h2>Back Office</h2>
-    <p class="muted" style="margin-top:-6px">Masuk sebagai admin Miruum</p>
-    <% if (error) { %><div class="error"><%= error %></div><% } %>
-    <form method="post" action="/admin/login">
-      <label>Email</label>
-      <input name="email" type="email" value="admin@miruum.id" required>
-      <label>Kata Sandi</label>
-      <input name="password" type="password" value="admin123" required>
-      <div style="margin-top:20px"><button class="btn" style="width:100%;justify-content:center">Masuk</button></div>
-    </form>
-    <div class="hint">Demo admin: admin@miruum.id / admin123</div>
-    <p style="text-align:center;margin-top:16px"><a href="/">← Kembali ke beranda</a></p>
+<div class="auth">
+  <div class="auth-form-wrap">
+    <div class="auth-card">
+      <img src="/static/logo.png" alt="Miruum" class="auth-logo">
+      <span class="eyebrow">Back Office</span>
+      <h2>Hai, Selamat datang</h2>
+      <p class="lead">Masukkan email dan password untuk masuk ke dashboard admin Miruum.</p>
+      <% if (error) { %><div class="error"><%= error %></div><% } %>
+      <form method="post" action="/admin/login">
+        <div class="ffield">
+          <input id="email" name="email" type="email" placeholder="alamat@email.com" value="admin@miruum.id" required>
+          <label for="email">Email</label>
+        </div>
+        <div class="ffield">
+          <input id="pass" name="password" type="password" placeholder="8+ karakter" value="admin123" required>
+          <label for="pass">Kata Sandi</label>
+          <button type="button" class="toggle-pw" aria-label="Tampilkan sandi" onclick="var p=document.getElementById('pass');p.type=p.type==='password'?'text':'password';">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <label class="remember"><input type="checkbox" name="remember" checked> Ingat saya</label>
+        <button class="btn" style="width:100%;justify-content:center">Masuk</button>
+      </form>
+      <div class="auth-foot">© 2026 Miruum · Back Office. All rights reserved.</div>
+    </div>
   </div>
+  <%- include('../partials/auth_brand', { variant: '' }) %>
 </div>
 </body>
 </html>

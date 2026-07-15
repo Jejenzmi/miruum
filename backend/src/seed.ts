@@ -193,6 +193,49 @@ async function ensureBanners() {
   ] });
 }
 
+async function ensureContent() {
+  const defaults = [
+    { slug: "terms", title: "Syarat & Ketentuan", body:
+`Selamat datang di Miruum. Dengan menggunakan aplikasi Miruum, Anda menyetujui syarat & ketentuan berikut.
+
+1. Pemesanan
+Setiap pemesanan yang dikonfirmasi merupakan perjanjian antara Anda dan pihak hotel/mitra. Harga yang ditampilkan sudah termasuk pajak & biaya layanan kecuali dinyatakan lain.
+
+2. Pembayaran
+Pembayaran diproses melalui kanal resmi Miruum. E-voucher terbit setelah pembayaran berhasil.
+
+3. Pembatalan & Refund
+Kebijakan pembatalan mengikuti ketentuan kamar (refundable / non-refundable) yang tertera pada saat pemesanan.
+
+4. Tanggung Jawab
+Miruum bertindak sebagai perantara pemesanan. Fasilitas & layanan disediakan oleh hotel/mitra terkait.` },
+    { slug: "privacy", title: "Kebijakan Privasi", body:
+`Miruum menghormati privasi Anda. Kebijakan ini menjelaskan bagaimana kami mengelola data Anda.
+
+1. Data yang Kami Kumpulkan
+Nama, email, nomor telepon, dan riwayat pemesanan untuk memproses transaksi.
+
+2. Penggunaan Data
+Data digunakan untuk memproses pemesanan, mengirim e-voucher, dan meningkatkan layanan.
+
+3. Keamanan
+Kami menerapkan langkah keamanan untuk melindungi data Anda dan tidak membagikannya kepada pihak ketiga tanpa persetujuan Anda, kecuali diwajibkan hukum.
+
+4. Hak Anda
+Anda dapat meminta akses, perbaikan, atau penghapusan data pribadi melalui layanan pelanggan Miruum.` },
+    { slug: "about", title: "Tentang Miruum", body:
+`Miruum adalah Online Travel Agent yang fokus pada pemesanan Hotel dan Paket Hotel di seluruh Indonesia.
+
+Kami menghubungkan Anda dengan hotel terbaik melalui mitra langsung dan jaringan OTA, memberikan harga terbaik dan pengalaman menginap yang menyenangkan.
+
+Versi aplikasi 1.0
+Hubungi kami melalui menu Live Chat CS di aplikasi.` },
+  ];
+  for (const c of defaults) {
+    await prisma.content.upsert({ where: { slug: c.slug }, create: c, update: {} });
+  }
+}
+
 async function ensureChannels() {
   for (const c of CHANNELS) {
     await prisma.supplyChannel.upsert({ where: { code: c.code }, create: c, update: c });
@@ -217,6 +260,144 @@ async function assignChannels() {
   await prisma.hotel.updateMany({ where: { channelId: null }, data: { channelId: byCode["DIRECT"] } });
 }
 
+// Realistic booking history so dashboards, analytics, PMS front-desk & finance
+// look like a live property — not empty demos. Idempotent (skips once seeded).
+async function ensureBookings() {
+  if ((await prisma.booking.count()) > 12) return 0;
+  const hotels = await prisma.hotel.findMany({
+    select: { id: true, name: true, slug: true, channelId: true, rooms: { select: { id: true, name: true, price: true } } },
+  });
+  if (!hotels.length) return 0;
+  const channels = await prisma.supplyChannel.findMany({ select: { id: true, code: true, type: true } });
+  const directCh = channels.find((c) => c.code === "DIRECT");
+  const otaChs = channels.filter((c) => c.type === "OTA");
+
+  const NAMES = ["Budi Santoso","Siti Rahayu","Ahmad Fauzi","Dewi Lestari","Rizki Pratama","Nur Aisyah","Andi Wijaya","Putri Handayani","Eko Prasetyo","Maya Sari","Hendra Gunawan","Fitri Anggraini","Bayu Nugroho","Ratna Dewi","Dimas Aditya","Lia Permatasari","Agus Salim","Wulandari","Fajar Ramadhan","Indah Puspita"];
+  const guests: { id: string; name: string; email: string }[] = [];
+  for (let i = 0; i < NAMES.length; i++) {
+    const email = `guest${i + 1}@miruum-demo.id`;
+    const u = await prisma.user.upsert({
+      where: { email },
+      create: { name: NAMES[i], email, passwordHash: await bcrypt.hash("guest123", 10), phone: `0812${String(30000000 + i * 137317).slice(0, 8)}` },
+      update: {},
+    });
+    guests.push({ id: u.id, name: NAMES[i], email });
+  }
+
+  const sod = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const today = sod(new Date());
+  const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
+  const rows: any[] = [];
+  const push = (o: any) => rows.push(o);
+
+  for (let i = 0; i < 44; i++) {
+    const hotel = hotels[i % hotels.length];
+    if (!hotel.rooms.length) continue;
+    const room = hotel.rooms[i % hotel.rooms.length];
+    const guest = guests[i % guests.length];
+    const nights = 1 + (i % 4);
+    const bucket = i % 10;
+    let checkIn: Date, status: string, cin: Date | null = null, cout: Date | null = null, paidAt: Date | null = null;
+    if (bucket <= 4) { checkIn = addDays(today, -(6 + (i % 55))); status = "COMPLETED"; cin = checkIn; cout = addDays(checkIn, nights); paidAt = addDays(checkIn, -2); }
+    else if (bucket <= 6) { checkIn = addDays(today, 2 + (i % 24)); status = "PAID"; paidAt = addDays(today, -(i % 5)); }
+    else if (bucket === 7) { checkIn = addDays(today, -(i % 2)); status = "PAID"; cin = checkIn; paidAt = addDays(checkIn, -1); }
+    else if (bucket === 8) { checkIn = addDays(today, 1 + (i % 10)); status = "PENDING"; }
+    else { checkIn = addDays(today, -(i % 20)); status = i % 3 === 0 ? "REFUNDED" : "CANCELLED"; if (status === "REFUNDED") paidAt = addDays(checkIn, -3); }
+    const checkOut = addDays(checkIn, nights);
+    const channelId = i % 2 === 0 && directCh ? directCh.id : otaChs.length ? otaChs[i % otaChs.length].id : directCh?.id ?? null;
+    const roomPrice = room.price * nights;
+    const taxFee = Math.round(roomPrice * 0.11);
+    const discount = i % 7 === 0 ? Math.round(roomPrice * 0.1 / 1000) * 1000 : 0;
+    push({
+      code: `MRM${String(240000 + i * 137).slice(0, 6)}`, userId: guest.id, hotelId: hotel.id, roomId: room.id, channelId,
+      checkIn, checkOut, nights, guests: 1 + (i % 3), rooms: 1,
+      bookerName: guest.name, bookerEmail: guest.email, bookerPhone: `0812${String(3400000 + i * 5171).slice(0, 8)}`,
+      forSelf: true, roomPrice, taxFee, discount, totalPrice: roomPrice + taxFee - discount, status,
+      paymentMethod: status === "PENDING" ? null : "VA", bank: status === "PENDING" ? null : "BCA",
+      paidAt, checkedInAt: cin, checkedOutAt: cout, createdAt: addDays(checkIn, -3),
+    });
+  }
+
+  // Guarantee PMS front-desk data for partner@panji's hotel (arrivals/in-house/departure today).
+  const h0 = hotels.find((h) => h.slug === "hotel-panji") ?? hotels[0];
+  if (h0 && h0.rooms.length) {
+    const mk = (idx: number, code: string, ci: Date, co: Date, cin: Date | null, extra: any = {}) => {
+      const room = h0.rooms[idx % h0.rooms.length]; const g = guests[(28 + idx) % guests.length];
+      const n = Math.max(1, Math.round((co.getTime() - ci.getTime()) / 86400000));
+      const rp = room.price * n, tf = Math.round(rp * 0.11);
+      push({ code, userId: g.id, hotelId: h0.id, roomId: room.id, channelId: directCh?.id ?? null, checkIn: ci, checkOut: co, nights: n, guests: 2, rooms: 1, bookerName: g.name, bookerEmail: g.email, bookerPhone: "0812990010" + idx, forSelf: true, roomPrice: rp, taxFee: tf, discount: 0, totalPrice: rp + tf, status: "PAID", paymentMethod: "VA", bank: "BCA", paidAt: addDays(ci, -1), createdAt: addDays(ci, -4), ...extra });
+    };
+    mk(0, "MRMFD001", today, addDays(today, 2), null);                        // arrival today
+    mk(1, "MRMFD002", today, addDays(today, 1), null);                        // arrival today
+    mk(2, "MRMFD003", addDays(today, -1), addDays(today, 2), addDays(today, -1)); // in-house
+    mk(3, "MRMFD004", addDays(today, -2), addDays(today, 1), addDays(today, -2)); // in-house
+    mk(0, "MRMFD005", addDays(today, -2), today, addDays(today, -2));          // departure today (in-house, checkout today)
+  }
+
+  await prisma.booking.createMany({ data: rows, skipDuplicates: true });
+  return rows.length;
+}
+
+// Master data of Indonesian regions (Provinsi → Kab/Kota → Kecamatan → Desa).
+// Seeds all 38 provinces + a representative hierarchy sample; admins add the rest
+// (incl. pemekaran) via Back Office → Master Wilayah.
+async function ensureRegions() {
+  if ((await prisma.region.count()) > 0) return 0;
+  const PROVINCES = ["Aceh", "Sumatera Utara", "Sumatera Barat", "Riau", "Jambi", "Sumatera Selatan", "Bengkulu", "Lampung", "Kepulauan Bangka Belitung", "Kepulauan Riau", "DKI Jakarta", "Jawa Barat", "Jawa Tengah", "DI Yogyakarta", "Jawa Timur", "Banten", "Bali", "Nusa Tenggara Barat", "Nusa Tenggara Timur", "Kalimantan Barat", "Kalimantan Tengah", "Kalimantan Selatan", "Kalimantan Timur", "Kalimantan Utara", "Sulawesi Utara", "Sulawesi Tengah", "Sulawesi Selatan", "Sulawesi Tenggara", "Gorontalo", "Sulawesi Barat", "Maluku", "Maluku Utara", "Papua", "Papua Barat", "Papua Selatan", "Papua Tengah", "Papua Pegunungan", "Papua Barat Daya"];
+  const HIER: Record<string, Record<string, Record<string, string[]>>> = {
+    "DKI Jakarta": {
+      "Jakarta Pusat": { "Gambir": ["Gambir", "Cideng", "Petojo Utara"], "Menteng": ["Menteng", "Pegangsaan", "Cikini"] },
+      "Jakarta Selatan": { "Kebayoran Baru": ["Melawai", "Gunung", "Senayan"], "Setiabudi": ["Setiabudi", "Karet", "Kuningan Timur"] },
+      "Jakarta Timur": {}, "Jakarta Barat": {}, "Jakarta Utara": {}, "Kepulauan Seribu": {},
+    },
+    "DI Yogyakarta": {
+      "Kota Yogyakarta": { "Gondokusuman": ["Terban", "Kotabaru", "Klitren", "Baciro", "Demangan"], "Umbulharjo": ["Semaki", "Muja Muju", "Tahunan"], "Mergangsan": ["Wirogunan", "Brontokusuman", "Keparakan"] },
+      "Sleman": { "Depok": ["Caturtunggal", "Maguwoharjo", "Condongcatur"], "Mlati": ["Sinduadi", "Sendangadi", "Tlogoadi"] },
+      "Bantul": {}, "Kulon Progo": {}, "Gunungkidul": {},
+    },
+    "Jawa Barat": {
+      "Kota Bandung": { "Coblong": ["Dago", "Lebakgede", "Sekeloa"], "Sukajadi": ["Cipedes", "Sukagalih", "Pasteur"] },
+      "Kota Bekasi": {}, "Kabupaten Bekasi": {}, "Kota Bogor": {}, "Kota Depok": {},
+    },
+    "Jawa Tengah": { "Kota Semarang": {}, "Kota Surakarta": {}, "Kabupaten Magelang": {} },
+    "Jawa Timur": { "Kota Surabaya": {}, "Kota Malang": {}, "Kabupaten Sidoarjo": {} },
+    "Bali": { "Kota Denpasar": {}, "Kabupaten Badung": {}, "Kabupaten Gianyar": {} },
+    "Sumatera Barat": { "Kota Padang": {}, "Kota Bukittinggi": {} },
+  };
+  let n = 0;
+  const provId: Record<string, string> = {};
+  for (const pv of PROVINCES) { const p = await prisma.region.create({ data: { name: pv, level: "PROVINCE" } }); provId[pv] = p.id; n++; }
+  for (const [pv, cities] of Object.entries(HIER)) {
+    for (const [city, dists] of Object.entries(cities)) {
+      const c = await prisma.region.create({ data: { name: city, level: "CITY", parentId: provId[pv] } }); n++;
+      for (const [dist, villages] of Object.entries(dists)) {
+        const d = await prisma.region.create({ data: { name: dist, level: "DISTRICT", parentId: c.id } }); n++;
+        for (const vg of villages) { await prisma.region.create({ data: { name: vg, level: "VILLAGE", parentId: d.id } }); n++; }
+      }
+    }
+  }
+  return n;
+}
+
+// Demo corporate & government booking accounts (corporate.gokar.id).
+async function ensureCorporate() {
+  const orgs = [
+    { type: "CORPORATE" as const, name: "PT Nusantara Jaya", email: "billing@nusantarajaya.co.id", phone: "0215551234", address: "Jl. Sudirman No. 1, Jakarta", taxId: "01.234.567.8-901.000", creditLimit: 100000000, adminName: "Corporate Admin", adminEmail: "corp@nusantara.id", pass: "corp123" },
+    { type: "GOVERNMENT" as const, name: "Dinas Pariwisata Provinsi", email: "keuangan@disparprov.go.id", phone: "0227778888", address: "Jl. Diponegoro No. 22, Bandung", taxId: "00.987.654.3-210.000", creditLimit: 250000000, adminName: "Bendahara Dinas", adminEmail: "gov@disparprov.id", pass: "gov123" },
+  ];
+  for (const o of orgs) {
+    const existing = await prisma.corporate.findFirst({ where: { name: o.name } });
+    const corp = existing ?? await prisma.corporate.create({
+      data: { type: o.type, name: o.name, email: o.email, phone: o.phone, address: o.address, taxId: o.taxId, creditLimit: o.creditLimit },
+    });
+    await prisma.user.upsert({
+      where: { email: o.adminEmail },
+      create: { name: o.adminName, email: o.adminEmail, passwordHash: await bcrypt.hash(o.pass, 10), role: "CORPORATE", corporateId: corp.id, phone: o.phone },
+      update: { role: "CORPORATE", corporateId: corp.id },
+    });
+  }
+}
+
 async function main() {
   console.log("[seed] start");
 
@@ -224,6 +405,7 @@ async function main() {
   // DBs where the catalog reseed below is skipped.
   await ensureChannels();
   await ensureBanners();
+  await ensureContent();
 
   // Idempotent restart guard: the hotel/room/review/package block below is
   // DESTRUCTIVE (deleteMany then recreate). Once seeded, re-running it on every
@@ -236,7 +418,10 @@ async function main() {
     await assignChannels();
     const s = await syncOffers(prisma);
     const av = await seedAvailability(prisma);
-    console.log(`[seed] catalog already present — channels + ${s.offers} offers + ${av} availability days synced, skipping reseed`);
+    const bk = await ensureBookings(); // additive & idempotent — safe on live DB
+    await ensureCorporate();
+    await ensureRegions();
+    console.log(`[seed] catalog already present — channels + ${s.offers} offers + ${av} availability days synced${bk ? `, +${bk} demo bookings` : ""}, skipping reseed`);
     return;
   }
 
@@ -442,8 +627,11 @@ async function main() {
   await assignChannels();
   const offerStats = await syncOffers(prisma);
   const avDays = await seedAvailability(prisma);
+  const bkCount = await ensureBookings();
+  await ensureCorporate();
+  await ensureRegions();
 
-  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels, ${offerStats.offers} offers, ${avDays} availability days`);
+  console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels, ${offerStats.offers} offers, ${avDays} availability days, ${bkCount} demo bookings`);
   console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
 }
 

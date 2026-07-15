@@ -5,6 +5,8 @@ import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
+import '../feedback.dart';
+import '../location.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -53,7 +55,8 @@ class _HomeView extends StatelessWidget {
                 const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SectionHeader('Promo Terbaru', action: 'Lihat semua', onAction: () {}),
+                  child: SectionHeader('Promo Terbaru', action: 'Lihat semua',
+                      onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen(title: 'Promo Hotel', promoOnly: true)))),
                 ),
                 const SizedBox(height: 12),
                 _promoCarousel(data.banners).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideX(begin: 0.1, end: 0),
@@ -68,6 +71,8 @@ class _HomeView extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _recommendationGrid(context, data.recommended).animate().fadeIn(delay: 300.ms, duration: 450.ms),
+                const _ProgramRail(type: 'PROMO', title: 'Promo Spesial'),
+                const _ProgramRail(type: 'CAMPAIGN', title: 'Campaign'),
                 const SizedBox(height: 24),
               ],
             );
@@ -144,6 +149,8 @@ class _HomeView extends StatelessWidget {
                 ]),
               ),
             ),
+            const SizedBox(height: 12),
+            const _NearMeButton(),
             if (!auth.isLoggedIn) ...[
               const SizedBox(height: 14),
               Row(children: [
@@ -358,4 +365,167 @@ class _ErrorState extends StatelessWidget {
           OutlineButtonX('Coba lagi', onPressed: onRetry, icon: Icons.refresh_rounded),
         ]),
       );
+}
+
+/// "Cari di sekitar saya" — reads GPS then opens results sorted by distance.
+/// Browsing is open to everyone, so this does NOT require login.
+class _NearMeButton extends StatefulWidget {
+  const _NearMeButton();
+  @override
+  State<_NearMeButton> createState() => _NearMeButtonState();
+}
+
+class _NearMeButtonState extends State<_NearMeButton> {
+  bool _busy = false;
+
+  Future<void> _go() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final pos = await getMyLocation(context);
+    if (mounted) setState(() => _busy = false);
+    if (pos == null || !mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(
+      title: 'Hotel di Sekitarmu',
+      nearLat: pos.latitude,
+      nearLng: pos.longitude,
+    )));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _go,
+      child: Container(
+        height: 46,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.16),
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: Colors.white.withOpacity(0.35)),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _busy
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.my_location_rounded, color: Colors.white, size: 19),
+          const SizedBox(width: 10),
+          Text(_busy ? 'Mencari lokasi…' : 'Cari hotel di sekitar saya',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Home rail that shows Miruum PROGRAMS of a given type (PROMO / CAMPAIGN) and
+/// the hotels participating in each — so Promo & Campaign are clearly distinct.
+class _ProgramRail extends StatefulWidget {
+  final String type, title;
+  const _ProgramRail({required this.type, required this.title});
+  @override
+  State<_ProgramRail> createState() => _ProgramRailState();
+}
+
+class _ProgramRailState extends State<_ProgramRail> {
+  late Future<List<Program>> _future;
+  @override
+  void initState() {
+    super.initState();
+    _future = context.read<Api>().programs(widget.type);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final campaign = widget.type == 'CAMPAIGN';
+    return FutureBuilder<List<Program>>(
+      future: _future,
+      builder: (context, snap) {
+        final programs = (snap.data ?? []).where((p) => p.hotels.isNotEmpty).toList();
+        if (programs.isEmpty) return const SizedBox.shrink();
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(height: 22),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: campaign ? MC.blue.withOpacity(.12) : MC.primary.withOpacity(.12), borderRadius: BorderRadius.circular(8)),
+                child: Text(campaign ? 'CAMPAIGN' : 'PROMO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .5, color: campaign ? MC.blue : MC.primaryDark)),
+              ),
+              const SizedBox(width: 8),
+              Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            ]),
+          ),
+          for (final p in programs) _programBlock(context, p, campaign),
+        ]);
+      },
+    );
+  }
+
+  Widget _programBlock(BuildContext context, Program p, bool campaign) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
+        child: Row(children: [
+          Expanded(child: Text(p.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14))),
+          if (p.discountPct > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(color: MC.danger, borderRadius: BorderRadius.circular(20)),
+              child: Text('-${p.discountPct}%', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+            ),
+        ]),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+        child: Text(p.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: MC.inkMuted, fontSize: 12, height: 1.35)),
+      ),
+      SizedBox(
+        height: 176,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+          itemCount: p.hotels.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, i) => _programHotelTile(context, p.hotels[i], campaign),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _programHotelTile(BuildContext context, Hotel h, bool campaign) {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(h.id))),
+      child: Container(
+        width: 178,
+        decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Stack(children: [
+              SizedBox(height: 96, width: 178, child: NetImage(h.imageUrl)),
+              Positioned(top: 8, left: 8, child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: (campaign ? MC.blue : MC.primary).withOpacity(.92), borderRadius: BorderRadius.circular(20)),
+                child: Text(campaign ? 'Campaign' : 'Promo', style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
+              )),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(11, 9, 11, 11),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(h.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(height: 2),
+              Row(children: [
+                Icon(Icons.location_on_rounded, size: 12, color: MC.inkFaint),
+                const SizedBox(width: 2),
+                Expanded(child: Text(h.city, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MC.inkMuted, fontSize: 11))),
+              ]),
+              const SizedBox(height: 6),
+              Text(rupiah(h.priceFrom), style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 13)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
 }

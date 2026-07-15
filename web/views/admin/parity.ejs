@@ -1,0 +1,43 @@
+<%- include('../partials/top', { title:'Rate Parity', heading:'Rate Parity Monitor', section:'admin', active:'parity', me }) %>
+
+<% if (saved==='alert') { %><div class="notice ok">Peringatan parity dikirim ke admin.</div><% } %>
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+  <p class="muted" style="margin:0;max-width:620px;line-height:1.6">
+    Memantau <b>paritas harga</b> antar kanal terhadap rate <b>Direct</b>. Deviasi &gt; <b><%= tolerance %>%</b> ditandai.
+    <span style="color:#c0392b">UNDERCUT</span> = kanal menjual lebih murah dari Direct (paritas rusak).
+  </p>
+  <form method="post" action="/admin/parity/alert"><button class="btn">🔔 Kirim Peringatan (<%= totalViolations %>)</button></form>
+</div>
+
+<div class="card" style="margin-bottom:14px;display:flex;gap:24px;flex-wrap:wrap">
+  <div><div class="muted" style="font-size:12px">Total Pelanggaran</div><div style="font-size:24px;font-weight:800;color:<%= totalViolations>0?'#c0392b':'#1E7E38' %>"><%= totalViolations %></div></div>
+  <div><div class="muted" style="font-size:12px">Toleransi</div><div style="font-size:24px;font-weight:800"><%= tolerance %>%</div></div>
+</div>
+
+<% (rows||[]).forEach(function(r){ %>
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+      <b><%= r.hotel %> <span class="muted" style="font-size:12px">· <%= r.city %></span></b>
+      <span class="muted" style="font-size:12px">Ref (<%= r.refName %>): <b><%= rupiah(r.reference) %></b>
+        <% if (r.violations>0) { %><span class="pill CANCELLED" style="margin-left:8px"><%= r.violations %> pelanggaran</span><% } else { %><span class="pill PAID" style="margin-left:8px">Paritas OK</span><% } %>
+      </span>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;font-size:12.5px">
+      <thead><tr><th>Kanal</th><th style="text-align:right">Harga</th><th style="text-align:right">Deviasi</th><th>Status</th></tr></thead>
+      <tbody>
+        <% r.channels.forEach(function(c){ %>
+          <tr>
+            <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= c.color||'#888' %>;margin-right:6px"></span><%= c.channel %> <span class="muted" style="font-size:10px"><%= c.type %></span></td>
+            <td style="text-align:right"><%= rupiah(c.price) %></td>
+            <td style="text-align:right;color:<%= c.deviationPct<0?'#c0392b':(c.deviationPct>0?'#b8860b':'#1E7E38') %>"><%= c.deviationPct>0?'+':'' %><%= c.deviationPct %>%</td>
+            <td><% if (c.status==='OK') { %><span class="pill PAID">OK</span><% } else if (c.status==='UNDERCUT') { %><span class="pill CANCELLED">UNDERCUT</span><% } else { %><span class="pill" style="background:#FCEEDB;color:#9a6a12">OVERPRICED</span><% } %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  </div>
+<% }) %>
+<% if (!(rows||[]).length) { %><div class="card"><div class="empty">Belum ada data harga multi-kanal. Jalankan sinkronisasi di Channel Manager.</div></div><% } %>
+
+<%- include('../partials/bottom') %>

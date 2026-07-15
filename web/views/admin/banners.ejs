@@ -1,6 +1,5 @@
 <%- include('../partials/top', { title:'Banner', heading:'Banner Home', section:'admin', active:'banners', me }) %>
 
-<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Banner disimpan.</div><% } %>
 
 <div class="card">
   <h3>Tambah Banner</h3>
@@ -12,7 +11,7 @@
       <div><label>Badge (opsional)</label><input name="badge" placeholder="30%"></div>
       <div><label>Urutan</label><input name="sortOrder" type="number" value="0"></div>
     </div>
-    <div style="margin-top:16px"><button class="btn">➕ Simpan Banner</button></div>
+    <div style="margin-top:16px"><button class="btn">Simpan Banner</button></div>
   </form>
 </div>
 
@@ -27,7 +26,7 @@
           <td><b><%= b.title %></b><br><span class="muted" style="font-size:11px"><%= b.subtitle %></span></td>
           <td><% if (b.badge){ %><span class="pill PARTNER"><%= b.badge %></span><% } %></td>
           <td><span class="pill <%= b.active?'PAID':'REFUNDED' %>"><%= b.active?'Ya':'Tidak' %></span></td>
-          <td><form method="post" action="/admin/banners/<%= b.id %>/delete" onsubmit="return confirm('Hapus banner?')"><button class="btn danger sm">Hapus</button></form></td>
+          <td><form method="post" action="/admin/banners/<%= b.id %>/delete" data-confirm="Hapus banner?"><button class="btn danger sm">Hapus</button></form></td>
         </tr>
       <% }) %>
       <% if (!banners.length) { %><tr><td colspan="5" class="empty">Belum ada banner</td></tr><% } %>

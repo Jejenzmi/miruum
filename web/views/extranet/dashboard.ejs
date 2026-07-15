@@ -1,18 +1,36 @@
 <%- include('../partials/top', { title:'Ringkasan', heading:'Ringkasan Mitra', section:'extranet', active:'dashboard', me }) %>
 
+<div class="welcome-hero">
+  <span class="wblob w1"></span><span class="wblob w2"></span>
+  <div class="wh-txt">
+    <div class="eyebrow" style="color:rgba(255,255,255,.85)">Extranet Mitra</div>
+    <h2>Halo, <%= me.name %></h2>
+    <p>Kelola kamar, harga & ketersediaan, foto, dan promo hotel Anda — perubahan langsung tayang di aplikasi Miruum.</p>
+  </div>
+  <div class="wh-actions">
+    <a href="/extranet/bookings" class="wh-chip">Pesanan Masuk</a>
+  </div>
+</div>
+
 <div class="stat-grid">
   <div class="stat">
-    <div class="icon" style="background:var(--green-s);color:var(--green-d)">🏨</div>
+    <div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-hotel"/></svg></div>
     <div class="label">Hotel Anda</div><div class="value"><%= overview.hotels.length %></div>
   </div>
   <div class="stat">
-    <div class="icon" style="background:#E5EEFF;color:#2563EB">🧾</div>
+    <div class="icon" style="background:#E5EEFF;color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div>
     <div class="label">Total Pesanan</div><div class="value"><%= overview.totalBookings %></div>
   </div>
   <div class="stat">
-    <div class="icon" style="background:var(--orange-s);color:#b8791a">💰</div>
+    <div class="icon" style="background:var(--orange-s);color:#b8791a"><svg class="ci"><use href="#i-finance"/></svg></div>
     <div class="label">Pendapatan</div><div class="value" style="font-size:20px"><%= rupiah(overview.revenue) %></div>
   </div>
+</div>
+
+<div class="value-strip">
+  <div class="vs-item"><div class="vs-ic"><svg class="ci"><use href="#i-channels"/></svg></div><div><b>Channel Manager</b><span>Satu titik kelola rate & stok ke banyak OTA — tanpa double-booking.</span></div></div>
+  <div class="vs-item"><div class="vs-ic"><svg class="ci"><use href="#i-rates"/></svg></div><div><b>Kendali Harga & Stok</b><span>Atur tarif, allotment & restriksi per tanggal langsung dari Extranet.</span></div></div>
+  <div class="vs-item"><div class="vs-ic"><svg class="ci"><use href="#i-trend"/></svg></div><div><b>Tingkatkan Okupansi</b><span>Foto, promo & harga terbaik tampil instan di aplikasi Miruum.</span></div></div>
 </div>
 
 <div class="card">

@@ -1,0 +1,53 @@
+<%- include('../partials/top', { title:'Maintenance', heading:'Maintenance & Work Order', section:'extranet', active:'maintenance', me }) %>
+
+<% if (saved==='1') { %><div class="notice ok">Work order tersimpan.</div><% } %>
+
+<div class="card" style="max-width:600px">
+  <h2 style="margin-top:0">Buat Work Order</h2>
+  <form method="post" action="/pms/maintenance">
+    <div class="row2">
+      <div><label style="margin-top:0">Hotel</label>
+        <select name="hotelId" required><% (hotels||[]).forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select>
+      </div>
+      <div><label style="margin-top:0">No. Kamar (opsional)</label><input name="roomNumber" placeholder="mis. 201 → jadi OOO"></div>
+    </div>
+    <div class="row2">
+      <div><label>Kategori</label><select name="category"><% ['MAINTENANCE','HOUSEKEEPING','IT','OTHER'].forEach(function(c){ %><option><%= c %></option><% }) %></select></div>
+      <div><label>Prioritas</label><select name="priority"><option>LOW</option><option selected>MEDIUM</option><option>HIGH</option></select></div>
+    </div>
+    <label>Judul</label><input name="title" required placeholder="mis. AC bocor">
+    <label>Deskripsi</label><textarea name="description" rows="2" placeholder="Detail masalah…"></textarea>
+    <div style="margin-top:14px"><button class="btn">Buat Work Order</button></div>
+  </form>
+  <p class="muted" style="font-size:11px;margin-top:8px">Jika No. Kamar diisi → kamar otomatis ditandai <b>OOO (out of order)</b> sampai selesai.</p>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Daftar Work Order</h2>
+  <% var LABEL = { OPEN:['Terbuka','CANCELLED'], IN_PROGRESS:['Dikerjakan','PENDING'], DONE:['Selesai','PAID'] }; %>
+  <div style="overflow-x:auto"><table style="width:100%;font-size:12.5px">
+    <thead><tr><th>Masalah</th><th>Kamar</th><th>Kategori</th><th>Prioritas</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% (orders||[]).forEach(function(o){ %>
+        <tr>
+          <td><b><%= o.title %></b><% if(o.description){ %><br><span class="muted" style="font-size:11px"><%= o.description %></span><% } %></td>
+          <td><%= o.roomNumber || '—' %></td>
+          <td><%= o.category %></td>
+          <td><span class="pill <%= o.priority==='HIGH'?'CANCELLED':(o.priority==='MEDIUM'?'PENDING':'PAID') %>"><%= o.priority %></span></td>
+          <td><span class="pill <%= LABEL[o.status][1] %>"><%= LABEL[o.status][0] %></span></td>
+          <td>
+            <% if (o.status!=='DONE') { %>
+              <div style="display:flex;gap:5px">
+                <% if (o.status==='OPEN') { %><form method="post" action="/pms/maintenance/<%= o.id %>/status"><input type="hidden" name="status" value="IN_PROGRESS"><button class="btn ghost sm">Kerjakan</button></form><% } %>
+                <form method="post" action="/pms/maintenance/<%= o.id %>/status"><input type="hidden" name="status" value="DONE"><button class="btn sm">Selesai</button></form>
+              </div>
+            <% } else { %><span class="muted" style="font-size:11px"><%= o.resolvedAt ? new Date(o.resolvedAt).toLocaleDateString('id-ID') : '' %></span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!(orders||[]).length) { %><tr><td colspan="6" class="empty">Belum ada work order</td></tr><% } %>
+    </tbody>
+  </table></div>
+</div>
+
+<%- include('../partials/bottom') %>

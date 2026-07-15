@@ -1,6 +1,5 @@
 <%- include('../partials/top', { title:'Pengaturan', heading:'Pengaturan Platform', section:'admin', active:'settings', me }) %>
 
-<% if (saved==='1') { %><div class="card" style="background:#EAF7EE;color:#1c7a3f">✓ Pengaturan disimpan.</div><% } %>
 
 <div class="card" style="max-width:560px">
   <h3>Konfigurasi</h3>
@@ -19,7 +18,17 @@
     <label>Nama Aplikasi</label>
     <input name="appName" value="<%= settings.appName %>">
 
-    <div style="margin-top:18px"><button class="btn">💾 Simpan Pengaturan</button></div>
+    <h3 style="margin:22px 0 4px">Kebijakan Refund Pembatalan</h3>
+    <p class="muted" style="font-size:11.5px;margin:0 0 10px">Berlaku saat tamu membatalkan pesanan yang sudah dibayar.</p>
+    <div class="row2">
+      <div><label style="margin-top:0">Batas Waktu (jam sebelum check-in)</label><input name="refundCutoffHours" type="number" value="<%= settings.refundCutoffHours %>"></div>
+      <div><label style="margin-top:0">Refund Penuh (%) — kamar gratis batal</label><input name="refundFullPct" type="number" value="<%= settings.refundFullPct %>"></div>
+    </div>
+    <label>Refund Sebagian (%) — kamar refundable</label>
+    <input name="refundPartialPct" type="number" value="<%= settings.refundPartialPct %>">
+    <p class="muted" style="font-size:11.5px;margin-top:4px">Non-refundable = 0%. Membatalkan setelah batas waktu = 0%.</p>
+
+    <div style="margin-top:18px"><button class="btn">Simpan Pengaturan</button></div>
   </form>
 </div>
 

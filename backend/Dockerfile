@@ -12,4 +12,7 @@ RUN npx prisma generate && npm run build
 ENV NODE_ENV=production
 EXPOSE 5013
 # Apply schema, seed (idempotent upserts), then start.
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/seed.js && node dist/server.js"]
+# Production start: apply versioned migrations (never drops data), then serve.
+# Seed is NOT run on startup — run it manually if ever needed:
+#   docker compose exec backend node dist/seed.js
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

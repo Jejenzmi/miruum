@@ -1,0 +1,37 @@
+<%- include('../partials/top', { title:'Revenue Management', heading:'Revenue Management & Forecast', section:'admin', active:'rm', me }) %>
+
+<p class="muted" style="margin:-4px 0 14px;max-width:640px;line-height:1.6">
+  Proyeksi okupansi <b><%= horizon %> hari</b> ke depan + rekomendasi tarif berbasis permintaan (booking pace &amp; okupansi).
+</p>
+
+<div class="card" style="margin-bottom:14px;display:flex;gap:28px;flex-wrap:wrap">
+  <div><div class="muted" style="font-size:12px">Rata-rata Okupansi (proyeksi)</div><div style="font-size:26px;font-weight:800;color:var(--brand)"><%= avgOccupancy %>%</div></div>
+  <div><div class="muted" style="font-size:12px">Properti dianalisis</div><div style="font-size:26px;font-weight:800"><%= (rows||[]).length %></div></div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto"><table style="width:100%;font-size:12.5px">
+    <thead><tr><th>Hotel</th><th style="text-align:right">Okupansi <%= horizon %>h</th><th style="text-align:right">Pace 7h</th><th style="text-align:right">Tarif Kini</th><th style="text-align:right">Saran</th><th>Rekomendasi</th></tr></thead>
+    <tbody>
+      <% (rows||[]).forEach(function(r){ var col = r.occupancy>=70?'#1E7E38':(r.occupancy>=45?'#b8860b':'#c0392b'); %>
+        <tr>
+          <td><b><%= r.hotel %></b><br><span class="muted" style="font-size:11px"><%= r.city %> · <%= r.totalRooms %> kamar</span></td>
+          <td style="text-align:right">
+            <div style="display:inline-block;min-width:90px">
+              <div style="height:6px;background:#eee;border-radius:4px;overflow:hidden;margin-bottom:2px"><div style="height:6px;width:<%= r.occupancy %>%;background:<%= col %>"></div></div>
+              <b style="color:<%= col %>"><%= r.occupancy %>%</b>
+            </div>
+          </td>
+          <td style="text-align:right"><%= r.pace7 %> psn</td>
+          <td style="text-align:right"><%= rupiah(r.currentPrice) %></td>
+          <td style="text-align:right"><b style="color:<%= r.recPct>0?'#1E7E38':(r.recPct<0?'#c0392b':'#555') %>"><%= rupiah(r.suggestedPrice) %></b><br><span class="muted" style="font-size:10px"><%= r.recPct>0?'+':'' %><%= r.recPct %>%</span></td>
+          <td style="font-size:12px"><%= r.recommendation %></td>
+        </tr>
+      <% }) %>
+      <% if (!(rows||[]).length) { %><tr><td colspan="6" class="empty">Belum ada data okupansi</td></tr><% } %>
+    </tbody>
+  </table></div>
+  <p class="muted" style="font-size:11px;margin-top:10px">Rekomendasi heuristik: okupansi ≥70% → naikkan · 45–70% → pertahankan · 20–45% → promo ringan · &lt;20% → promo agresif.</p>
+</div>
+
+<%- include('../partials/bottom') %>

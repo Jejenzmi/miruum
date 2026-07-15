@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../app_gate.dart';
+import '../feedback.dart';
 import '../image_upload.dart';
 import '../l10n.dart';
 import '../theme.dart';
@@ -23,8 +25,12 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    // Ask for notification permission once the app is up (Android 13+ / iOS).
-    WidgetsBinding.instance.addPostFrameCallback((_) => ensureNotificationPermission());
+    // Ask for notification permission once the app is up (Android 13+ / iOS),
+    // then check for an update prompt / announcement popup.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ensureNotificationPermission();
+      if (mounted) await AppGate.check(context);
+    });
   }
 
   @override
@@ -51,7 +57,17 @@ class _MainShellState extends State<MainShell> {
             child: NavigationBar(
               height: 64,
               selectedIndex: _index,
-              onDestinationSelected: (i) => setState(() => _index = i),
+              onDestinationSelected: (i) {
+                // Orders (1) & Saved (3) need an account; browsing stays open.
+                if ((i == 1 || i == 3) &&
+                    !ensureLoggedIn(context,
+                        reason: i == 1
+                            ? tr('Masuk untuk melihat & mengelola pesananmu.', 'Log in to view and manage your orders.')
+                            : tr('Masuk untuk menyimpan & melihat hotel favoritmu.', 'Log in to save and view your favorite hotels.'))) {
+                  return;
+                }
+                setState(() => _index = i);
+              },
               destinations: [
                 NavigationDestination(icon: Icon(Icons.home_outlined, color: MC.inkFaint), selectedIcon: const Icon(Icons.home_rounded, color: MC.primaryDark), label: tr('Beranda', 'Home')),
                 NavigationDestination(icon: Icon(Icons.receipt_long_outlined, color: MC.inkFaint), selectedIcon: const Icon(Icons.receipt_long_rounded, color: MC.primaryDark), label: tr('Pesanan', 'Orders')),

@@ -1,0 +1,60 @@
+<%- include('../partials/top', { title:'Program', heading:'Program Promo & Campaign', section:'extranet', active:'programs', me }) %>
+
+<% if (done==='join') { %><div class="notice ok">Berhasil ikut program — hotel Anda kini tampil di promo/campaign terkait.</div><% } %>
+<% if (done==='decline') { %><div class="notice ok">Undangan ditolak.</div><% } %>
+<% if (done==='err') { %><div class="notice bad">Aksi gagal. Coba lagi.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Undangan program dari Miruum. Ikut serta agar hotel Anda tampil di bagian Promo / Campaign aplikasi Miruum.</p>
+
+<% var invited = participations.filter(function(x){return x.status==='INVITED'});
+   var joined = participations.filter(function(x){return x.status==='JOINED'});
+   var declined = participations.filter(function(x){return x.status==='DECLINED'}); %>
+
+<% if (invited.length) { %>
+  <h3 style="margin:0 0 10px">Undangan Baru (<%= invited.length %>)</h3>
+  <% invited.forEach(function(x){ var p=x.program; %>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap">
+        <div>
+          <span class="pill <%= p.type==='CAMPAIGN'?'ADMIN':'PARTNER' %>"><%= p.type==='CAMPAIGN'?'Campaign':'Promo' %></span>
+          <b style="display:block;margin-top:6px;font-size:15px"><%= p.title %></b>
+          <span class="muted" style="font-size:12.5px"><%= x.hotel.name %> · <%= x.hotel.city %></span>
+        </div>
+        <% if (p.discountPct) { %><span class="pill" style="background:var(--accent-s);color:#b8791a">Saran diskon <%= p.discountPct %>%</span><% } %>
+      </div>
+      <p class="muted" style="font-size:13px;margin:12px 0"><%= p.description %></p>
+      <% if (p.terms) { %><p class="muted" style="font-size:11.5px;margin:-6px 0 12px"><b>S&K:</b> <%= p.terms %></p><% } %>
+      <form method="post" action="/extranet/programs/<%= x.id %>/join" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px">
+        <div><label style="margin-top:0">Diskon yang Anda tawarkan (%)</label><input name="offerPct" type="number" min="0" max="90" value="<%= p.discountPct %>" style="max-width:130px"></div>
+        <div style="flex:1;min-width:180px"><label style="margin-top:0">Catatan (opsional)</label><input name="note" placeholder="mis. berlaku kamar Deluxe"></div>
+        <button class="btn sm">Ikut Program</button>
+        <button class="btn ghost sm" formaction="/extranet/programs/<%= x.id %>/decline" data-confirm="Tolak undangan '<%= p.title %>'?">Tolak</button>
+      </form>
+    </div>
+  <% }) %>
+<% } %>
+
+<% if (joined.length) { %>
+  <h3 style="margin:22px 0 10px">Sedang Diikuti (<%= joined.length %>)</h3>
+  <div class="card">
+    <table>
+      <thead><tr><th>Program</th><th>Jenis</th><th>Hotel</th><th>Diskon Anda</th><th>Status</th></tr></thead>
+      <tbody>
+        <% joined.forEach(function(x){ %>
+          <tr>
+            <td><b><%= x.program.title %></b></td>
+            <td><span class="pill <%= x.program.type==='CAMPAIGN'?'ADMIN':'PARTNER' %>"><%= x.program.type==='CAMPAIGN'?'Campaign':'Promo' %></span></td>
+            <td><%= x.hotel.name %></td>
+            <td><b><%= x.offerPct %>%</b></td>
+            <td><span class="pill PAID">Tayang</span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<% if (!participations.length) { %><div class="card"><p class="empty">Belum ada undangan program dari Miruum.</p></div><% } %>
+<% if (declined.length) { %><p class="muted" style="font-size:11.5px;margin-top:12px"><%= declined.length %> undangan ditolak.</p><% } %>
+
+<%- include('../partials/bottom') %>

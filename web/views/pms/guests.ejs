@@ -1,0 +1,53 @@
+<%- include('../partials/top', { title:'Profil Tamu', heading:'Profil & Histori Tamu', section:'extranet', active:'guests', me }) %>
+
+<div class="grid-2" style="align-items:start">
+  <!-- Guest list -->
+  <div class="card">
+    <h2 style="margin-top:0">Tamu (<%= (guests||[]).length %>)</h2>
+    <div style="max-height:520px;overflow-y:auto">
+      <% (guests||[]).forEach(function(g){ %>
+        <a href="/pms/guests?e=<%= encodeURIComponent(g.email||g.name) %>" style="display:block;text-decoration:none;color:inherit">
+          <div style="padding:11px;border-radius:11px;margin-bottom:7px;border:1px solid <%= (detail && detail.email && (g.email||'').toLowerCase()===detail.email.toLowerCase()) ? 'var(--brand)':'var(--line)' %>">
+            <div style="display:flex;justify-content:space-between"><b><%= g.name %></b><span class="pill PAID"><%= g.stays %>× inap</span></div>
+            <div class="muted" style="font-size:11.5px"><%= g.email || '—' %> · <%= rupiah(g.spend) %></div>
+          </div>
+        </a>
+      <% }) %>
+      <% if (!(guests||[]).length) { %><div class="empty">Belum ada tamu.</div><% } %>
+    </div>
+  </div>
+
+  <!-- Guest detail -->
+  <div class="card">
+    <% if (!detail) { %>
+      <div class="empty">Pilih tamu untuk melihat histori & catatan.</div>
+    <% } else { %>
+      <h2 style="margin-top:0"><%= (detail.bookings[0] && detail.bookings[0].bookerName) || detail.email %></h2>
+      <p class="muted" style="margin:0 0 12px"><%= detail.email %></p>
+
+      <h3 style="margin:10px 0 6px">Catatan & Preferensi (CRM)</h3>
+      <form method="post" action="/pms/guests/<%= encodeURIComponent(detail.email) %>/note">
+        <textarea name="note" rows="2" placeholder="Catatan front desk (mis. tamu VIP, minta kamar tenang)…" style="width:100%;box-sizing:border-box"><%= detail.note ? detail.note.note : '' %></textarea>
+        <input name="preferences" placeholder="Preferensi (mis. non-smoking, bantal ekstra)" value="<%= detail.note ? detail.note.preferences : '' %>" style="margin-top:6px">
+        <div style="margin-top:8px"><button class="btn sm">Simpan Catatan</button></div>
+      </form>
+
+      <h3 style="margin:16px 0 6px">Histori Inap (<%= detail.bookings.length %>)</h3>
+      <table style="width:100%;font-size:12.5px">
+        <thead><tr><th>Kode</th><th>Hotel / Kamar</th><th>Tanggal</th><th>Status</th></tr></thead>
+        <tbody>
+          <% detail.bookings.forEach(function(b){ %>
+            <tr>
+              <td><a href="/pms/booking/<%= b.id %>"><%= b.code %></a></td>
+              <td><%= b.hotel.name %><br><span class="muted" style="font-size:11px"><%= b.room.name %></span></td>
+              <td><%= new Date(b.checkIn).toLocaleDateString('id-ID') %></td>
+              <td><span class="pill <%= b.status==='COMPLETED'?'COMPLETED':(b.status==='PAID'?'PAID':'PENDING') %>"><%= b.status %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>
