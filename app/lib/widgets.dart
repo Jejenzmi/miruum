@@ -30,10 +30,15 @@ class PrimaryButton extends StatelessWidget {
         ),
         child: loading
             ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-            : Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
-                if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
-                Text(label),
-              ]),
+            // FittedBox keeps the label centered and shrinks it to fit a tight
+            // button (e.g. the checkout bottom bar) instead of overflowing.
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
+                  if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
+                  Text(label, maxLines: 1),
+                ]),
+              ),
       ),
     );
     return expand ? SizedBox(width: double.infinity, child: btn) : btn;

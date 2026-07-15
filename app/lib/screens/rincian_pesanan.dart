@@ -435,13 +435,16 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         child: SafeArea(
           top: false,
           child: Row(children: [
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Total Price', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
-              Text(rupiah(_total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
-              Text('Termasuk pajak & layanan', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
-            ]),
-            const SizedBox(width: 16),
-            Expanded(child: PrimaryButton('Pesan Sekarang', loading: _loading, onPressed: _submit)),
+            Expanded(
+              flex: 4,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('Total', style: TextStyle(fontSize: 11, color: MC.inkFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(rupiah(_total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('Termasuk pajak & layanan', style: TextStyle(fontSize: 10, color: MC.inkFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            Expanded(flex: 5, child: PrimaryButton('Pesan Sekarang', loading: _loading, onPressed: _submit)),
           ]),
         ),
       );
