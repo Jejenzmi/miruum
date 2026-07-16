@@ -456,6 +456,48 @@ app.post("/admin/promos/:id/delete", adminGuard, async (req, res) => {
   await api(`/admin/promos/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/promos");
 });
 
+// ── Tour module ──
+app.get("/admin/tours", adminGuard, async (req, res) => {
+  const { tours } = await api("/admin/tours", { token: res.locals.token });
+  res.render("admin/tours", { tours, edit: null, active: "tours", saved: req.query.saved });
+});
+app.get("/admin/tours/:id/edit", adminGuard, async (req, res) => {
+  const { tours } = await api("/admin/tours", { token: res.locals.token });
+  const edit = tours.find((t) => t.id === req.params.id) || null;
+  res.render("admin/tours", { tours, edit, active: "tours", saved: req.query.saved });
+});
+app.post("/admin/tours", adminGuard, async (req, res) => {
+  try { await api("/admin/tours", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/tours?saved=1"); }
+  catch (e) { res.redirect("/admin/tours?saved=err"); }
+});
+app.post("/admin/tours/:id", adminGuard, async (req, res) => {
+  try { await api(`/admin/tours/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/tours?saved=1"); }
+  catch (e) { res.redirect("/admin/tours?saved=err"); }
+});
+app.post("/admin/tours/:id/delete", adminGuard, async (req, res) => {
+  await api(`/admin/tours/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/tours");
+});
+
+// ── Shuttle module ──
+app.get("/admin/shuttle", adminGuard, async (req, res) => {
+  const [{ vehicleTypes }, { rides }] = await Promise.all([
+    api("/admin/shuttle/vehicle-types", { token: res.locals.token }),
+    api("/admin/shuttle/rides", { token: res.locals.token }),
+  ]);
+  res.render("admin/shuttle", { vehicleTypes, rides, active: "shuttle", saved: req.query.saved });
+});
+app.post("/admin/shuttle/vehicle-types", adminGuard, async (req, res) => {
+  try { await api("/admin/shuttle/vehicle-types", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/shuttle?saved=1"); }
+  catch (e) { res.redirect("/admin/shuttle?saved=err"); }
+});
+app.post("/admin/shuttle/vehicle-types/:id", adminGuard, async (req, res) => {
+  try { await api(`/admin/shuttle/vehicle-types/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/shuttle?saved=1"); }
+  catch (e) { res.redirect("/admin/shuttle?saved=err"); }
+});
+app.post("/admin/shuttle/vehicle-types/:id/delete", adminGuard, async (req, res) => {
+  await api(`/admin/shuttle/vehicle-types/${req.params.id}`, { method: "DELETE", token: res.locals.token }); res.redirect("/admin/shuttle");
+});
+
 // ── Banner ──
 app.get("/admin/banners", adminGuard, async (req, res) => {
   const { banners } = await api("/admin/banners", { token: res.locals.token });

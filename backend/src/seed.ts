@@ -630,9 +630,47 @@ async function main() {
   const bkCount = await ensureBookings();
   await ensureCorporate();
   await ensureRegions();
+  await ensureToursAndShuttle();
 
   console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels, ${offerStats.offers} offers, ${avDays} availability days, ${bkCount} demo bookings`);
   console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
+}
+
+// Demo data for the Tour & Shuttle modules (idempotent — keyed by title/name).
+async function ensureToursAndShuttle() {
+  const TOURS = [
+    { title: "Sunrise Kawah Ijen & Blue Fire", city: "Banyuwangi", category: "Petualangan", price: 385000, durationHours: 8, imageUrl: "https://images.unsplash.com/photo-1589553416260-f586c8f1514f?w=800",
+      description: "Trekking malam menuju kawah Ijen menyaksikan fenomena api biru langka dan matahari terbit di atas danau belerang.", highlights: ["Blue fire langka", "Sunrise kawah", "Pemandu bersertifikat"], included: ["Pemandu lokal", "Tiket masuk", "Masker gas", "Air mineral"], meetingPoint: "Paltuding Base Camp" },
+    { title: "Nusa Penida Instagram Tour", city: "Bali", category: "Bahari", price: 550000, durationHours: 10, imageUrl: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800",
+      description: "Jelajah spot ikonik Nusa Penida: Kelingking Beach, Angel's Billabong, Broken Beach, dan Crystal Bay.", highlights: ["Kelingking Beach", "Snorkeling Crystal Bay", "Fast boat PP"], included: ["Fast boat", "Mobil + sopir", "Makan siang", "Snorkeling gear"], meetingPoint: "Sanur Beach" },
+    { title: "Borobudur Sunrise & Prambanan", city: "Yogyakarta", category: "Budaya", price: 425000, durationHours: 9, imageUrl: "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800",
+      description: "Sunrise di Candi Borobudur dilanjutkan menjelajah kemegahan Candi Prambanan bersama pemandu budaya.", highlights: ["Sunrise Borobudur", "Candi Prambanan", "Pemandu budaya"], included: ["Tiket 2 candi", "Transport AC", "Sarapan", "Air mineral"], meetingPoint: "Hotel pickup Yogyakarta" },
+    { title: "Komodo Sailing 3 Pulau", city: "Labuan Bajo", category: "Bahari", price: 750000, durationHours: 12, imageUrl: "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=800",
+      description: "Sailing trip melihat komodo di Pulau Rinca, Pink Beach, dan Pulau Padar dengan panorama ikonik.", highlights: ["Komodo Rinca", "Pink Beach", "Padar viewpoint"], included: ["Kapal wisata", "Ranger fee", "Makan siang", "Snorkeling gear"], meetingPoint: "Pelabuhan Labuan Bajo" },
+    { title: "Bromo Jeep Sunrise Adventure", city: "Malang", category: "Petualangan", price: 350000, durationHours: 7, imageUrl: "https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=800",
+      description: "Naik jeep 4x4 menuju Penanjakan menyaksikan sunrise legendaris Gunung Bromo dan lautan pasir.", highlights: ["Sunrise Penanjakan", "Jeep 4x4", "Lautan pasir"], included: ["Jeep + sopir", "Tiket TNBTS", "Pemandu"], meetingPoint: "Cemoro Lawang" },
+    { title: "Kuliner Malam Kota Tua", city: "Jakarta", category: "Kuliner", price: 185000, durationHours: 4, imageUrl: "https://images.unsplash.com/photo-1555126634-323283e090fa?w=800",
+      description: "Food tour menyusuri jajanan legendaris Kota Tua Jakarta bersama pemandu kuliner lokal.", highlights: ["6 spot kuliner", "Pemandu kuliner", "Cerita sejarah"], included: ["Semua cicipan makanan", "Pemandu", "Air mineral"], meetingPoint: "Stasiun Jakarta Kota" },
+  ];
+  let tCount = 0;
+  for (const [i, t] of TOURS.entries()) {
+    const existing = await prisma.tour.findFirst({ where: { title: t.title } });
+    if (existing) { await prisma.tour.update({ where: { id: existing.id }, data: { ...t, sortOrder: i } }); }
+    else { await prisma.tour.create({ data: { ...t, sortOrder: i, rating: 4.7 + (i % 3) * 0.1, reviewCount: 40 + i * 17 } }); tCount++; }
+  }
+
+  const VTYPES = [
+    { name: "MiruumBike", icon: "bike", baseFare: 5000, perKm: 2500, minFare: 8000, capacity: 1, sortOrder: 0 },
+    { name: "Ekonomi", icon: "car", baseFare: 8000, perKm: 4000, minFare: 12000, capacity: 4, sortOrder: 1 },
+    { name: "Premium", icon: "premium", baseFare: 15000, perKm: 6500, minFare: 22000, capacity: 4, sortOrder: 2 },
+    { name: "Van (6 kursi)", icon: "van", baseFare: 20000, perKm: 7500, minFare: 30000, capacity: 6, sortOrder: 3 },
+  ];
+  for (const v of VTYPES) {
+    const ex = await prisma.shuttleVehicleType.findFirst({ where: { name: v.name } });
+    if (ex) await prisma.shuttleVehicleType.update({ where: { id: ex.id }, data: v });
+    else await prisma.shuttleVehicleType.create({ data: v });
+  }
+  console.log(`[seed] tours=${TOURS.length} (+${tCount} new), shuttle vehicle types=${VTYPES.length}`);
 }
 
 main()

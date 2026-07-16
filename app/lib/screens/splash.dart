@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../api.dart';
 import '../brand.dart';
 import '../theme.dart';
 import 'onboarding.dart';
@@ -15,6 +17,12 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    // Load enabled modules while the splash animates (never blocks launch).
+    try {
+      context.read<Api>().modules().then((m) {
+        if (m.isNotEmpty) AppSettings.modules.value = {...AppSettings.modules.value, ...m};
+      }).catchError((_) {});
+    } catch (_) {}
     Future.delayed(const Duration(milliseconds: 1700), () async {
       final onboarded = await hasOnboarded();
       if (!mounted) return;

@@ -314,3 +314,67 @@ class AppNotification {
         hotelName: j['hotelName'], orderCode: j['orderCode'], createdAt: j['createdAt'],
       );
 }
+
+// ─────────────────────────── Tour module ───────────────────────────
+class Tour {
+  final String id, title, city, category, description, imageUrl;
+  final int durationHours, price, maxPax, reviewCount;
+  final double rating;
+  final List<String> highlights, included;
+  final String? meetingPoint;
+  Tour({
+    required this.id, required this.title, required this.city, required this.category,
+    required this.description, required this.imageUrl, required this.durationHours,
+    required this.price, required this.maxPax, required this.reviewCount, required this.rating,
+    required this.highlights, required this.included, this.meetingPoint,
+  });
+  factory Tour.fromJson(Map<String, dynamic> j) => Tour(
+        id: j['id'], title: j['title'] ?? '', city: j['city'] ?? '', category: j['category'] ?? 'Wisata',
+        description: j['description'] ?? '', imageUrl: j['imageUrl'] ?? '',
+        durationHours: j['durationHours'] ?? 4, price: j['price'] ?? 0, maxPax: j['maxPax'] ?? 20,
+        reviewCount: j['reviewCount'] ?? 0, rating: (j['rating'] ?? 4.8).toDouble(),
+        highlights: ((j['highlights'] ?? []) as List).map((e) => e.toString()).toList(),
+        included: ((j['included'] ?? []) as List).map((e) => e.toString()).toList(),
+        meetingPoint: j['meetingPoint'],
+      );
+}
+
+// ─────────────────────────── Shuttle module ───────────────────────────
+class ShuttleVehicleType {
+  final String id, name, icon;
+  final int baseFare, perKm, minFare, capacity;
+  final int fare; // populated by /estimate
+  ShuttleVehicleType({
+    required this.id, required this.name, required this.icon,
+    required this.baseFare, required this.perKm, required this.minFare, required this.capacity, this.fare = 0,
+  });
+  factory ShuttleVehicleType.fromJson(Map<String, dynamic> j) => ShuttleVehicleType(
+        id: j['id'], name: j['name'] ?? '', icon: j['icon'] ?? 'car',
+        baseFare: j['baseFare'] ?? 0, perKm: j['perKm'] ?? 0, minFare: j['minFare'] ?? 0,
+        capacity: j['capacity'] ?? 4, fare: j['fare'] ?? 0,
+      );
+}
+
+class ShuttleRide {
+  final String id, code, status, originLabel, destLabel, paymentMethod;
+  final double originLat, originLng, destLat, destLng, distanceKm;
+  final int fare;
+  final String? driverName, driverPhone, driverPlate;
+  final double? driverRating;
+  final ShuttleVehicleType? vehicleType;
+  ShuttleRide({
+    required this.id, required this.code, required this.status, required this.originLabel, required this.destLabel,
+    required this.paymentMethod, required this.originLat, required this.originLng, required this.destLat, required this.destLng,
+    required this.distanceKm, required this.fare, this.driverName, this.driverPhone, this.driverPlate, this.driverRating, this.vehicleType,
+  });
+  factory ShuttleRide.fromJson(Map<String, dynamic> j) => ShuttleRide(
+        id: j['id'], code: j['code'] ?? '', status: j['status'] ?? 'REQUESTED',
+        originLabel: j['originLabel'] ?? '', destLabel: j['destLabel'] ?? '', paymentMethod: j['paymentMethod'] ?? 'CASH',
+        originLat: (j['originLat'] ?? 0).toDouble(), originLng: (j['originLng'] ?? 0).toDouble(),
+        destLat: (j['destLat'] ?? 0).toDouble(), destLng: (j['destLng'] ?? 0).toDouble(),
+        distanceKm: (j['distanceKm'] ?? 0).toDouble(), fare: j['fare'] ?? 0,
+        driverName: j['driverName'], driverPhone: j['driverPhone'], driverPlate: j['driverPlate'],
+        driverRating: j['driverRating'] != null ? (j['driverRating']).toDouble() : null,
+        vehicleType: j['vehicleType'] != null ? ShuttleVehicleType.fromJson(j['vehicleType']) : null,
+      );
+}

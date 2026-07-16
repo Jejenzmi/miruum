@@ -141,6 +141,8 @@ model User {
   loyaltyPoints Int      @default(0) // current redeemable balance (denormalized)
   loyaltyTxns   LoyaltyTxn[]
   hotelThreads  HotelThread[]
+  tourBookings  TourBooking[]
+  shuttleRides  ShuttleRide[]
 }
 
 // Direct guest ↔ hotel messaging (one thread per user+hotel).
@@ -842,4 +844,90 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Tour module (activities / trips) ───────────────────────────
+model Tour {
+  id            String   @id @default(cuid())
+  title         String
+  city          String
+  category      String   @default("Wisata") // Alam | Budaya | Petualangan | Kuliner | Bahari
+  description   String
+  imageUrl      String
+  durationHours Int      @default(4)
+  price         Int      // per pax (Rupiah)
+  maxPax        Int      @default(20)
+  rating        Float    @default(4.8)
+  reviewCount   Int      @default(0)
+  highlights    String[] @default([])
+  included      String[] @default([])
+  meetingPoint  String?
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  bookings      TourBooking[]
+
+  @@index([active])
+}
+
+model TourBooking {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  userId        String
+  tourId        String
+  date          DateTime @db.Date
+  pax           Int      @default(1)
+  unitPrice     Int
+  totalPrice    Int
+  status        String   @default("PENDING") // PENDING | PAID | COMPLETED | CANCELLED
+  bookerName    String
+  bookerPhone   String
+  paymentMethod String?
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tour          Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tourId])
+}
+
+// ─────────────────────────── Shuttle module (ride-hailing, Grab-style) ───────────────────────────
+model ShuttleVehicleType {
+  id        String   @id @default(cuid())
+  name      String   // Ekonomi | Premium | Van
+  icon      String   @default("car") // car | premium | van | bike
+  baseFare  Int      @default(8000)  // flag-fall
+  perKm     Int      @default(4000)  // per-km rate
+  minFare   Int      @default(12000)
+  capacity  Int      @default(4)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  rides     ShuttleRide[]
+}
+
+model ShuttleRide {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  userId        String
+  vehicleTypeId String
+  originLabel   String
+  originLat     Float
+  originLng     Float
+  destLabel     String
+  destLat       Float
+  destLng       Float
+  distanceKm    Float
+  fare          Int
+  paymentMethod String   @default("CASH") // CASH | WALLET | QRIS
+  status        String   @default("REQUESTED") // REQUESTED | DRIVER_ASSIGNED | ONGOING | COMPLETED | CANCELLED
+  driverName    String?
+  driverPhone   String?
+  driverPlate   String?
+  driverRating  Float?
+  createdAt     DateTime @default(now())
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType   ShuttleVehicleType @relation(fields: [vehicleTypeId], references: [id])
+
+  @@index([userId])
 }

@@ -9,6 +9,13 @@ bool kDark = false;
 class AppSettings {
   static final themeMode = ValueNotifier<ThemeMode>(ThemeMode.system);
   static final locale = ValueNotifier<Locale>(const Locale('id'));
+
+  /// Which mobile modules are enabled (toggled by admin). Default all on so the
+  /// UI never hides anything before the first config fetch completes.
+  static final modules = ValueNotifier<Map<String, bool>>({
+    'hotel': true, 'hotelPackage': true, 'tour': true, 'shuttle': true,
+  });
+  static bool moduleOn(String key) => AppSettings.modules.value[key] ?? true;
 }
 
 /// Miruum brand tokens. Brand hues stay constant across light/dark; structural

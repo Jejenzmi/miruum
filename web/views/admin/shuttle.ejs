@@ -1,0 +1,70 @@
+<%- include('../partials/top', { title:'Shuttle', heading:'Kelola Shuttle', section:'admin', active:'shuttle', me }) %>
+
+<% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan.</div><% } %>
+<% if (saved==='1') { %><div class="notice ok">Tersimpan.</div><% } %>
+
+<div class="card">
+  <h3>Tambah Jenis Kendaraan</h3>
+  <form method="post" action="/admin/shuttle/vehicle-types">
+    <div class="row2">
+      <div><label>Nama</label><input name="name" placeholder="Ekonomi" required></div>
+      <div><label>Ikon</label><select name="icon"><option value="car">car</option><option value="premium">premium</option><option value="van">van</option><option value="bike">bike</option></select></div>
+    </div>
+    <div class="row2">
+      <div><label>Tarif dasar (Rp)</label><input name="baseFare" type="number" value="8000"></div>
+      <div><label>Per km (Rp)</label><input name="perKm" type="number" value="4000"></div>
+    </div>
+    <div class="row2">
+      <div><label>Tarif minimum (Rp)</label><input name="minFare" type="number" value="12000"></div>
+      <div><label>Kapasitas</label><input name="capacity" type="number" value="4"></div>
+    </div>
+    <div style="margin-top:16px"><button class="btn">Tambah Kendaraan</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Jenis Kendaraan</h3>
+  <table>
+    <thead><tr><th>Nama</th><th>Ikon</th><th>Dasar</th><th>Per km</th><th>Min</th><th>Kursi</th><th>Trip</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% vehicleTypes.forEach(function(v){ %>
+        <tr>
+          <td><b><%= v.name %></b></td><td><%= v.icon %></td>
+          <td><%= rupiah(v.baseFare) %></td><td><%= rupiah(v.perKm) %></td><td><%= rupiah(v.minFare) %></td>
+          <td><%= v.capacity %></td><td><%= v._count ? v._count.rides : 0 %></td>
+          <td class="actions">
+            <form method="post" action="/admin/shuttle/vehicle-types/<%= v.id %>" style="display:inline-flex;gap:4px;align-items:center">
+              <select name="active" style="width:auto"><option value="1" <%= v.active?'selected':'' %>>Aktif</option><option value="0" <%= !v.active?'selected':'' %>>Off</option></select>
+              <button class="btn sm">Simpan</button>
+            </form>
+            <form method="post" action="/admin/shuttle/vehicle-types/<%= v.id %>/delete" data-confirm="Hapus <%= v.name %>?"><button class="btn danger sm">Hapus</button></form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!vehicleTypes.length) { %><tr><td colspan="8" class="empty">Belum ada jenis kendaraan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Riwayat Perjalanan</h3>
+  <table>
+    <thead><tr><th>Kode</th><th>Pengguna</th><th>Kendaraan</th><th>Rute</th><th>Jarak</th><th>Tarif</th><th>Status</th></tr></thead>
+    <tbody>
+      <% rides.forEach(function(r){ %>
+        <tr>
+          <td><b><%= r.code %></b></td>
+          <td><%= r.user ? r.user.name : '-' %></td>
+          <td><%= r.vehicleType ? r.vehicleType.name : '-' %></td>
+          <td style="font-size:12px"><%= r.originLabel %> → <%= r.destLabel %></td>
+          <td><%= r.distanceKm %> km</td>
+          <td><%= rupiah(r.fare) %></td>
+          <td><span class="pill <%= r.status==='COMPLETED'?'PAID':(r.status==='CANCELLED'?'CANCELLED':'PARTNER') %>"><%= r.status %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!rides.length) { %><tr><td colspan="7" class="empty">Belum ada perjalanan</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

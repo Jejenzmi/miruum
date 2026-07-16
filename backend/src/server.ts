@@ -618,9 +618,18 @@ app.get("/api/content/:slug", async (req, res) => {
 });
 
 // Public app config (safe subset).
+function moduleFlags(s: Record<string, string>) {
+  return {
+    hotel: true, // core, always on
+    hotelPackage: s.moduleHotelPackage !== "0",
+    tour: s.moduleTour !== "0",
+    shuttle: s.moduleShuttle !== "0",
+  };
+}
+
 app.get("/api/config", async (_req, res) => {
   const s = await getSettings();
-  res.json({ taxPct: Number(s.taxPct), currency: s.currency, appName: s.appName });
+  res.json({ taxPct: Number(s.taxPct), currency: s.currency, appName: s.appName, modules: moduleFlags(s) });
 });
 
 // Validate a promo code against an amount → returns the discount.
@@ -1619,6 +1628,227 @@ app.get("/api/hotels/receipt/:code", async (req, res) => {
 </body></html>`);
 });
 
+// ═══════════════════════════ Tour module ═══════════════════════════
+async function requireModule(key: "moduleTour" | "moduleShuttle" | "moduleHotelPackage", res: any): Promise<boolean> {
+  const s = await getSettings();
+  if (s[key] === "0") { res.status(403).json({ error: "Modul sedang tidak aktif" }); return false; }
+  return true;
+}
+
+// Public: browse active tours.
+app.get("/api/tours", async (req, res) => {
+  if (!(await requireModule("moduleTour", res))) return;
+  const { city, category, q } = req.query as Record<string, string>;
+  const where: any = { active: true };
+  if (city) where.city = city;
+  if (category) where.category = category;
+  if (q) where.OR = [{ title: { contains: q, mode: "insensitive" } }, { city: { contains: q, mode: "insensitive" } }];
+  const tours = await prisma.tour.findMany({ where, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }], take: 100 });
+  res.json({ tours });
+});
+
+app.get("/api/tours/:id", async (req, res) => {
+  if (!(await requireModule("moduleTour", res))) return;
+  const tour = await prisma.tour.findFirst({ where: { id: req.params.id, active: true } });
+  if (!tour) return res.status(404).json({ error: "Tour tidak ditemukan" });
+  res.json({ tour });
+});
+
+// Book a tour (auth). Mock-pay in one step to keep the demo flow simple.
+app.post("/api/tours/:id/book", requireAuth, async (req: AuthRequest, res) => {
+  if (!(await requireModule("moduleTour", res))) return;
+  const schema = z.object({
+    date: z.string(), pax: z.coerce.number().int().min(1).max(50),
+    bookerName: z.string().min(1), bookerPhone: z.string().min(3),
+    paymentMethod: z.string().default("QRIS"),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const tour = await prisma.tour.findFirst({ where: { id: req.params.id, active: true } });
+  if (!tour) return res.status(404).json({ error: "Tour tidak ditemukan" });
+  if (p.data.pax > tour.maxPax) return res.status(400).json({ error: `Maksimal ${tour.maxPax} peserta` });
+  const total = tour.price * p.data.pax;
+  const booking = await prisma.tourBooking.create({
+    data: {
+      code: "TR-" + Math.floor(1000000 + Math.random() * 8999999),
+      userId: req.userId!, tourId: tour.id, date: new Date(p.data.date), pax: p.data.pax,
+      unitPrice: tour.price, totalPrice: total, status: "PAID", paidAt: new Date(),
+      bookerName: p.data.bookerName, bookerPhone: p.data.bookerPhone, paymentMethod: p.data.paymentMethod,
+    },
+    include: { tour: true },
+  });
+  await dispatch(prisma, { userId: req.userId!, title: `Tour terkonfirmasi — ${tour.title}`, body: `${p.data.pax} peserta · No. ${booking.code}`, type: "success" });
+  res.json({ booking });
+});
+
+app.get("/api/tour-bookings", requireAuth, async (req: AuthRequest, res) => {
+  const bookings = await prisma.tourBooking.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, include: { tour: true } });
+  res.json({ bookings });
+});
+
+// ═══════════════════════════ Shuttle module (Grab-style) ═══════════════════════════
+const DRIVERS = [
+  { name: "Andi Saputra", plate: "B 2481 KXA", rating: 4.9 },
+  { name: "Rizky Pratama", plate: "B 1735 TQD", rating: 4.8 },
+  { name: "Dewi Lestari", plate: "B 9042 UVP", rating: 5.0 },
+  { name: "Bagus Wijaya", plate: "B 6318 MNC", rating: 4.7 },
+  { name: "Siti Rahayu", plate: "B 4507 LZK", rating: 4.9 },
+];
+function havKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371, toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+}
+function fareFor(vt: { baseFare: number; perKm: number; minFare: number }, km: number) {
+  return Math.max(vt.minFare, Math.round((vt.baseFare + vt.perKm * km) / 500) * 500);
+}
+
+app.get("/api/shuttle/vehicle-types", async (_req, res) => {
+  if (!(await requireModule("moduleShuttle", res))) return;
+  const types = await prisma.shuttleVehicleType.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } });
+  res.json({ vehicleTypes: types });
+});
+
+// Fare estimate for every vehicle type given origin + destination coords.
+app.post("/api/shuttle/estimate", async (req, res) => {
+  if (!(await requireModule("moduleShuttle", res))) return;
+  const schema = z.object({ originLat: z.coerce.number(), originLng: z.coerce.number(), destLat: z.coerce.number(), destLng: z.coerce.number() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Koordinat tidak valid" });
+  const km = Math.round(havKm(p.data.originLat, p.data.originLng, p.data.destLat, p.data.destLng) * 10) / 10;
+  const types = await prisma.shuttleVehicleType.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } });
+  const etaMin = Math.max(3, Math.round(km * 3)); // rough city ETA
+  res.json({ distanceKm: km, etaMin, options: types.map((t) => ({ ...t, fare: fareFor(t, km) })) });
+});
+
+// Request a ride (auth) → creates the ride and instantly assigns a mock driver.
+app.post("/api/shuttle/request", requireAuth, async (req: AuthRequest, res) => {
+  if (!(await requireModule("moduleShuttle", res))) return;
+  const schema = z.object({
+    vehicleTypeId: z.string(),
+    originLabel: z.string().default("Titik jemput"), originLat: z.coerce.number(), originLng: z.coerce.number(),
+    destLabel: z.string().default("Tujuan"), destLat: z.coerce.number(), destLng: z.coerce.number(),
+    paymentMethod: z.enum(["CASH", "WALLET", "QRIS"]).default("CASH"),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const vt = await prisma.shuttleVehicleType.findFirst({ where: { id: p.data.vehicleTypeId, active: true } });
+  if (!vt) return res.status(404).json({ error: "Jenis kendaraan tidak tersedia" });
+  const km = Math.round(havKm(p.data.originLat, p.data.originLng, p.data.destLat, p.data.destLng) * 10) / 10;
+  const d = DRIVERS[Math.floor(Math.random() * DRIVERS.length)];
+  const ride = await prisma.shuttleRide.create({
+    data: {
+      code: "SH-" + Math.floor(1000000 + Math.random() * 8999999),
+      userId: req.userId!, vehicleTypeId: vt.id,
+      originLabel: p.data.originLabel, originLat: p.data.originLat, originLng: p.data.originLng,
+      destLabel: p.data.destLabel, destLat: p.data.destLat, destLng: p.data.destLng,
+      distanceKm: km, fare: fareFor(vt, km), paymentMethod: p.data.paymentMethod,
+      status: "DRIVER_ASSIGNED", driverName: d.name, driverPhone: "0812" + Math.floor(10000000 + Math.random() * 89999999),
+      driverPlate: d.plate, driverRating: d.rating,
+    },
+    include: { vehicleType: true },
+  });
+  await dispatch(prisma, { userId: req.userId!, title: "Driver ditemukan!", body: `${d.name} · ${vt.name} · ${d.plate}`, type: "success" });
+  res.json({ ride });
+});
+
+app.get("/api/shuttle/rides", requireAuth, async (req: AuthRequest, res) => {
+  const rides = await prisma.shuttleRide.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, include: { vehicleType: true }, take: 50 });
+  res.json({ rides });
+});
+
+app.get("/api/shuttle/rides/:id", requireAuth, async (req: AuthRequest, res) => {
+  const ride = await prisma.shuttleRide.findFirst({ where: { id: req.params.id, userId: req.userId }, include: { vehicleType: true } });
+  if (!ride) return res.status(404).json({ error: "Perjalanan tidak ditemukan" });
+  res.json({ ride });
+});
+
+// Advance/cancel a ride (mock lifecycle: DRIVER_ASSIGNED → ONGOING → COMPLETED).
+app.post("/api/shuttle/rides/:id/status", requireAuth, async (req: AuthRequest, res) => {
+  const next = String(req.body?.status ?? "");
+  const allowed = ["ONGOING", "COMPLETED", "CANCELLED"];
+  if (!allowed.includes(next)) return res.status(400).json({ error: "Status tidak valid" });
+  const ride = await prisma.shuttleRide.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!ride) return res.status(404).json({ error: "Perjalanan tidak ditemukan" });
+  if (["COMPLETED", "CANCELLED"].includes(ride.status)) return res.status(400).json({ error: "Perjalanan sudah selesai" });
+  const updated = await prisma.shuttleRide.update({ where: { id: ride.id }, data: { status: next }, include: { vehicleType: true } });
+  res.json({ ride: updated });
+});
+
+// ═══════════════════════════ Admin: Tour + Shuttle management ═══════════════════════════
+const toArr = (v: any): string[] => Array.isArray(v) ? v.map(String) : typeof v === "string" && v.trim() ? v.split("\n").map((x) => x.trim()).filter(Boolean) : [];
+
+app.get("/api/admin/tours", requireRole("ADMIN"), async (_req, res) => {
+  const tours = await prisma.tour.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }], include: { _count: { select: { bookings: true } } } });
+  res.json({ tours });
+});
+app.post("/api/admin/tours", requireRole("ADMIN"), async (req: AuthRequest, res) => {
+  const b = req.body;
+  const tour = await prisma.tour.create({ data: {
+    title: String(b.title || "Tour"), city: String(b.city || ""), category: String(b.category || "Wisata"),
+    description: String(b.description || ""), imageUrl: String(b.imageUrl || "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800"),
+    durationHours: Number(b.durationHours) || 4, price: Number(b.price) || 0, maxPax: Number(b.maxPax) || 20,
+    highlights: toArr(b.highlights), included: toArr(b.included), meetingPoint: b.meetingPoint || null,
+    sortOrder: Number(b.sortOrder) || 0, active: b.active === undefined ? true : (b.active === "1" || b.active === true || b.active === "on"),
+  }});
+  audit(req, "tour.create", "Tour", tour.id);
+  await invalidate("miruum:");
+  res.json({ tour });
+});
+app.put("/api/admin/tours/:id", requireRole("ADMIN"), async (req: AuthRequest, res) => {
+  const b = req.body; const data: any = {};
+  for (const k of ["title", "city", "category", "description", "imageUrl", "meetingPoint"]) if (b[k] != null) data[k] = String(b[k]);
+  for (const k of ["durationHours", "price", "maxPax", "sortOrder"]) if (b[k] != null && b[k] !== "") data[k] = Number(b[k]);
+  if (b.highlights != null) data.highlights = toArr(b.highlights);
+  if (b.included != null) data.included = toArr(b.included);
+  if (b.active != null) data.active = b.active === "1" || b.active === true || b.active === "on";
+  const tour = await prisma.tour.update({ where: { id: req.params.id }, data });
+  audit(req, "tour.update", "Tour", tour.id);
+  await invalidate("miruum:");
+  res.json({ tour });
+});
+app.delete("/api/admin/tours/:id", requireRole("ADMIN"), async (req: AuthRequest, res) => {
+  await prisma.tour.delete({ where: { id: req.params.id } });
+  audit(req, "tour.delete", "Tour", req.params.id);
+  await invalidate("miruum:");
+  res.json({ ok: true });
+});
+
+app.get("/api/admin/shuttle/vehicle-types", requireRole("ADMIN"), async (_req, res) => {
+  const vehicleTypes = await prisma.shuttleVehicleType.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { rides: true } } } });
+  res.json({ vehicleTypes });
+});
+app.post("/api/admin/shuttle/vehicle-types", requireRole("ADMIN"), async (req: AuthRequest, res) => {
+  const b = req.body;
+  const vt = await prisma.shuttleVehicleType.create({ data: {
+    name: String(b.name || "Ekonomi"), icon: String(b.icon || "car"),
+    baseFare: Number(b.baseFare) || 8000, perKm: Number(b.perKm) || 4000, minFare: Number(b.minFare) || 12000,
+    capacity: Number(b.capacity) || 4, sortOrder: Number(b.sortOrder) || 0,
+    active: b.active === undefined ? true : (b.active === "1" || b.active === true || b.active === "on"),
+  }});
+  await invalidate("miruum:");
+  res.json({ vehicleType: vt });
+});
+app.put("/api/admin/shuttle/vehicle-types/:id", requireRole("ADMIN"), async (req, res) => {
+  const b = req.body; const data: any = {};
+  for (const k of ["name", "icon"]) if (b[k] != null) data[k] = String(b[k]);
+  for (const k of ["baseFare", "perKm", "minFare", "capacity", "sortOrder"]) if (b[k] != null && b[k] !== "") data[k] = Number(b[k]);
+  if (b.active != null) data.active = b.active === "1" || b.active === true || b.active === "on";
+  const vt = await prisma.shuttleVehicleType.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:");
+  res.json({ vehicleType: vt });
+});
+app.delete("/api/admin/shuttle/vehicle-types/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.shuttleVehicleType.delete({ where: { id: req.params.id } });
+  await invalidate("miruum:");
+  res.json({ ok: true });
+});
+app.get("/api/admin/shuttle/rides", requireRole("ADMIN"), async (_req, res) => {
+  const rides = await prisma.shuttleRide.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { vehicleType: true, user: { select: { name: true } } } });
+  res.json({ rides });
+});
+
 // ─────────────────────────── CS Chat (bot + live agent) ───────────────────────────
 async function getOrCreateConversation(userId: string) {
   let conv = await prisma.chatConversation.findFirst({ where: { userId, status: { not: "CLOSED" } }, orderBy: { createdAt: "desc" } });
@@ -2196,6 +2426,7 @@ app.get("/api/app/config", async (_req, res) => {
   const popup = await prisma.appPopup.findFirst({ where: { active: true }, orderBy: { updatedAt: "desc" } });
   res.json({
     taxPct: Number(s.taxPct) || 0, // so the app itemizes tax exactly like the server computes it
+    modules: moduleFlags(s),
     popup: popup ? { id: popup.id, title: popup.title, body: popup.body, imageUrl: popup.imageUrl, ctaText: popup.ctaText, ctaUrl: popup.ctaUrl, updatedAt: popup.updatedAt } : null,
     update: {
       latestVersion: s.app_latest_version || "",

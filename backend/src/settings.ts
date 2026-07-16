@@ -22,6 +22,10 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   loyaltyMaxRedeemPct: "30", // points can cover at most this % of a booking
   // Rate parity monitor: flag channels deviating more than this % from the reference.
   parityTolerancePct: "2",
+  // App module toggles — "1" shows the module in the mobile app, "0" hides it.
+  moduleHotelPackage: "1",
+  moduleTour: "1",
+  moduleShuttle: "1",
 };
 
 let cache: Record<string, string> | null = null;

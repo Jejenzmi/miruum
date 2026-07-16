@@ -28,6 +28,20 @@
     <input name="refundPartialPct" type="number" value="<%= settings.refundPartialPct %>">
     <p class="muted" style="font-size:11.5px;margin-top:4px">Non-refundable = 0%. Membatalkan setelah batas waktu = 0%.</p>
 
+    <h3 style="margin:22px 0 4px">Modul Aplikasi Mobile</h3>
+    <p class="muted" style="font-size:11.5px;margin:0 0 10px">Nonaktifkan modul untuk menyembunyikannya dari aplikasi mobile pengguna. Hotel selalu aktif (modul inti).</p>
+    <% function modSel(name, val){ %>
+      <select name="<%= name %>" style="max-width:160px">
+        <option value="1" <%= (val!=='0')?'selected':'' %>>Aktif — tampil</option>
+        <option value="0" <%= (val==='0')?'selected':'' %>>Nonaktif — hidden</option>
+      </select>
+    <% } %>
+    <div class="row2">
+      <div><label style="margin-top:0">Hotel Package</label><% modSel('moduleHotelPackage', settings.moduleHotelPackage) %></div>
+      <div><label style="margin-top:0">Tour</label><% modSel('moduleTour', settings.moduleTour) %></div>
+    </div>
+    <label>Shuttle (Antar-Jemput)</label><% modSel('moduleShuttle', settings.moduleShuttle) %>
+
     <div style="margin-top:18px"><button class="btn">Simpan Pengaturan</button></div>
   </form>
 </div>

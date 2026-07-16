@@ -311,6 +311,34 @@ class Api {
       (await _get('/hotel-chat/$hotelId')) as Map<String, dynamic>;
   Future<Map<String, dynamic>> sendHotelChat(String hotelId, String body) async =>
       (await _post('/hotel-chat/$hotelId', {'body': body})) as Map<String, dynamic>;
+
+  // ── Module config (which modules are enabled) ──
+  Future<Map<String, bool>> modules() async {
+    final r = (await _get('/config')) as Map<String, dynamic>;
+    final m = (r['modules'] as Map?) ?? const {};
+    return m.map((k, v) => MapEntry(k.toString(), v == true));
+  }
+
+  // ── Tour ──
+  Future<List<Tour>> tours({String? category, String? q}) async =>
+      ((await _get('/tours', {if (category != null) 'category': category, if (q != null) 'q': q}))['tours'] as List)
+          .map((t) => Tour.fromJson(t)).toList();
+  Future<Tour> tour(String id) async => Tour.fromJson((await _get('/tours/$id'))['tour']);
+  Future<Map<String, dynamic>> bookTour(String id, {required String date, required int pax, required String bookerName, required String bookerPhone, required String paymentMethod}) async =>
+      (await _post('/tours/$id/book', {'date': date, 'pax': pax, 'bookerName': bookerName, 'bookerPhone': bookerPhone, 'paymentMethod': paymentMethod})) as Map<String, dynamic>;
+  Future<List<dynamic>> tourBookings() async => (await _get('/tour-bookings'))['bookings'] as List;
+
+  // ── Shuttle ──
+  Future<List<ShuttleVehicleType>> shuttleVehicleTypes() async =>
+      ((await _get('/shuttle/vehicle-types'))['vehicleTypes'] as List).map((v) => ShuttleVehicleType.fromJson(v)).toList();
+  Future<Map<String, dynamic>> shuttleEstimate({required double originLat, required double originLng, required double destLat, required double destLng}) async =>
+      (await _post('/shuttle/estimate', {'originLat': originLat, 'originLng': originLng, 'destLat': destLat, 'destLng': destLng})) as Map<String, dynamic>;
+  Future<ShuttleRide> shuttleRequest({required String vehicleTypeId, required String originLabel, required double originLat, required double originLng, required String destLabel, required double destLat, required double destLng, required String paymentMethod}) async =>
+      ShuttleRide.fromJson((await _post('/shuttle/request', {'vehicleTypeId': vehicleTypeId, 'originLabel': originLabel, 'originLat': originLat, 'originLng': originLng, 'destLabel': destLabel, 'destLat': destLat, 'destLng': destLng, 'paymentMethod': paymentMethod}))['ride']);
+  Future<List<ShuttleRide>> shuttleRides() async =>
+      ((await _get('/shuttle/rides'))['rides'] as List).map((r) => ShuttleRide.fromJson(r)).toList();
+  Future<ShuttleRide> shuttleRideStatus(String id, String status) async =>
+      ShuttleRide.fromJson((await _post('/shuttle/rides/$id/status', {'status': status}))['ride']);
 }
 
 class ApiException implements Exception {

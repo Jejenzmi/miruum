@@ -1,0 +1,69 @@
+<%- include('../partials/top', { title:'Tour', heading:'Kelola Tour', section:'admin', active:'tours', me }) %>
+
+<% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan tour.</div><% } %>
+<% if (saved==='1') { %><div class="notice ok">Tersimpan.</div><% } %>
+
+<div class="card">
+  <h3><%= edit ? 'Edit Tour' : 'Tambah Tour' %></h3>
+  <form method="post" action="<%= edit ? ('/admin/tours/'+edit.id) : '/admin/tours' %>">
+    <div class="row2">
+      <div><label>Judul</label><input name="title" value="<%= edit?edit.title:'' %>" placeholder="Sunrise Kawah Ijen" required></div>
+      <div><label>Kota</label><input name="city" value="<%= edit?edit.city:'' %>" placeholder="Banyuwangi" required></div>
+    </div>
+    <div class="row2">
+      <div><label>Kategori</label>
+        <select name="category">
+          <% ['Alam','Budaya','Petualangan','Kuliner','Bahari','Wisata'].forEach(function(c){ %>
+            <option <%= (edit&&edit.category===c)?'selected':'' %>><%= c %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div><label>Durasi (jam)</label><input name="durationHours" type="number" value="<%= edit?edit.durationHours:4 %>"></div>
+    </div>
+    <div class="row2">
+      <div><label>Harga per peserta (Rp)</label><input name="price" type="number" value="<%= edit?edit.price:'' %>" required></div>
+      <div><label>Maks. peserta</label><input name="maxPax" type="number" value="<%= edit?edit.maxPax:20 %>"></div>
+    </div>
+    <label>URL Gambar</label><input name="imageUrl" value="<%= edit?edit.imageUrl:'' %>" placeholder="https://...">
+    <label>Deskripsi</label><textarea name="description" rows="3"><%= edit?edit.description:'' %></textarea>
+    <div class="row2">
+      <div><label>Highlights (satu per baris)</label><textarea name="highlights" rows="4"><%= edit?(edit.highlights||[]).join('\n'):'' %></textarea></div>
+      <div><label>Termasuk (satu per baris)</label><textarea name="included" rows="4"><%= edit?(edit.included||[]).join('\n'):'' %></textarea></div>
+    </div>
+    <label>Titik Kumpul</label><input name="meetingPoint" value="<%= edit?(edit.meetingPoint||''):'' %>">
+    <div class="row2">
+      <div><label>Urutan</label><input name="sortOrder" type="number" value="<%= edit?edit.sortOrder:0 %>"></div>
+      <div><label>Status</label><select name="active"><option value="1" <%= (!edit||edit.active)?'selected':'' %>>Aktif</option><option value="0" <%= (edit&&!edit.active)?'selected':'' %>>Nonaktif</option></select></div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn"><%= edit ? 'Simpan Perubahan' : 'Tambah Tour' %></button>
+      <% if (edit) { %><a class="btn ghost" href="/admin/tours">Batal</a><% } %>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Daftar Tour</h3>
+  <table>
+    <thead><tr><th>Judul</th><th>Kota</th><th>Kategori</th><th>Harga</th><th>Booking</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% tours.forEach(function(t){ %>
+        <tr>
+          <td><b><%= t.title %></b></td>
+          <td><%= t.city %></td>
+          <td><%= t.category %></td>
+          <td><%= rupiah(t.price) %></td>
+          <td><%= t._count ? t._count.bookings : 0 %></td>
+          <td><span class="pill <%= t.active?'PAID':'CANCELLED' %>"><%= t.active?'Aktif':'Nonaktif' %></span></td>
+          <td class="actions">
+            <a class="btn ghost sm" href="/admin/tours/<%= t.id %>/edit">Edit</a>
+            <form method="post" action="/admin/tours/<%= t.id %>/delete" data-confirm="Hapus tour <%= t.title %>?"><button class="btn danger sm">Hapus</button></form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!tours.length) { %><tr><td colspan="7" class="empty">Belum ada tour</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

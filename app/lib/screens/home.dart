@@ -17,6 +17,8 @@ import 'menu_hotel.dart';
 import 'notifikasi.dart';
 import 'package_list.dart';
 import 'results.dart';
+import 'tour_list.dart';
+import 'shuttle.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -193,21 +195,31 @@ class _HomeView extends StatelessWidget {
   }
 
   // ── Category tiles: Hotel + Hotel Package (per mockup) ──
-  Widget _categoryTiles(BuildContext context) => Row(children: [
-        Expanded(
-          child: _categoryTile(
-            context, 'Hotel', Icons.apartment_rounded, MC.blue,
-            const MenuHotelScreen(),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _categoryTile(
-            context, 'Hotel Package', Icons.card_giftcard_rounded, MC.primary,
-            const PackageListScreen(),
-          ),
-        ),
-      ]);
+  Widget _categoryTiles(BuildContext context) => ValueListenableBuilder<Map<String, bool>>(
+        valueListenable: AppSettings.modules,
+        builder: (context, mods, _) {
+          final tiles = <Widget>[
+            _categoryTile(context, 'Hotel', Icons.apartment_rounded, MC.blue, const MenuHotelScreen()),
+            if (mods['hotelPackage'] ?? true)
+              _categoryTile(context, 'Hotel Package', Icons.card_giftcard_rounded, MC.primary, const PackageListScreen()),
+            if (mods['tour'] ?? true)
+              _categoryTile(context, 'Tour', Icons.travel_explore_rounded, MC.success, const TourListScreen()),
+            if (mods['shuttle'] ?? true)
+              _categoryTile(context, 'Shuttle', Icons.local_taxi_rounded, MC.accent, const ShuttleScreen()),
+          ];
+          // 2 per row.
+          final rows = <Widget>[];
+          for (var i = 0; i < tiles.length; i += 2) {
+            rows.add(Row(children: [
+              Expanded(child: tiles[i]),
+              const SizedBox(width: 14),
+              if (i + 1 < tiles.length) Expanded(child: tiles[i + 1]) else const Expanded(child: SizedBox()),
+            ]));
+            if (i + 2 < tiles.length) rows.add(const SizedBox(height: 12));
+          }
+          return Column(children: rows);
+        },
+      );
 
   Widget _categoryTile(BuildContext context, String label, IconData icon, Color color, Widget page) =>
       GestureDetector(
