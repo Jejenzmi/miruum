@@ -838,6 +838,7 @@ app.put("/api/partner/rooms/:id/availability", requireRole("PARTNER", "ADMIN"), 
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  if (!(await ownsRoom(req as AuthRequest, req.params.id))) return res.status(404).json({ error: "Kamar tidak ditemukan / bukan milik Anda" });
   const room = await prisma.room.findUnique({ where: { id: req.params.id } });
   if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
   const start = new Date(p.data.from), end = new Date(p.data.to);
@@ -861,6 +862,61 @@ app.put("/api/partner/rooms/:id/availability", requireRole("PARTNER", "ADMIN"), 
   }
   await invalidate("miruum:");
   res.json({ ok: true, days: updated });
+});
+
+// Month grid for the extranet allotment calendar (Traveloka Tera style).
+// Returns every room of the hotel with a date→availability map for the month,
+// falling back to the room's default price/stock/open when no override exists.
+app.get("/api/partner/hotels/:id/calendar", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotel = await prisma.hotel.findFirst({
+    where: { id: req.params.id, ...((req as any).role === "ADMIN" ? {} : { ownerId: req.userId }) },
+    include: { rooms: { orderBy: { price: "asc" } } },
+  });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan / bukan milik Anda" });
+
+  // month = "YYYY-MM"; default to current month (UTC).
+  const now = new Date();
+  const m = /^(\d{4})-(\d{2})$/.exec(String(req.query.month || ""));
+  const year = m ? Number(m[1]) : now.getUTCFullYear();
+  const mon = m ? Number(m[2]) - 1 : now.getUTCMonth();
+  const first = new Date(Date.UTC(year, mon, 1));
+  const last = new Date(Date.UTC(year, mon + 1, 0));
+  const daysInMonth = last.getUTCDate();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+  const days: string[] = [];
+  for (let d = 1; d <= daysInMonth; d++) days.push(iso(new Date(Date.UTC(year, mon, d))));
+
+  const roomIds = hotel.rooms.map((r) => r.id);
+  const rows = roomIds.length
+    ? await prisma.roomAvailability.findMany({
+        where: { roomId: { in: roomIds }, date: { gte: first, lte: last } },
+      })
+    : [];
+  const byRoom: Record<string, Record<string, any>> = {};
+  for (const r of rows) {
+    (byRoom[r.roomId] ??= {})[iso(new Date(r.date))] = {
+      price: r.price, allotment: r.allotment, closed: r.closed, minStay: r.minStay, cta: r.cta, ctd: r.ctd, set: true,
+    };
+  }
+
+  const rooms = hotel.rooms.map((r) => {
+    const cells: Record<string, any> = {};
+    for (const d of days) {
+      cells[d] = byRoom[r.id]?.[d] ?? {
+        price: r.price, allotment: r.stock, closed: false, minStay: 1, cta: false, ctd: false, set: false,
+      };
+    }
+    return { id: r.id, name: r.name, price: r.price, stock: r.stock, cells };
+  });
+
+  res.json({
+    month: `${year}-${String(mon + 1).padStart(2, "0")}`,
+    prev: iso(new Date(Date.UTC(year, mon - 1, 1))).slice(0, 7),
+    next: iso(new Date(Date.UTC(year, mon + 1, 1))).slice(0, 7),
+    firstWeekday: first.getUTCDay(), // 0=Sun
+    days, rooms,
+  });
 });
 
 app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {

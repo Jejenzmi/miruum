@@ -595,6 +595,13 @@ app.get("/extranet/hotels/:id", partnerGuard, async (req, res) => {
   res.render("extranet/hotel", { hotel, facilities, active: "dashboard", saved: req.query.saved });
 });
 
+// Allotment calendar (Traveloka Tera style): month grid per room.
+app.get("/extranet/hotels/:id/calendar", partnerGuard, async (req, res) => {
+  const q = req.query.month ? `?month=${encodeURIComponent(req.query.month)}` : "";
+  const cal = await api(`/partner/hotels/${req.params.id}/calendar${q}`, { token: res.locals.token });
+  res.render("extranet/calendar", { cal, hotelId: req.params.id, active: "dashboard", saved: req.query.saved });
+});
+
 // ── Channel Manager (partner-facing, cm.gokar.id) ──
 app.get("/extranet/channel-manager", partnerGuard, productGuard("channelManager", "Channel Manager"), async (req, res) => {
   const cm = await api("/partner/channel-manager", { token: res.locals.token });
@@ -828,12 +835,16 @@ app.get("/extranet/report", partnerGuard, async (req, res) => {
 
 // Bulk-set rate / allotment / closed over a date range (Channel Manager calendar).
 app.post("/extranet/rooms/:id/availability", partnerGuard, async (req, res) => {
+  // Tri-state: "" = jangan ubah, "1"/"on"/"true" = ya, "0"/"false" = tidak.
+  const tri = (v) => (v === undefined || v === "" ? undefined : v === "1" || v === "on" || v === "true");
+  const num = (v) => (v === undefined || v === "" ? undefined : v);
   await api(`/partner/rooms/${req.params.id}/availability`, {
     method: "PUT", token: res.locals.token,
-    body: { from: req.body.from, to: req.body.to, price: req.body.price || undefined,
-      allotment: req.body.allotment || undefined, closed: req.body.closed === "on" },
+    body: { from: req.body.from, to: req.body.to,
+      price: num(req.body.price), allotment: num(req.body.allotment), minStay: num(req.body.minStay),
+      closed: tri(req.body.closed), cta: tri(req.body.cta), ctd: tri(req.body.ctd) },
   });
-  res.redirect("back");
+  res.redirect(req.body.redirect || "back");
 });
 
 app.post("/extranet/hotels/:id/photos", partnerGuard, upload.single("photo"), async (req, res) => {

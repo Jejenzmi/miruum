@@ -1,0 +1,171 @@
+<%- include('../partials/top', { title: 'Kalender Allotment', heading: 'Kalender Rate & Allotment', section:'extranet', active:'dashboard', me }) %>
+
+<%
+  var DOW = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  var MON = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  var ym = cal.month.split('-'); var monLabel = MON[Number(ym[1]) - 1] + ' ' + ym[0];
+  function shortRp(v){ if (v >= 1000000) return (Math.round(v/100000)/10) + 'jt'; if (v >= 1000) return Math.round(v/1000) + 'rb'; return v; }
+  function todayIso(){ return new Date().toISOString().slice(0,10); }
+%>
+
+<% if (saved==='1') { %><div class="notice ok">Kalender diperbarui.</div><% } %>
+
+<div class="card cal-head">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+      <a class="btn ghost sm" href="/extranet/hotels/<%= hotelId %>/calendar?month=<%= cal.prev %>">‹</a>
+      <b style="font-size:17px;min-width:150px;text-align:center"><%= monLabel %></b>
+      <a class="btn ghost sm" href="/extranet/hotels/<%= hotelId %>/calendar?month=<%= cal.next %>">›</a>
+    </div>
+    <div class="cal-legend">
+      <span><i class="lg open"></i> Buka</span>
+      <span><i class="lg closed"></i> Tutup</span>
+      <span><i class="lg low"></i> Jatah menipis</span>
+      <span><i class="lg sel"></i> Terpilih</span>
+    </div>
+    <a class="btn ghost sm" href="/extranet/hotels/<%= hotelId %>">← Properti</a>
+  </div>
+  <p class="muted" style="margin:10px 0 0">Klik &amp; seret (drag) beberapa tanggal pada satu kamar untuk memilih rentang, lalu atur harga, jatah kamar (allotment), atau tutup penjualan sekaligus.</p>
+</div>
+
+<% if (!cal.rooms.length) { %>
+  <div class="card"><p class="empty">Belum ada kamar pada properti ini.</p></div>
+<% } %>
+
+<% cal.rooms.forEach(function(r){ %>
+  <div class="card calroom">
+    <div class="calroom-h">
+      <b><%= r.name %></b>
+      <span class="muted">Default: Rp <%= r.price.toLocaleString('id-ID') %> · <%= r.stock %> kamar/malam</span>
+    </div>
+    <div class="calgrid" data-room="<%= r.id %>">
+      <% DOW.forEach(function(d,i){ %><div class="cal-dow<%= (i===0||i===6)?' we':'' %>"><%= d %></div><% }) %>
+      <% for (var b=0; b<cal.firstWeekday; b++){ %><div class="cal-blank"></div><% } %>
+      <% cal.days.forEach(function(dt, idx){
+           var c = r.cells[dt]; var dnum = Number(dt.slice(8,10));
+           var dow = (cal.firstWeekday + idx) % 7;
+           var cls = 'cal-cell';
+           if (c.closed) cls += ' closed'; else if (c.allotment <= 0) cls += ' closed';
+           else if (c.allotment <= 2) cls += ' low';
+           if (dow===0||dow===6) cls += ' we';
+           if (dt === todayIso()) cls += ' today';
+      %>
+        <button type="button" class="<%= cls %>" data-room="<%= r.id %>" data-date="<%= dt %>" data-idx="<%= idx %>">
+          <span class="cd"><%= dnum %></span>
+          <span class="cp">Rp <%= shortRp(c.price) %></span>
+          <span class="ca"><%= c.closed ? 'Tutup' : (c.allotment + ' kmr') %></span>
+          <% if (c.minStay > 1) { %><span class="cm">min <%= c.minStay %></span><% } %>
+        </button>
+      <% }) %>
+    </div>
+  </div>
+<% }) %>
+
+<!-- Bulk editor bar (appears when a range is selected) -->
+<div id="cal-editor" class="cal-editor" hidden>
+  <form method="post" id="cal-form">
+    <input type="hidden" name="from" id="f-from">
+    <input type="hidden" name="to" id="f-to">
+    <input type="hidden" name="redirect" value="/extranet/hotels/<%= hotelId %>/calendar?month=<%= cal.month %>&saved=1">
+    <div class="cal-ed-row">
+      <div class="cal-ed-range"><b id="ed-room"></b><span id="ed-range" class="muted"></span></div>
+      <label>Harga/malam<input name="price" type="number" min="0" placeholder="tetap"></label>
+      <label>Jatah kamar<input name="allotment" type="number" min="0" placeholder="tetap"></label>
+      <label>Min. malam<input name="minStay" type="number" min="1" placeholder="tetap"></label>
+      <label>Status<select name="closed"><option value="">— tetap —</option><option value="0">Buka</option><option value="1">Tutup</option></select></label>
+      <label>CTA<select name="cta" title="Closed to Arrival"><option value="">— tetap —</option><option value="0">Boleh</option><option value="1">Tutup tiba</option></select></label>
+      <label>CTD<select name="ctd" title="Closed to Departure"><option value="">— tetap —</option><option value="0">Boleh</option><option value="1">Tutup pergi</option></select></label>
+      <div class="cal-ed-btns">
+        <button type="button" class="btn ghost sm" id="cal-cancel">Batal</button>
+        <button class="btn sm">Terapkan</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<style>
+.cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.cal-legend i.lg{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:3px}
+.lg.open{background:#e7f6ec;border:1px solid #7cc79a}.lg.closed{background:#fdeaea;border:1px solid #e79a9a}
+.lg.low{background:#fff5e3;border:1px solid #e8bf72}.lg.sel{background:var(--brand,#f6883a);border:1px solid var(--brand,#f6883a)}
+.calroom-h{display:flex;align-items:baseline;gap:10px;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.calroom-h .muted{font-size:12.5px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;user-select:none;-webkit-user-select:none;touch-action:none}
+.cal-dow{text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0}
+.cal-dow.we{color:#d8863e}
+.cal-blank{aspect-ratio:1/1.12}
+.cal-cell{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:1px;
+  aspect-ratio:1/1.12;min-height:62px;padding:5px 6px;border:1px solid #cfe8d8;border-radius:10px;background:#f2fbf6;
+  cursor:pointer;text-align:left;transition:transform .05s,box-shadow .1s;overflow:hidden}
+.cal-cell:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.cal-cell.we{background:#f6fbf8}
+.cal-cell.low{background:#fff7ea;border-color:#e8cf98}
+.cal-cell.closed{background:#fdf0f0;border-color:#eec2c2}
+.cal-cell.today{outline:2px solid var(--brand,#f6883a);outline-offset:-2px}
+.cal-cell.sel{background:var(--brand,#f6883a)!important;border-color:var(--brand,#f6883a)!important}
+.cal-cell.sel .cd,.cal-cell.sel .cp,.cal-cell.sel .ca,.cal-cell.sel .cm{color:#fff!important}
+.cal-cell .cd{font-size:13px;font-weight:800;color:#1f3b2b;line-height:1}
+.cal-cell .cp{font-size:11.5px;font-weight:700;color:#2f7a54;line-height:1.1}
+.cal-cell.closed .cp{color:#b06a6a}
+.cal-cell .ca{font-size:10.5px;color:#5a6d63;line-height:1.1}
+.cal-cell.low .ca{color:#a9762a;font-weight:600}.cal-cell.closed .ca{color:#c15c5c;font-weight:600}
+.cal-cell .cm{position:absolute;top:4px;right:4px;font-size:8.5px;background:#e6efe9;color:#3d6b52;padding:1px 3px;border-radius:4px}
+.cal-editor{position:sticky;bottom:0;z-index:30;margin-top:14px;background:var(--card,#fff);border:1px solid var(--line);
+  border-radius:14px;box-shadow:0 -6px 24px rgba(0,0,0,.12);padding:12px 14px}
+.cal-ed-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.cal-ed-range{min-width:150px;display:flex;flex-direction:column;gap:2px}
+.cal-ed-range b{font-size:14px}.cal-ed-range .muted{font-size:12px}
+.cal-editor label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:600;color:var(--muted)}
+.cal-editor input,.cal-editor select{max-width:120px;padding:7px 9px;font-size:13px}
+.cal-ed-btns{display:flex;gap:8px;margin-left:auto}
+@media(max-width:640px){.cal-cell{min-height:56px;padding:4px}.cal-cell .cp{font-size:10.5px}.cal-editor input,.cal-editor select{max-width:100%}}
+</style>
+
+<script>
+(function(){
+  var grids = document.querySelectorAll('.calgrid');
+  var editor = document.getElementById('cal-editor');
+  var form = document.getElementById('cal-form');
+  var edRoom = document.getElementById('ed-room'), edRange = document.getElementById('ed-range');
+  var fFrom = document.getElementById('f-from'), fTo = document.getElementById('f-to');
+  var anchor = null, activeRoom = null, dragging = false;
+
+  function clearSel(){ document.querySelectorAll('.cal-cell.sel').forEach(function(c){ c.classList.remove('sel'); }); }
+  function cellAt(x,y){ var el = document.elementFromPoint(x,y); return el ? el.closest('.cal-cell') : null; }
+  function fmtDate(iso){ var p = iso.split('-'); return p[2] + '/' + p[1]; }
+
+  function applyRange(a, b){
+    if (!a || !b || a.dataset.room !== b.dataset.room) return;
+    activeRoom = a.dataset.room;
+    var lo = Math.min(+a.dataset.idx, +b.dataset.idx), hi = Math.max(+a.dataset.idx, +b.dataset.idx);
+    clearSel();
+    var grid = document.querySelector('.calgrid[data-room="' + activeRoom + '"]');
+    var cells = grid.querySelectorAll('.cal-cell'); var dates = [];
+    cells.forEach(function(c){ var i = +c.dataset.idx; if (i >= lo && i <= hi){ c.classList.add('sel'); dates.push(c.dataset.date); } });
+    dates.sort();
+    fFrom.value = dates[0]; fTo.value = dates[dates.length - 1];
+    var roomName = grid.closest('.calroom').querySelector('.calroom-h b').textContent;
+    edRoom.textContent = roomName;
+    edRange.textContent = (dates.length === 1 ? fmtDate(dates[0]) : (fmtDate(dates[0]) + ' – ' + fmtDate(dates[dates.length-1]))) + ' · ' + dates.length + ' malam';
+    form.action = '/extranet/rooms/' + activeRoom + '/availability';
+    editor.hidden = false;
+  }
+
+  grids.forEach(function(grid){
+    grid.addEventListener('pointerdown', function(e){
+      var cell = e.target.closest('.cal-cell'); if (!cell) return;
+      e.preventDefault(); dragging = true; anchor = cell; applyRange(anchor, cell);
+    });
+    grid.addEventListener('pointermove', function(e){
+      if (!dragging) return;
+      var cell = cellAt(e.clientX, e.clientY);
+      if (cell && cell.dataset.room === anchor.dataset.room) applyRange(anchor, cell);
+    });
+  });
+  document.addEventListener('pointerup', function(){ dragging = false; });
+
+  document.getElementById('cal-cancel').addEventListener('click', function(){ clearSel(); editor.hidden = true; anchor = null; });
+})();
+</script>
+
+<%- include('../partials/bottom') %>
