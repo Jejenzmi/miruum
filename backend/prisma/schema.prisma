@@ -163,6 +163,8 @@ model HotelMessage {
   threadId    String
   fromGuest   Boolean  // true = guest, false = hotel
   body        String
+  flagged     Boolean  @default(false) // true = hidden policy violation (contact sharing / off-system deal)
+  violation   String?  // human-readable reason when flagged
   readByHotel Boolean  @default(false)
   readByGuest Boolean  @default(false)
   createdAt   DateTime @default(now())

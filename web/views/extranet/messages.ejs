@@ -27,11 +27,18 @@
       <h2 style="margin-top:0"><%= thread.guest %> <span class="muted" style="font-size:12px">· <%= thread.hotel %></span></h2>
       <div style="max-height:420px;overflow-y:auto;padding:6px 2px;margin-bottom:12px">
         <% (messages||[]).forEach(function(m){ var guest=m.fromGuest; %>
-          <div style="display:flex;justify-content:<%= guest?'flex-start':'flex-end' %>;margin-bottom:8px">
-            <div style="max-width:78%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.4;<%= guest ? 'background:#f1f2f4;color:#222' : 'background:var(--brand);color:#fff' %>">
+          <% if (m.flagged) { %>
+            <div style="margin:8px auto;max-width:92%;background:#fdeded;border:1px solid #e7a6a6;border-radius:12px;padding:9px 12px;font-size:12px;color:#8a4b45;line-height:1.4">
+              <b style="color:#c0392b">⚠️ Pelanggaran kebijakan (<%= guest ? 'Tamu' : 'Hotel/Anda' %>)</b><br>
               <%= m.body %>
             </div>
-          </div>
+          <% } else { %>
+            <div style="display:flex;justify-content:<%= guest?'flex-start':'flex-end' %>;margin-bottom:8px">
+              <div style="max-width:78%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.4;<%= guest ? 'background:#f1f2f4;color:#222' : 'background:var(--brand);color:#fff' %>">
+                <%= m.body %>
+              </div>
+            </div>
+          <% } %>
         <% }) %>
         <% if (!(messages||[]).length) { %><div class="muted" style="font-size:13px">Belum ada pesan.</div><% } %>
       </div>

@@ -21,6 +21,7 @@ import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { pushDistribution } from "./distribution.js";
 import { botReply } from "./chatbot.js";
+import { screenChat, violationNotice } from "./moderation.js";
 import { dispatch, sendMail } from "./notify.js";
 import { testFcm } from "./fcm.js";
 import { quote, consume } from "./availability.js";
@@ -3103,10 +3104,23 @@ app.post("/api/hotel-chat/:hotelId", requireAuth, async (req: AuthRequest, res) 
   const body = String(req.body?.body ?? "").trim();
   if (!body) return res.status(400).json({ error: "Pesan kosong" });
   const thread = await getThread(req.userId!, req.params.hotelId);
+  const h = await prisma.hotel.findUnique({ where: { id: req.params.hotelId }, select: { name: true, owner: { select: { id: true } } } });
+
+  // Moderation: block sharing of contact details / off-system transactions.
+  const verdict = screenChat(body);
+  if (verdict.flagged) {
+    const msg = await prisma.hotelMessage.create({ data: {
+      threadId: thread.id, fromGuest: true, body: violationNotice(verdict.reason!),
+      flagged: true, violation: verdict.reason, readByGuest: true } });
+    await prisma.hotelThread.update({ where: { id: thread.id }, data: { lastAt: new Date() } });
+    audit(req, "chat.violation", "HotelThread", thread.id, { by: "guest", reason: verdict.reason });
+    if (h?.owner) await dispatch(prisma, { userId: h.owner.id, title: `Pelanggaran chat — ${h.name}`, body: "Sebuah pesan tamu diblokir karena berbagi kontak / transaksi di luar sistem.", type: "info" });
+    return res.json({ message: msg, flagged: true, reason: verdict.reason });
+  }
+
   const msg = await prisma.hotelMessage.create({ data: { threadId: thread.id, fromGuest: true, body: body.slice(0, 1000), readByGuest: true } });
   await prisma.hotelThread.update({ where: { id: thread.id }, data: { lastAt: new Date() } });
   // Notify the hotel owner.
-  const h = await prisma.hotel.findUnique({ where: { id: req.params.hotelId }, select: { name: true, owner: { select: { id: true } } } });
   if (h?.owner) await dispatch(prisma, { userId: h.owner.id, title: `Pesan tamu — ${h.name}`, body: body.slice(0, 120), type: "info" });
   res.json({ message: msg });
 });
@@ -3139,6 +3153,19 @@ app.post("/api/partner/messages/:threadId", requireRole("PARTNER", "ADMIN"), asy
   if (!thread) return res.status(404).json({ error: "Percakapan tidak ditemukan" });
   const body = String(req.body?.reply ?? req.body?.body ?? "").trim();
   if (!body) return res.status(400).json({ error: "Balasan kosong" });
+
+  // Moderation applies to the hotel side too.
+  const verdict = screenChat(body);
+  if (verdict.flagged) {
+    const msg = await prisma.hotelMessage.create({ data: {
+      threadId: thread.id, fromGuest: false, body: violationNotice(verdict.reason!),
+      flagged: true, violation: verdict.reason, readByHotel: true } });
+    await prisma.hotelThread.update({ where: { id: thread.id }, data: { lastAt: new Date() } });
+    audit(req, "chat.violation", "HotelThread", thread.id, { by: "hotel", reason: verdict.reason });
+    await dispatch(prisma, { userId: thread.userId, title: "Pelanggaran chat", body: "Sebuah pesan dari hotel diblokir karena berbagi kontak / transaksi di luar sistem.", type: "info" });
+    return res.json({ message: msg, flagged: true, reason: verdict.reason });
+  }
+
   const msg = await prisma.hotelMessage.create({ data: { threadId: thread.id, fromGuest: false, body: body.slice(0, 1000), readByHotel: true } });
   await prisma.hotelThread.update({ where: { id: thread.id }, data: { lastAt: new Date() } });
   await dispatch(prisma, { userId: thread.userId, title: "Balasan dari Hotel", body: body.slice(0, 120), type: "info" });

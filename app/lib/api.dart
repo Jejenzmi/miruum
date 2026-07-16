@@ -309,7 +309,8 @@ class Api {
   // ── Guest ↔ Hotel chat ──
   Future<Map<String, dynamic>> hotelChat(String hotelId) async =>
       (await _get('/hotel-chat/$hotelId')) as Map<String, dynamic>;
-  Future<void> sendHotelChat(String hotelId, String body) async => _post('/hotel-chat/$hotelId', {'body': body});
+  Future<Map<String, dynamic>> sendHotelChat(String hotelId, String body) async =>
+      (await _post('/hotel-chat/$hotelId', {'body': body})) as Map<String, dynamic>;
 }
 
 class ApiException implements Exception {

@@ -59,8 +59,13 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
     setState(() => _sending = true);
     _ctl.clear();
     try {
-      await context.read<Api>().sendHotelChat(widget.hotelId, text);
+      final res = await context.read<Api>().sendHotelChat(widget.hotelId, text);
       await _load(silent: true);
+      if (mounted && res['flagged'] == true) {
+        showSnack(context,
+            'Pesan diblokir: ${res['reason'] ?? 'melanggar kebijakan'}. Dilarang berbagi nomor/kontak atau bertransaksi di luar Miruum.',
+            kind: SnackKind.error);
+      }
     } catch (e) {
       if (mounted) showSnack(context, 'Gagal mengirim pesan', kind: SnackKind.error);
     } finally {
@@ -110,6 +115,31 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
 
   Widget _bubble(Map<String, dynamic> m) {
     final fromGuest = m['fromGuest'] == true;
+    // Blocked (policy-violating) message → centered violation notice for both sides.
+    if (m['flagged'] == true) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFDEDED),
+          border: Border.all(color: const Color(0xFFE7A6A6)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.gpp_maybe_rounded, size: 18, color: Color(0xFFC0392B)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Pelanggaran kebijakan${fromGuest ? ' (Anda)' : ' (Hotel)'}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFC0392B))),
+              const SizedBox(height: 2),
+              Text((m['body'] ?? '').toString(),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF8A4B45), height: 1.35)),
+            ]),
+          ),
+        ]),
+      );
+    }
     return Align(
       alignment: fromGuest ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
