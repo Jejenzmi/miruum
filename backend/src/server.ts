@@ -992,6 +992,15 @@ async function markPaymentPaid(paymentId: string) {
     type: "success", hotelName: payment.booking.hotel.name, orderCode: payment.booking.code,
     phone: payment.booking.bookerPhone, email: payment.booking.bookerEmail,
   });
+  // Send the property its confirmation receipt (with price + commission).
+  if (payment.booking.hotel.ownerId) {
+    await dispatch(prisma, {
+      userId: payment.booking.hotel.ownerId,
+      title: `Pesanan baru — ${payment.booking.hotel.name}`,
+      body: `${payment.booking.bookerName} · ${payment.booking.nights} malam · No. ${payment.booking.code}.\nKonfirmasi & komisi: ${PUBLIC_ORIGIN}/api/hotels/receipt/${payment.booking.code}`,
+      type: "success",
+    });
+  }
   return updated;
 }
 
@@ -1507,10 +1516,10 @@ app.get("/api/vouchers/:code", async (req, res) => {
   <div class="row"><span class="k">Check-out</span><span class="v2">${fmtDate(b.checkOut)}</span></div>
   <div class="row"><span class="k">Durasi</span><span class="v2">${b.nights} malam</span></div>
   <div class="row"><span class="k">Alamat</span><span class="v2">${b.hotel.address}</span></div>
-  <div class="tot"><span>Total Dibayar</span><span>${rupiah(Number(b.totalPrice))}</span></div>
-  <div class="foot">E-voucher resmi Miruum. Simpan atau tunjukkan di layar saat check-in.<br>Butuh bantuan? Live Chat CS di aplikasi Miruum · ota.gokar.id</div>
+  ${b.hotel.checkInInfo ? `<div class="sec">Informasi Check-in</div><div style="font-size:12.5px;color:#5a6069;line-height:1.6">${b.hotel.checkInInfo}</div>` : ""}
+  <div class="foot">E-voucher resmi Miruum — bukti pemesanan menginap. Tunjukkan saat check-in.<br>Butuh bantuan? Live Chat CS di aplikasi Miruum · ota.gokar.id</div>
 </div></div>
-<div class="actions"><a href="/api/invoices/${b.code}" class="pbtn" style="background:#fff;color:#20262e;border:1px solid #d7dae1;margin-right:8px">Lihat Invoice</a><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+<div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
 });
 
@@ -1548,6 +1557,65 @@ app.get("/api/invoices/:code", async (req, res) => {
   <div class="foot">Invoice ini diterbitkan secara elektronik oleh Miruum dan sah tanpa tanda tangan.<br>ota.gokar.id</div>
 </div></div>
 <div class="actions"><a href="/api/vouchers/${b.code}" class="pbtn" style="background:#fff;color:#20262e;border:1px solid #d7dae1;margin-right:8px">Lihat E-Voucher</a><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+</body></html>`);
+});
+
+// Per-booking commission split (hotel-facing figures).
+async function bookingSplit(b: { roomPrice: number | bigint; channel?: { type: string; commissionPct: number } | null }) {
+  const gross = Number(b.roomPrice);
+  const isDirect = !b.channel || b.channel.type === "DIRECT";
+  const pct = isDirect ? await getNum("directCommissionPct") : b.channel!.commissionPct;
+  const commission = isDirect ? Math.round((gross * pct) / 100) : Math.round((gross * pct) / (100 + pct));
+  return { gross, isDirect, pct, commission, hotelNet: gross - commission };
+}
+
+// Hotel-facing voucher/receipt — full booking detail INCLUDING price & commission.
+// Sent to the property on payment; downloadable from the extranet booking list.
+app.get("/api/hotels/receipt/:code", async (req, res) => {
+  const b = await prisma.booking.findUnique({
+    where: { code: req.params.code },
+    include: { hotel: true, room: true, channel: { select: { code: true, name: true, type: true, commissionPct: true } } },
+  });
+  if (!b) return res.status(404).send("<h1>Receipt tidak ditemukan</h1>");
+  const paid = b.status === "PAID" || b.status === "COMPLETED";
+  const qr = await qrSvg(b.code);
+  const f = await bookingSplit(b);
+  const chLabel = f.isDirect ? "Direct (Channel Manager Miruum)" : (b.channel?.name ?? "OTA");
+  const payoutLine = f.isDirect
+    ? `<div class="row"><span class="k">Dibayarkan ke hotel (settlement)</span><span class="v2" style="color:#1E7E38">${rupiah(f.hotelNet)}</span></div>`
+    : `<div class="row"><span class="k">Diterima hotel via ${b.channel?.name ?? "OTA"}</span><span class="v2">${rupiah(f.hotelNet)}</span></div>`;
+  res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Konfirmasi Hotel ${b.code} — Miruum</title><style>${DOC_CSS}</style></head><body>
+<div class="doc"><div class="hd">
+  <div class="logo-plate"><img src="${PUBLIC_ORIGIN}/static/logo.png" alt="Miruum"></div>
+  <div class="kind" style="margin-top:14px">Konfirmasi Pemesanan — Untuk Hotel</div>
+  <h1>${b.hotel.name}</h1>
+  <div class="sub">${b.hotel.city} · Kanal: ${chLabel}</div>
+  <span class="badge ${paid ? "ok" : "wait"}">${paid ? "TERKONFIRMASI" : b.status}</span>
+</div>
+<div class="bd">
+  <div class="qrbox">
+    <div class="qr">${qr}</div>
+    <div><div class="cd">No. Pesanan</div><div class="cc">${b.code}</div>
+    <div class="hint">Pindai untuk verifikasi tamu saat check-in.</div></div>
+  </div>
+  <div class="sec">Detail Menginap</div>
+  <div class="row"><span class="k">Tamu</span><span class="v2">${b.bookerName} · ${b.guests} tamu</span></div>
+  <div class="row"><span class="k">Kontak tamu</span><span class="v2">${b.bookerPhone || "-"}</span></div>
+  <div class="row"><span class="k">Kamar</span><span class="v2">${b.rooms}× ${b.room.name}</span></div>
+  <div class="row"><span class="k">Check-in</span><span class="v2">${fmtDate(b.checkIn)}</span></div>
+  <div class="row"><span class="k">Check-out</span><span class="v2">${fmtDate(b.checkOut)}</span></div>
+  <div class="row"><span class="k">Durasi</span><span class="v2">${b.nights} malam</span></div>
+  <div class="sec">Rincian Keuangan</div>
+  <table class="items">
+    <tr><td>Harga kamar <span class="muted">(${b.rooms} × ${b.nights} malam)</span></td><td class="r">${rupiah(f.gross)}</td></tr>
+    <tr><td>Komisi Miruum <span class="muted">(${f.pct}%)</span></td><td class="r" style="color:#C0392B">−${rupiah(f.commission)}</td></tr>
+  </table>
+  ${payoutLine}
+  <div class="tot"><span>Net untuk Hotel</span><span>${rupiah(f.hotelNet)}</span></div>
+  <div class="foot">Dokumen internal untuk pihak hotel. Nominal komisi mengikuti perjanjian kanal.<br>Miruum OTA · ota.gokar.id</div>
+</div></div>
+<div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
 });
 

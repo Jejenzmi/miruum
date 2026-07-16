@@ -13,18 +13,17 @@
           <td><%= rupiah(b.totalPrice) %></td>
           <td><span class="pill <%= b.status %>"><%= b.status %></span></td>
           <td>
-            <% if (b.status === 'PAID') { %>
-              <div class="actions">
+            <div class="actions">
+              <a class="btn ghost sm" href="/api/hotels/receipt/<%= b.code %>" target="_blank">Konfirmasi + Komisi</a>
+              <% if (b.status === 'PAID') { %>
                 <form method="post" action="/extranet/bookings/<%= b.id %>/status">
                   <input type="hidden" name="status" value="COMPLETED"><button class="btn sm">Selesai</button>
                 </form>
                 <form method="post" action="/extranet/bookings/<%= b.id %>/status" data-confirm="Batalkan pesanan?">
                   <input type="hidden" name="status" value="CANCELLED"><button class="btn danger sm">Batal</button>
                 </form>
-              </div>
-            <% } else { %>
-              <span class="muted">—</span>
-            <% } %>
+              <% } %>
+            </div>
           </td>
         </tr>
       <% }) %>
