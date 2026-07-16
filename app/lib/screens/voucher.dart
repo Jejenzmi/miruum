@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../api.dart';
 import '../feedback.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
+import '../voucher_pdf.dart';
 import '../widgets.dart';
 import 'shell.dart';
 
@@ -54,14 +56,27 @@ class VoucherScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: Column(children: [
-                OutlineButtonX('Lihat / Unduh E-Voucher', icon: Icons.receipt_long_rounded,
-                    onPressed: () async {
-                  final ok = await openUrl(context.read<Api>().voucherUrl(booking.code));
-                  if (!ok && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Tidak dapat membuka e-voucher')));
-                  }
-                }),
+                Row(children: [
+                  Expanded(child: OutlineButtonX('Lihat E-Voucher', icon: Icons.picture_as_pdf_rounded,
+                      onPressed: () async {
+                    try {
+                      final bytes = await buildGuestVoucherPdf(booking);
+                      await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'Voucher-${booking.code}.pdf');
+                    } catch (_) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal membuka voucher PDF')));
+                    }
+                  })),
+                  const SizedBox(width: 10),
+                  Expanded(child: OutlineButtonX('Bagikan PDF', icon: Icons.ios_share_rounded,
+                      onPressed: () async {
+                    try {
+                      final bytes = await buildGuestVoucherPdf(booking);
+                      await Printing.sharePdf(bytes: bytes, filename: 'Voucher-${booking.code}.pdf');
+                    } catch (_) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal membagikan voucher')));
+                    }
+                  })),
+                ]),
                 const SizedBox(height: 10),
                 PrimaryButton('Selesai', onPressed: () => goToTab(context, 1)), // → Pesanan tab
               ]),

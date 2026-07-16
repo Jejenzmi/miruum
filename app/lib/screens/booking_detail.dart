@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../api.dart';
 import '../feedback.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
+import '../voucher_pdf.dart';
 import '../widgets.dart';
 import 'pembayaran.dart';
 
@@ -76,9 +78,22 @@ class BookingDetailScreen extends StatelessWidget {
             PrimaryButton('Lanjutkan Pembayaran', icon: Icons.payment_rounded,
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id))))
           else if (b.status == 'PAID' || b.status == 'COMPLETED') ...[
-            PrimaryButton('Lihat E-Voucher', icon: Icons.confirmation_number_rounded, onPressed: () async {
-              final ok = await openUrl(context.read<Api>().voucherUrl(b.code));
-              if (!ok && context.mounted) showSnack(context, 'Tidak dapat membuka e-voucher.', kind: SnackKind.error);
+            PrimaryButton('Lihat E-Voucher (PDF)', icon: Icons.picture_as_pdf_rounded, onPressed: () async {
+              try {
+                final bytes = await buildGuestVoucherPdf(b);
+                await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'Voucher-${b.code}.pdf');
+              } catch (_) {
+                if (context.mounted) showSnack(context, 'Gagal membuka voucher PDF.', kind: SnackKind.error);
+              }
+            }),
+            const SizedBox(height: 10),
+            OutlineButtonX('Bagikan Voucher (PDF)', icon: Icons.ios_share_rounded, onPressed: () async {
+              try {
+                final bytes = await buildGuestVoucherPdf(b);
+                await Printing.sharePdf(bytes: bytes, filename: 'Voucher-${b.code}.pdf');
+              } catch (_) {
+                if (context.mounted) showSnack(context, 'Gagal membagikan voucher.', kind: SnackKind.error);
+              }
             }),
             const SizedBox(height: 10),
             OutlineButtonX('Lihat Invoice', icon: Icons.description_rounded, onPressed: () async {

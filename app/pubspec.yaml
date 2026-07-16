@@ -34,6 +34,9 @@ dependencies:
   google_sign_in: ^6.2.1
   flutter_secure_storage: ^9.2.2
   package_info_plus: ^8.0.2
+  pdf: ^3.11.1
+  printing: ^5.13.4
+  barcode: ^2.2.8
 
 # geolocator_android >=4.6 needs the modern Flutter Gradle plugin (references
 # `flutter.compileSdkVersion`); this project uses the legacy apply, so pin the
