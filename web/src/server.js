@@ -890,6 +890,16 @@ app.post("/extranet/reviews/:id/reply", partnerGuard, async (req, res) => {
   res.redirect("/extranet/reviews?saved=1");
 });
 
+// Property Q&A — partner answers guest questions.
+app.get("/extranet/questions", partnerGuard, async (req, res) => {
+  const { questions } = await api("/partner/questions", { token: res.locals.token });
+  res.render("extranet/questions", { questions, active: "questions", saved: req.query.saved });
+});
+app.post("/extranet/questions/:id/answer", partnerGuard, async (req, res) => {
+  try { await api(`/partner/questions/${req.params.id}/answer`, { method: "POST", token: res.locals.token, body: { answer: req.body.answer } }); } catch (_) {}
+  res.redirect("/extranet/questions?saved=1");
+});
+
 // Guest messages inbox + thread + reply.
 app.get("/extranet/messages", partnerGuard, async (req, res) => {
   const { threads } = await api("/partner/messages", { token: res.locals.token });

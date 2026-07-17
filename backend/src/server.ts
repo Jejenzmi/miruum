@@ -360,6 +360,27 @@ async function runPriceAlerts() {
   } catch (e: any) { logger.error({ err: e }, "price alerts failed"); }
 }
 
+// Ask guests to review after they've checked out (once per stay).
+async function runReviewRequests() {
+  try {
+    const bookings = await prisma.booking.findMany({
+      where: { status: { in: ["PAID", "COMPLETED"] }, reviewRequestedAt: null, checkOut: { lt: new Date() } },
+      select: { id: true, userId: true, hotelId: true, code: true, hotel: { select: { name: true } } }, take: 200,
+    });
+    let sent = 0;
+    for (const b of bookings) {
+      const already = await prisma.review.findFirst({ where: { hotelId: b.hotelId, userId: b.userId }, select: { id: true } });
+      if (!already) {
+        await dispatch(prisma, { userId: b.userId, title: `Bagaimana menginap di ${b.hotel.name}?`,
+          body: "Bagikan ulasanmu & bantu tamu lain. Ketuk untuk memberi rating & foto.", type: "info", hotelName: b.hotel.name, orderCode: b.code });
+        sent++;
+      }
+      await prisma.booking.update({ where: { id: b.id }, data: { reviewRequestedAt: new Date() } });
+    }
+    if (sent) logger.info({ sent }, "post-stay review requests sent");
+  } catch (e: any) { logger.error({ err: e }, "review requests failed"); }
+}
+
 app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
     name: z.string().min(2).optional(),
@@ -825,6 +846,11 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     if (promo) { discount = Math.round((baseAmount * promo.discountPct) / 100); promoCode = promo.code; }
   }
 
+  // Membership tier discount (Perak/Emas/Platinum) off the accommodation subtotal.
+  const meTier = await prisma.user.findUnique({ where: { id: req.userId }, select: { lifetimePoints: true } });
+  const tier = tierOf(meTier?.lifetimePoints ?? 0);
+  if (tier.discountPct > 0) discount += Math.round((baseAmount * tier.discountPct) / 100);
+
   // Redeem loyalty points as an extra discount (capped at loyaltyMaxRedeemPct%).
   let pointsUsed = 0;
   if (d.usePoints) {
@@ -891,19 +917,39 @@ async function awardLoyalty(userId: string, roomSpend: number, bookingId: string
   if (await prisma.loyaltyTxn.findFirst({ where: { bookingId, type: "EARN" } })) return; // already awarded
   await prisma.$transaction([
     prisma.loyaltyTxn.create({ data: { userId, points: pts, type: "EARN", bookingId, note: `Poin dari pesanan ${code}` } }),
-    prisma.user.update({ where: { id: userId }, data: { loyaltyPoints: { increment: pts } } }),
+    prisma.user.update({ where: { id: userId }, data: { loyaltyPoints: { increment: pts }, lifetimePoints: { increment: pts } } }),
   ]);
   await dispatch(prisma, { userId, title: "Poin Miruum Bertambah 🎉", body: `Kamu mendapat ${pts} poin dari pesanan ${code}. Tukarkan jadi diskon di pemesanan berikutnya!`, type: "success" });
+}
+
+// ─────────────── Membership tiers (from lifetime points earned) ───────────────
+const TIERS = [
+  { key: "BRONZE",   label: "Perunggu", min: 0,     discountPct: 0, color: "#B87333" },
+  { key: "SILVER",   label: "Perak",    min: 1000,  discountPct: 2, color: "#9AA0A6" },
+  { key: "GOLD",     label: "Emas",     min: 5000,  discountPct: 5, color: "#E0A21B" },
+  { key: "PLATINUM", label: "Platinum", min: 15000, discountPct: 8, color: "#5B6B7B" },
+];
+function tierOf(lifetimePoints: number) {
+  let cur = TIERS[0];
+  for (const t of TIERS) if (lifetimePoints >= t.min) cur = t;
+  const idx = TIERS.indexOf(cur);
+  const next = TIERS[idx + 1] ?? null;
+  return {
+    ...cur, lifetimePoints,
+    next: next ? { label: next.label, min: next.min, remaining: Math.max(0, next.min - lifetimePoints) } : null,
+    progressPct: next ? Math.min(100, Math.round(((lifetimePoints - cur.min) / (next.min - cur.min)) * 100)) : 100,
+  };
 }
 
 // Loyalty balance + history.
 app.get("/api/loyalty", requireAuth, async (req: AuthRequest, res) => {
   const s = await getSettings();
-  const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { loyaltyPoints: true } });
+  const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { loyaltyPoints: true, lifetimePoints: true } });
   const txns = await prisma.loyaltyTxn.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 50 });
   res.json({
     enabled: s.loyaltyEnabled === "1",
     points: user?.loyaltyPoints ?? 0,
+    tier: tierOf(user?.lifetimePoints ?? 0),
     redeemValue: Number(s.loyaltyRedeemValue) || 100,
     earnPer: Number(s.loyaltyEarnPer) || 10000,
     maxRedeemPct: Number(s.loyaltyMaxRedeemPct) || 30,
@@ -1094,6 +1140,116 @@ app.post("/api/hotels/:id/price-alert", requireAuth, async (req: AuthRequest, re
   }
   await prisma.priceAlert.create({ data: { userId: req.userId!, hotelId: hotel.id, lastNotifiedPrice: hotel.priceFrom } });
   res.json({ watching: true });
+});
+
+// ═══════════════ Recently viewed + recommendations ═══════════════
+app.post("/api/hotels/:id/view", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    await prisma.recentlyViewed.upsert({
+      where: { userId_hotelId: { userId: req.userId!, hotelId: req.params.id } },
+      create: { userId: req.userId!, hotelId: req.params.id }, update: { viewedAt: new Date() },
+    });
+  } catch { /* hotel may not exist — ignore */ }
+  res.json({ ok: true });
+});
+app.get("/api/recently-viewed", requireAuth, async (req: AuthRequest, res) => {
+  const rows = await prisma.recentlyViewed.findMany({
+    where: { userId: req.userId }, orderBy: { viewedAt: "desc" }, take: 12,
+    include: { hotel: { select: hotelCard } },
+  });
+  res.json({ hotels: rows.map((r) => r.hotel) });
+});
+
+// ═══════════════ Voucher wallet ("Voucher Saya") ═══════════════
+app.get("/api/my-vouchers", requireAuth, async (req: AuthRequest, res) => {
+  const [mine, claimable] = await Promise.all([
+    prisma.userVoucher.findMany({ where: { userId: req.userId }, orderBy: { claimedAt: "desc" }, include: { promo: true } }),
+    prisma.promo.findMany({ where: { claimable: true } }),
+  ]);
+  const mineIds = new Set(mine.map((m) => m.promoId));
+  res.json({
+    mine: mine.map((m) => ({ ...m.promo, claimedAt: m.claimedAt, usedAt: m.usedAt })),
+    claimable: claimable.filter((p) => !mineIds.has(p.id)),
+  });
+});
+app.post("/api/promos/:id/claim", requireAuth, async (req: AuthRequest, res) => {
+  const promo = await prisma.promo.findFirst({ where: { id: req.params.id, claimable: true } });
+  if (!promo) return res.status(404).json({ error: "Voucher tidak tersedia" });
+  await prisma.userVoucher.upsert({
+    where: { userId_promoId: { userId: req.userId!, promoId: promo.id } },
+    create: { userId: req.userId!, promoId: promo.id }, update: {},
+  });
+  res.json({ ok: true, code: promo.code });
+});
+
+// ═══════════════ Referral / invite friends ═══════════════
+function genReferral(name: string): string {
+  const base = (name.replace(/[^A-Za-z]/g, "").slice(0, 4).toUpperCase() || "MIRU");
+  return base + Math.floor(1000 + Math.random() * 9000);
+}
+app.get("/api/referral", requireAuth, async (req: AuthRequest, res) => {
+  let u = await prisma.user.findUnique({ where: { id: req.userId }, select: { referralCode: true, name: true } });
+  if (!u) return res.status(404).json({ error: "User tidak ditemukan" });
+  if (!u.referralCode) {
+    let code = genReferral(u.name);
+    for (let i = 0; i < 5; i++) { if (!(await prisma.user.findUnique({ where: { referralCode: code } }))) break; code = genReferral(u.name); }
+    await prisma.user.update({ where: { id: req.userId }, data: { referralCode: code } });
+    u = { ...u, referralCode: code };
+  }
+  const invited = await prisma.user.count({ where: { referredById: req.userId } });
+  res.json({ code: u.referralCode, invited, bonusPoints: 100 });
+});
+app.post("/api/referral/apply", requireAuth, async (req: AuthRequest, res) => {
+  const code = String(req.body?.code || "").toUpperCase().trim();
+  const me = await prisma.user.findUnique({ where: { id: req.userId }, select: { referredById: true } });
+  if (me?.referredById) return res.status(400).json({ error: "Kamu sudah memakai kode referral" });
+  const referrer = await prisma.user.findUnique({ where: { referralCode: code } });
+  if (!referrer || referrer.id === req.userId) return res.status(404).json({ error: "Kode referral tidak valid" });
+  const BONUS = 100;
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: req.userId! }, data: { referredById: referrer.id, loyaltyPoints: { increment: BONUS }, lifetimePoints: { increment: BONUS } } }),
+    prisma.user.update({ where: { id: referrer.id }, data: { loyaltyPoints: { increment: BONUS }, lifetimePoints: { increment: BONUS } } }),
+    prisma.loyaltyTxn.create({ data: { userId: req.userId!, points: BONUS, type: "EARN", note: `Bonus referral (${code})` } }),
+    prisma.loyaltyTxn.create({ data: { userId: referrer.id, points: BONUS, type: "EARN", note: "Bonus mengundang teman" } }),
+  ]);
+  await dispatch(prisma, { userId: referrer.id, title: "Teman bergabung! 🎁", body: `Kamu dapat ${BONUS} poin karena temanmu memakai kode referralmu.`, type: "success" });
+  res.json({ ok: true, bonus: BONUS });
+});
+
+// ═══════════════ Public property Q&A ═══════════════
+app.get("/api/hotels/:id/questions", async (req, res) => {
+  const questions = await prisma.hotelQuestion.findMany({ where: { hotelId: req.params.id }, orderBy: { createdAt: "desc" }, take: 50 });
+  res.json({ questions });
+});
+app.post("/api/hotels/:id/questions", requireAuth, async (req: AuthRequest, res) => {
+  const body = String(req.body?.body ?? "").trim();
+  if (body.length < 3) return res.status(400).json({ error: "Pertanyaan minimal 3 karakter" });
+  const verdict = screenChat(body);
+  if (verdict.flagged) return res.status(400).json({ error: `Pertanyaan diblokir — ${verdict.reason}` });
+  const hotel = await prisma.hotel.findUnique({ where: { id: req.params.id }, select: { id: true, name: true, ownerId: true } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { name: true } });
+  const q = await prisma.hotelQuestion.create({ data: { hotelId: hotel.id, userId: req.userId, authorName: user?.name ?? "Tamu", body: body.slice(0, 500) } });
+  if (hotel.ownerId) await dispatch(prisma, { userId: hotel.ownerId, title: `Pertanyaan baru — ${hotel.name}`, body: body.slice(0, 120), type: "info" });
+  res.json({ question: q });
+});
+app.get("/api/partner/questions", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const questions = await prisma.hotelQuestion.findMany({
+    where: admin ? {} : { hotel: { ownerId: req.userId } }, orderBy: { createdAt: "desc" }, take: 100,
+    include: { hotel: { select: { name: true } } },
+  });
+  res.json({ questions });
+});
+app.post("/api/partner/questions/:id/answer", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const q = await prisma.hotelQuestion.findFirst({ where: { id: req.params.id, ...(admin ? {} : { hotel: { ownerId: req.userId } }) } });
+  if (!q) return res.status(404).json({ error: "Pertanyaan tidak ditemukan" });
+  const answer = String(req.body?.answer ?? "").trim();
+  if (!answer) return res.status(400).json({ error: "Jawaban kosong" });
+  const updated = await prisma.hotelQuestion.update({ where: { id: q.id }, data: { answer: answer.slice(0, 1000), answeredAt: new Date() } });
+  if (q.userId) await dispatch(prisma, { userId: q.userId, title: "Pertanyaanmu dijawab", body: answer.slice(0, 120), type: "info" });
+  res.json({ question: updated });
 });
 
 // Set a hotel's property type (partner or admin).
@@ -2549,7 +2705,8 @@ app.get("/api/admin/promos", requireRole("ADMIN"), async (_req, res) => {
 });
 app.post("/api/admin/promos", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({ code: z.string().min(2), title: z.string().min(2), description: z.string().default(""),
-    discountPct: z.coerce.number().int().min(1).max(100), imageUrl: z.string().default(""), validUntil: z.string().optional() });
+    discountPct: z.coerce.number().int().min(1).max(100), imageUrl: z.string().default(""), validUntil: z.string().optional(),
+    claimable: formBool });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data promo tidak valid" });
   try {
@@ -3823,6 +3980,9 @@ if (process.env.NODE_ENV !== "test") {
     }, 24 * 3600_000).unref();
     // Price-drop alerts: every 6h.
     setInterval(() => runPriceAlerts().catch(() => {}), 6 * 3600_000).unref();
+    // Post-stay review requests: now + every 12h.
+    runReviewRequests();
+    setInterval(() => runReviewRequests().catch(() => {}), 12 * 3600_000).unref();
   });
   // Graceful shutdown — stop accepting connections, then exit.
   for (const sig of ["SIGTERM", "SIGINT"] as const) {

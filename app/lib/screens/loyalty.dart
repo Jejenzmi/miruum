@@ -71,6 +71,10 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                         Text('Senilai ${rupiah(rupiahValue)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
                       ]),
                     ),
+                    if (d['tier'] != null) ...[
+                      const SizedBox(height: 16),
+                      _tierCard(d['tier'] as Map),
+                    ],
                     const SizedBox(height: 16),
                     // How it works
                     cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -108,6 +112,44 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                   ]),
                 ),
     );
+  }
+
+  Color _hex(String? h) {
+    if (h == null) return MC.primary;
+    var s = h.replaceFirst('#', '');
+    if (s.length == 6) s = 'FF$s';
+    return Color(int.tryParse(s, radix: 16) ?? 0xFFF59331);
+  }
+
+  Widget _tierCard(Map t) {
+    final c = _hex(t['color'] as String?);
+    final next = t['next'] as Map?;
+    final pct = (t['progressPct'] ?? 100) as int;
+    final disc = (t['discountPct'] ?? 0) as int;
+    return cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(width: 42, height: 42, decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+          child: Icon(Icons.workspace_premium_rounded, color: c, size: 24)),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Member ${t['label']}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: c)),
+          Text('${t['lifetimePoints']} poin seumur hidup', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+        ])),
+        if (disc > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(color: c.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+          child: Text('Diskon +$disc%', style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 11.5))),
+      ]),
+      if (next != null) ...[
+        const SizedBox(height: 12),
+        ClipRRect(borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(value: pct / 100, minHeight: 7, backgroundColor: MC.field, color: c)),
+        const SizedBox(height: 6),
+        Text('${next['remaining']} poin lagi menuju ${next['label']}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+      ] else ...[
+        const SizedBox(height: 8),
+        Text('Kamu di tier tertinggi! 🎉', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+      ],
+    ]));
   }
 
   Widget _bullet(String t) => Padding(

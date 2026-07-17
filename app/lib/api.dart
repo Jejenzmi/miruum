@@ -324,6 +324,24 @@ class Api {
   Future<Map<String, dynamic>> sendHotelChat(String hotelId, String body) async =>
       (await _post('/hotel-chat/$hotelId', {'body': body})) as Map<String, dynamic>;
 
+  // ── Recently viewed ──
+  Future<void> trackView(String hotelId) async { try { await _post('/hotels/$hotelId/view'); } catch (_) {} }
+  Future<List<Hotel>> recentlyViewed() async =>
+      ((await _get('/recently-viewed'))['hotels'] as List).map((h) => Hotel.fromJson(h)).toList();
+
+  // ── Voucher wallet ("Voucher Saya") ──
+  Future<Map<String, dynamic>> myVouchers() async => (await _get('/my-vouchers')) as Map<String, dynamic>;
+  Future<void> claimVoucher(String promoId) async => _post('/promos/$promoId/claim');
+
+  // ── Referral ──
+  Future<Map<String, dynamic>> referral() async => (await _get('/referral')) as Map<String, dynamic>;
+  Future<Map<String, dynamic>> applyReferral(String code) async =>
+      (await _post('/referral/apply', {'code': code})) as Map<String, dynamic>;
+
+  // ── Property Q&A ──
+  Future<List<dynamic>> hotelQuestions(String hotelId) async => (await _get('/hotels/$hotelId/questions'))['questions'] as List;
+  Future<void> askQuestion(String hotelId, String body) async => _post('/hotels/$hotelId/questions', {'body': body});
+
   // ── Price alerts (watch a hotel for price drops) ──
   Future<bool> togglePriceAlert(String hotelId) async =>
       ((await _post('/hotels/$hotelId/price-alert')) as Map)['watching'] == true;

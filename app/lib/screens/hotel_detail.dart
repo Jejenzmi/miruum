@@ -41,6 +41,19 @@ class _HotelDetailView extends StatefulWidget {
 class _HotelDetailViewState extends State<_HotelDetailView> {
   bool _descExpanded = false;
   bool _watching = false, _watchChecked = false;
+  bool _initDone = false;
+  List<dynamic> _questions = [];
+
+  void _initOnce(String hotelId) {
+    if (_initDone) return;
+    _initDone = true;
+    // Track view (for "Baru dilihat") + load Q&A.
+    context.read<Api>().trackView(hotelId);
+    context.read<Api>().hotelQuestions(hotelId).then((q) {
+      if (mounted) setState(() => _questions = q);
+    }).catchError((_) {});
+    _checkWatch(hotelId);
+  }
 
   void _checkWatch(String hotelId) {
     if (_watchChecked || !context.read<AuthBloc>().state.isLoggedIn) return;
@@ -48,6 +61,28 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
     context.read<Api>().priceAlertHotelIds().then((ids) {
       if (mounted) setState(() => _watching = ids.contains(hotelId));
     }).catchError((_) {});
+  }
+
+  Future<void> _askQuestion(String hotelId) async {
+    if (!ensureLoggedIn(context, reason: tr('Masuk untuk bertanya.', 'Log in to ask.'))) return;
+    final ctl = TextEditingController();
+    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Ajukan Pertanyaan'),
+      content: TextField(controller: ctl, maxLines: 3, decoration: const InputDecoration(hintText: 'Contoh: apakah ada antar-jemput bandara?')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Kirim')),
+      ],
+    ));
+    if (ok != true || ctl.text.trim().length < 3) return;
+    try {
+      await context.read<Api>().askQuestion(hotelId, ctl.text.trim());
+      final q = await context.read<Api>().hotelQuestions(hotelId);
+      if (mounted) { setState(() => _questions = q); showSnack(context, 'Pertanyaan terkirim. Hotel akan menjawab.', kind: SnackKind.success); }
+    } on ApiException catch (e) {
+      if (mounted) showSnack(context, e.message, kind: SnackKind.error);
+    }
   }
 
   Future<void> _toggleWatch(String hotelId) async {
@@ -84,7 +119,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
           final h = state.data!;
           final fav = auth.isFavorite(h.id);
           final photos = h.photos.isNotEmpty ? h.photos : [h.imageUrl];
-          WidgetsBinding.instance.addPostFrameCallback((_) => _checkWatch(h.id));
+          WidgetsBinding.instance.addPostFrameCallback((_) => _initOnce(h.id));
           return Stack(
             children: [
               CustomScrollView(
@@ -244,6 +279,17 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                             const SizedBox(height: 14),
                           ],
                           for (final r in h.reviews.take(2)) _reviewTile(r),
+                          const SizedBox(height: 22),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Tanya Jawab', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            GestureDetector(onTap: () => _askQuestion(h.id),
+                                child: const Text('Ajukan Pertanyaan', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13))),
+                          ]),
+                          const SizedBox(height: 12),
+                          if (_questions.isEmpty)
+                            Text('Belum ada pertanyaan. Jadilah yang pertama bertanya!', style: TextStyle(color: MC.inkMuted, fontSize: 13))
+                          else
+                            for (final q in _questions.take(4)) _qaTile(q),
                           const SizedBox(height: 14),
                           const Text('Waktu Check-in & Check-out', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),
@@ -387,6 +433,31 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                     child: LinearProgressIndicator(value: (h.reviewScores[e.key]! / 10).clamp(0, 1), minHeight: 5, backgroundColor: MC.field, color: MC.primary))),
                 ])),
           ]),
+        ]),
+      );
+
+  Widget _qaTile(Map q) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(12), boxShadow: [softShadow]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('T: ', style: TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark, fontSize: 13.5)),
+            Expanded(child: Text((q['body'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
+          ]),
+          if ((q['answer'] ?? '').toString().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(10)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.storefront_rounded, size: 13, color: MC.primaryDark),
+                const SizedBox(width: 6),
+                Expanded(child: Text((q['answer']).toString(), style: const TextStyle(fontSize: 12.5, height: 1.4))),
+              ]),
+            ),
+          ] else
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text('Menunggu jawaban hotel…', style: TextStyle(color: MC.inkFaint, fontSize: 11.5, fontStyle: FontStyle.italic))),
         ]),
       );
 

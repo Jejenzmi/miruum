@@ -139,11 +139,60 @@ model User {
   refreshTokens RefreshToken[]
   verificationCodes VerificationCode[]
   loyaltyPoints Int      @default(0) // current redeemable balance (denormalized)
+  lifetimePoints Int     @default(0) // total points ever earned → membership tier
+  referralCode  String?  @unique     // this user's invite code
+  referredById  String?             // who invited this user
   loyaltyTxns   LoyaltyTxn[]
   hotelThreads  HotelThread[]
   tourBookings  TourBooking[]
   shuttleRides  ShuttleRide[]
   priceAlerts   PriceAlert[]
+  recentlyViewed RecentlyViewed[]
+  vouchers      UserVoucher[]
+  questions     HotelQuestion[]
+}
+
+// A hotel the user recently opened (for "Baru dilihat" + recommendations).
+model RecentlyViewed {
+  id       String   @id @default(cuid())
+  userId   String
+  hotelId  String
+  viewedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hotelId])
+  @@index([userId])
+}
+
+// A promo the user has collected into their "Voucher Saya" wallet.
+model UserVoucher {
+  id       String   @id @default(cuid())
+  userId   String
+  promoId  String
+  claimedAt DateTime @default(now())
+  usedAt   DateTime?
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promo    Promo    @relation(fields: [promoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promoId])
+  @@index([userId])
+}
+
+// Public Q&A on a hotel — anyone can read; the property/admin answers.
+model HotelQuestion {
+  id         String   @id @default(cuid())
+  hotelId    String
+  userId     String?
+  authorName String
+  body       String
+  answer     String?
+  answeredAt DateTime?
+  createdAt  DateTime @default(now())
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([hotelId])
 }
 
 // Direct guest ↔ hotel messaging (one thread per user+hotel).
@@ -354,6 +403,8 @@ model Hotel {
   rateObservations RateObservation[]
   nearby      HotelNearby[]
   priceAlerts PriceAlert[]
+  recentlyViewed RecentlyViewed[]
+  questions   HotelQuestion[]
 }
 
 // A guest's price-drop watch on a hotel — notified when priceFrom falls.
@@ -802,6 +853,7 @@ model Booking {
   forSelf        Boolean       @default(true)
   specialRequest String?
   payAtHotel     Boolean       @default(false) // confirmed reservation, guest pays at property
+  reviewRequestedAt DateTime?  // when we asked the guest to review after checkout
   roomPrice      BigInt
   taxFee         BigInt
   discount       BigInt        @default(0)
@@ -878,6 +930,8 @@ model Promo {
   discountPct Int      @default(0)
   imageUrl    String
   validUntil  String?
+  claimable   Boolean  @default(false) // shows in the "Voucher Saya" wallet to collect
+  userVouchers UserVoucher[]
 }
 
 enum ProgramType {

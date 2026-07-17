@@ -65,6 +65,7 @@ class _HomeView extends StatelessWidget {
                 const SizedBox(height: 20),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _categoryTiles(context))
                     .animate().fadeIn(delay: 200.ms, duration: 400.ms).slideY(begin: 0.15, end: 0),
+                const _RecentlyViewedSection(),
                 const SizedBox(height: 22),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -547,5 +548,55 @@ class _ProgramRailState extends State<_ProgramRail> {
         ]),
       ),
     );
+  }
+}
+
+/// Horizontal "Baru dilihat" strip — the hotels the user recently opened.
+class _RecentlyViewedSection extends StatefulWidget {
+  const _RecentlyViewedSection();
+  @override
+  State<_RecentlyViewedSection> createState() => _RecentlyViewedSectionState();
+}
+
+class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
+  List<Hotel> _hotels = [];
+  @override
+  void initState() {
+    super.initState();
+    if (context.read<AuthBloc>().state.isLoggedIn) {
+      context.read<Api>().recentlyViewed().then((h) {
+        if (mounted) setState(() => _hotels = h);
+      }).catchError((_) {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hotels.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 22),
+      const Padding(padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text('Baru dilihat', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700))),
+      const SizedBox(height: 12),
+      SizedBox(height: 168, child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: _hotels.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final h = _hotels[i];
+          return GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(h.id))),
+            child: SizedBox(width: 150, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              ClipRRect(borderRadius: BorderRadius.circular(14), child: NetImage(h.imageUrl, width: 150, height: 100)),
+              const SizedBox(height: 6),
+              Text(h.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              Text(h.city, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MC.inkFaint, fontSize: 11)),
+              Text(rupiah(h.priceFrom), style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 12.5)),
+            ])),
+          );
+        },
+      )),
+    ]);
   }
 }
