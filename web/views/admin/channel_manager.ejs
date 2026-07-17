@@ -84,14 +84,22 @@
         <div class="price-rule">
           <label style="margin:0 0 6px;font-weight:600;color:var(--ink)">Kategori harga sumber</label>
           <label class="pr-check"><input type="checkbox" name="feeIncluded" class="fee-toggle" <%= c.feeIncluded?'checked':'' %> onchange="this.closest('.price-rule').querySelector('.markup-box').style.opacity=this.checked?'.4':'1';this.closest('.price-rule').querySelectorAll('.markup-box input,.markup-box select').forEach(function(e){e.disabled=this.checked}.bind(this))"> Sudah termasuk fee (harga final, tanpa markup)</label>
+          <% var isNom = c.markupType==='NOMINAL'; %>
           <div class="markup-box" style="<%= c.feeIncluded?'opacity:.4':'' %>">
             <div style="display:flex;gap:8px;align-items:center">
-              <select name="markupType" style="flex:1">
-                <option value="PCT" <%= (c.markupType||'PCT')==='PCT'?'selected':'' %>>Markup Persen (%)</option>
-                <option value="NOMINAL" <%= c.markupType==='NOMINAL'?'selected':'' %>>Markup Nominal (Rp)</option>
+              <select name="markupType" style="flex:1"
+                onchange="var b=this.closest('.markup-box');var n=this.value==='NOMINAL';b.querySelector('.mk-pct').style.display=n?'none':'flex';b.querySelector('.mk-nom').style.display=n?'flex':'none';">
+                <option value="PCT" <%= isNom?'':'selected' %>>Markup Persen (%)</option>
+                <option value="NOMINAL" <%= isNom?'selected':'' %>>Markup Nominal (Rp)</option>
               </select>
-              <input name="commissionPct" type="number" step="0.1" value="<%= c.commissionPct %>" title="markup %" style="width:80px" placeholder="%" <%= c.feeIncluded?'disabled':'' %>>
-              <input name="markupNominal" type="number" step="1000" value="<%= c.markupNominal||0 %>" title="markup Rp" style="width:100px" placeholder="Rp" <%= c.feeIncluded?'disabled':'' %>>
+              <div class="mk-pct" style="display:<%= isNom?'none':'flex' %>;align-items:center;gap:4px">
+                <input name="commissionPct" type="number" step="0.1" value="<%= c.commissionPct %>" title="markup %" style="width:80px" placeholder="0" <%= c.feeIncluded?'disabled':'' %>>
+                <span class="muted" style="font-weight:700">%</span>
+              </div>
+              <div class="mk-nom" style="display:<%= isNom?'flex':'none' %>;align-items:center;gap:4px">
+                <span class="muted" style="font-weight:700">Rp</span>
+                <input name="markupNominal" type="number" step="1000" value="<%= c.markupNominal||0 %>" title="markup Rp" style="width:120px" placeholder="0" <%= c.feeIncluded?'disabled':'' %>>
+              </div>
             </div>
           </div>
         </div>
