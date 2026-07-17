@@ -24,7 +24,7 @@ class AppGate {
       final update = (cfg['update'] as Map?) ?? const {};
       final minV = (update['minVersion'] ?? '').toString();
       final latestV = (update['latestVersion'] ?? '').toString();
-      final url = (update['url'] ?? 'https://ota.gokar.id/ota.apk').toString();
+      final url = (update['url'] ?? 'https://api.miruum.id/ota.apk').toString();
       final notes = (update['notes'] ?? '').toString();
 
       // 1) Forced update — user's version is below the minimum allowed.

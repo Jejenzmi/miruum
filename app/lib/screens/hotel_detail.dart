@@ -142,7 +142,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                       }),
                       const SizedBox(width: 8),
                       _circleBtn(Icons.share_rounded, () => Share.share(
-                          'Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://ota.gokar.id')),
+                          'Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://api.miruum.id')),
                       const SizedBox(width: 8),
                       _circleBtn(Icons.bookmark_add_outlined, () {
                         if (!ensureLoggedIn(context, reason: tr('Masuk untuk menyimpan ke Trip.', 'Log in to save to a Trip.'))) return;

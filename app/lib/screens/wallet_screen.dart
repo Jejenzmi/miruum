@@ -112,7 +112,7 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Text(code, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: 2)),
           )),
           const SizedBox(width: 10),
-          IconButton(onPressed: () => Share.share('Pakai kode $code di aplikasi Miruum & dapat $bonus poin! Unduh: https://ota.gokar.id'),
+          IconButton(onPressed: () => Share.share('Pakai kode $code di aplikasi Miruum & dapat $bonus poin! Unduh: https://api.miruum.id'),
             icon: const Icon(Icons.share_rounded, color: Colors.white)),
         ]),
         const SizedBox(height: 12),

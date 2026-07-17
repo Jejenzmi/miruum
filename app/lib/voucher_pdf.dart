@@ -75,7 +75,7 @@ Future<Uint8List> buildGuestVoucherPdf(Booking b) async {
       pw.Divider(color: PdfColors.grey300),
       pw.Text('E-voucher resmi Miruum — bukti pemesanan menginap. Voucher ini tidak memuat nominal harga.',
           style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
-      pw.Text('Butuh bantuan? Live Chat CS di aplikasi Miruum · ota.gokar.id',
+      pw.Text('Butuh bantuan? Live Chat CS di aplikasi Miruum · miruum.id',
           style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
     ]),
   ));

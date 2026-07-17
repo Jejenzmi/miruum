@@ -13,7 +13,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   // Mobile app update prompt (shown by the app on launch).
   app_latest_version: "", // e.g. "1.1.0" — newer than this → optional update popup
   app_min_version: "",     // e.g. "1.1.0" — older than this → forced update popup
-  app_update_url: "https://ota.gokar.id/ota.apk",
+  app_update_url: "https://api.miruum.id/ota.apk",
   app_update_notes: "",
   // Loyalty points.
   loyaltyEnabled: "1",
