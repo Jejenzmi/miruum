@@ -130,9 +130,21 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                             const SizedBox(width: 8),
                             StarRow(h.starRating),
                           ]),
-                          const SizedBox(height: 6),
-                          Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
-                              style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                              decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(8)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(_propIcon(h.propertyType), size: 13, color: MC.primaryDark),
+                                const SizedBox(width: 4),
+                                Text(PropertyType.label(h.propertyType), style: const TextStyle(color: MC.primaryDark, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                              ]),
+                            ),
+                            const SizedBox(width: 10),
+                            Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
+                                style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700)),
+                          ]),
                           const SizedBox(height: 20),
                           const Text('Fasilitas', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),
@@ -160,10 +172,20 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                             const SizedBox(height: 12),
                             HotelLocationMap(hotel: h),
                           ],
+                          if (h.nearby.isNotEmpty) ...[
+                            const SizedBox(height: 22),
+                            const Text('Yang ada di sekitar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            const SizedBox(height: 12),
+                            for (final n in h.nearby) _nearbyRow(n),
+                          ],
                           const SizedBox(height: 22),
                           SectionHeader('Ulasan Tamu', action: 'Tampilkan semua',
                               onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewsScreen(hotel: h)))),
                           const SizedBox(height: 12),
+                          if (_hasScores(h)) ...[
+                            _reviewScores(h),
+                            const SizedBox(height: 14),
+                          ],
                           for (final r in h.reviews.take(2)) _reviewTile(r),
                           const SizedBox(height: 14),
                           const Text('Waktu Check-in & Check-out', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
@@ -241,11 +263,26 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
           Row(children: [
             CircleAvatar(radius: 16, backgroundColor: MC.primarySoft, child: Text(r.authorName.characters.first, style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700))),
             const SizedBox(width: 10),
-            Expanded(child: Text(r.authorName, style: const TextStyle(fontWeight: FontWeight.w600))),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(r.authorName, style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (r.verified) Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.verified_rounded, size: 12, color: MC.success),
+                const SizedBox(width: 3),
+                Text('Menginap terverifikasi', style: TextStyle(fontSize: 10.5, color: MC.success, fontWeight: FontWeight.w600)),
+              ]),
+            ])),
             RatingPill(r.rating, small: true),
           ]),
           const SizedBox(height: 8),
           Text(r.body, style: TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.5)),
+          if (r.photos.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(height: 64, child: ListView.separated(
+              scrollDirection: Axis.horizontal, itemCount: r.photos.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => ClipRRect(borderRadius: BorderRadius.circular(8), child: NetImage(r.photos[i], width: 64, height: 64)),
+            )),
+          ],
           if ((r.reply ?? '').isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
@@ -264,6 +301,64 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
           ],
         ]),
       );
+
+  static const _scoreLabels = {
+    'cleanliness': 'Kebersihan', 'location': 'Lokasi', 'staff': 'Staf',
+    'facilities': 'Fasilitas', 'comfort': 'Kenyamanan', 'value': 'Nilai',
+  };
+  bool _hasScores(Hotel h) => h.reviewScores.values.any((v) => v != null);
+
+  Widget _reviewScores(Hotel h) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(14), boxShadow: [softShadow]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Skor per kategori', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          const SizedBox(height: 10),
+          Wrap(spacing: 18, runSpacing: 12, children: [
+            for (final e in _scoreLabels.entries)
+              if (h.reviewScores[e.key] != null)
+                SizedBox(width: 150, child: Row(children: [
+                  Expanded(child: Text(e.value, style: TextStyle(fontSize: 12, color: MC.inkMuted))),
+                  const SizedBox(width: 6),
+                  Text(h.reviewScores[e.key]!.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: MC.primaryDark)),
+                  const SizedBox(width: 6),
+                  Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(value: (h.reviewScores[e.key]! / 10).clamp(0, 1), minHeight: 5, backgroundColor: MC.field, color: MC.primary))),
+                ])),
+          ]),
+        ]),
+      );
+
+  Widget _nearbyRow(HotelNearby n) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(children: [
+          Container(width: 30, height: 30, decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(8)),
+            child: Icon(_nearbyIcon(n.category), size: 16, color: MC.primaryDark)),
+          const SizedBox(width: 10),
+          Expanded(child: Text(n.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500))),
+          Text('${n.distanceKm.toStringAsFixed(1)} km', style: TextStyle(fontSize: 12.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
+        ]),
+      );
+
+  IconData _propIcon(String t) => switch (t) {
+        'VILLA' => Icons.villa_rounded,
+        'APARTMENT' => Icons.apartment_rounded,
+        'HOMESTAY' => Icons.house_rounded,
+        'GUESTHOUSE' => Icons.cottage_rounded,
+        'HOSTEL' => Icons.bed_rounded,
+        'RESORT' => Icons.beach_access_rounded,
+        _ => Icons.hotel_rounded,
+      };
+  IconData _nearbyIcon(String c) => switch (c) {
+        'AIRPORT' => Icons.local_airport_rounded,
+        'STATION' => Icons.train_rounded,
+        'MALL' => Icons.local_mall_rounded,
+        'BEACH' => Icons.beach_access_rounded,
+        'HOSPITAL' => Icons.local_hospital_rounded,
+        'RESTAURANT' => Icons.restaurant_rounded,
+        'LANDMARK' => Icons.location_city_rounded,
+        _ => Icons.place_rounded,
+      };
 
   Widget _checkTime(String label, String value, IconData icon) => Container(
         padding: const EdgeInsets.all(14),

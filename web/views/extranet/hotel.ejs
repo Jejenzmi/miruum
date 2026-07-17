@@ -96,9 +96,65 @@
         <div><label style="margin:0 0 4px">Promo diskon (%)</label><input name="dealPct" type="number" min="0" max="90" value="<%= dealPct %>" style="max-width:110px" placeholder="0 = nonaktif"></div>
         <button class="btn ghost sm" style="margin-bottom:2px">Terapkan Promo</button>
       </form>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+        <b style="font-size:12.5px">Rate plan</b>
+        <p class="muted" style="font-size:11px;margin:2px 0 8px">Kamar sama dengan beberapa tarif (Kamar Saja / Sarapan / Bebas Batal / Non-refund). Delta = +/- Rp per malam dari harga kamar.</p>
+        <% (r.ratePlans||[]).forEach(function(p){ %>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line)">
+            <b style="flex:1"><%= p.name %></b>
+            <span class="muted"><%= p.boardBasis==='ROOM_ONLY'?'Tanpa sarapan':(p.boardBasis==='BREAKFAST'?'Sarapan':p.boardBasis) %></span>
+            <span class="pill <%= p.freeCancellation?'PAID':(p.refundable?'PARTNER':'CANCELLED') %>"><%= p.freeCancellation?'Bebas batal':(p.refundable?'Refundable':'Non-refund') %></span>
+            <span style="min-width:80px;text-align:right;font-weight:700"><%= p.priceDelta>=0?'+':'' %><%= rupiah(p.priceDelta) %></span>
+            <form method="post" action="/extranet/rate-plans/<%= p.id %>/delete" data-confirm="Hapus rate plan <%= p.name %>?"><button class="btn danger sm">×</button></form>
+          </div>
+        <% }) %>
+        <form method="post" action="/extranet/rooms/<%= r.id %>/rate-plans" style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;margin-top:8px">
+          <div><label style="margin:0 0 3px;font-size:11px">Nama</label><input name="name" placeholder="Termasuk Sarapan" required style="max-width:150px"></div>
+          <div><label style="margin:0 0 3px;font-size:11px">Board</label><select name="boardBasis" style="max-width:120px"><option value="ROOM_ONLY">Tanpa sarapan</option><option value="BREAKFAST">Sarapan</option><option value="HALF_BOARD">Half board</option><option value="FULL_BOARD">Full board</option></select></div>
+          <div><label style="margin:0 0 3px;font-size:11px">Delta Rp/malam</label><input name="priceDelta" type="number" value="0" style="max-width:110px"></div>
+          <label class="pr-check" style="margin:0 0 8px;font-size:11.5px"><input type="checkbox" name="refundable" checked> Refundable</label>
+          <label class="pr-check" style="margin:0 0 8px;font-size:11.5px"><input type="checkbox" name="freeCancellation"> Bebas batal</label>
+          <button class="btn sm" style="margin-bottom:2px">+ Rate Plan</button>
+        </form>
+      </div>
     </div>
   <% }) %>
   <% if (!hotel.rooms.length) { %><p class="empty">Belum ada kamar</p><% } %>
+</div>
+
+<% if (saved==='tipe') { %><div class="notice ok">Jenis properti tersimpan.</div><% } %>
+<% if (saved==='sekitar') { %><div class="notice ok">Tempat sekitar tersimpan.</div><% } %>
+
+<div class="card">
+  <h2 style="margin:0 0 4px">Jenis Properti</h2>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/property-type" style="display:flex;gap:8px;align-items:end">
+    <% var TYPES = {HOTEL:'Hotel',VILLA:'Villa',APARTMENT:'Apartemen',HOMESTAY:'Homestay',GUESTHOUSE:'Guesthouse',HOSTEL:'Hostel',RESORT:'Resort'}; %>
+    <select name="propertyType" style="max-width:200px">
+      <% Object.keys(TYPES).forEach(function(k){ %><option value="<%= k %>" <%= (hotel.propertyType||'HOTEL')===k?'selected':'' %>><%= TYPES[k] %></option><% }) %>
+    </select>
+    <button class="btn sm">Simpan</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2 style="margin:0 0 4px">Yang Ada di Sekitar</h2>
+  <p class="muted" style="margin-top:0;font-size:12px">Jarak ke bandara, stasiun, mall, wisata — tampil di halaman properti.</p>
+  <% (hotel.nearby||[]).forEach(function(n){ %>
+    <div style="display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)">
+      <b style="flex:1"><%= n.name %></b>
+      <span class="muted"><%= n.category %></span>
+      <span style="min-width:70px;text-align:right;font-weight:700"><%= n.distanceKm %> km</span>
+      <form method="post" action="/extranet/nearby/<%= n.id %>/delete" data-confirm="Hapus <%= n.name %>?"><button class="btn danger sm">×</button></form>
+    </div>
+  <% }) %>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/nearby" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px">
+    <div><label style="margin:0 0 4px">Nama tempat</label><input name="name" placeholder="Bandara Soekarno-Hatta" required style="max-width:200px"></div>
+    <div><label style="margin:0 0 4px">Kategori</label><select name="category" style="max-width:140px">
+      <% ['AIRPORT','STATION','MALL','BEACH','ATTRACTION','HOSPITAL','RESTAURANT','LANDMARK'].forEach(function(c){ %><option><%= c %></option><% }) %>
+    </select></div>
+    <div><label style="margin:0 0 4px">Jarak (km)</label><input name="distanceKm" type="number" step="0.1" style="max-width:100px" required></div>
+    <button class="btn sm" style="margin-bottom:2px">+ Tambah</button>
+  </form>
 </div>
 
 <div class="card">

@@ -32,6 +32,12 @@ class _ReviewFormState extends State<_ReviewForm> {
   int _rating = 5;
   final _text = TextEditingController();
   bool _loading = false;
+  // Category sub-scores (0–10), default to a neutral 8.
+  static const _cats = {
+    'cleanliness': 'Kebersihan', 'location': 'Lokasi', 'staff': 'Staf',
+    'facilities': 'Fasilitas', 'comfort': 'Kenyamanan', 'value': 'Nilai',
+  };
+  final Map<String, double> _scores = {for (final k in _cats.keys) k: 8};
 
   Future<void> _submit() async {
     if (_text.text.trim().length < 3) {
@@ -40,7 +46,7 @@ class _ReviewFormState extends State<_ReviewForm> {
     }
     setState(() => _loading = true);
     try {
-      await context.read<Api>().submitReview(widget.hotelId, _rating, _text.text.trim());
+      await context.read<Api>().submitReview(widget.hotelId, _rating, _text.text.trim(), scores: _scores);
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, kind: SnackKind.error);
@@ -74,7 +80,19 @@ class _ReviewFormState extends State<_ReviewForm> {
           maxLines: 4,
           decoration: const InputDecoration(hintText: 'Ceritakan pengalamanmu...'),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
+        Text('Skor per kategori', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+        const SizedBox(height: 4),
+        ..._cats.entries.map((e) => Row(children: [
+          SizedBox(width: 88, child: Text(e.value, style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
+          Expanded(child: Slider(
+            value: _scores[e.key]!, min: 1, max: 10, divisions: 9, activeColor: MC.primary,
+            label: _scores[e.key]!.toStringAsFixed(0),
+            onChanged: (v) => setState(() => _scores[e.key] = v))),
+          SizedBox(width: 26, child: Text(_scores[e.key]!.toStringAsFixed(0), textAlign: TextAlign.right,
+            style: const TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark))),
+        ])),
+        const SizedBox(height: 10),
         PrimaryButton('Kirim Ulasan', loading: _loading, onPressed: _submit),
       ]),
     );

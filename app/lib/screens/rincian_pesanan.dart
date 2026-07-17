@@ -12,12 +12,13 @@ import 'pembayaran.dart';
 class RincianPesananScreen extends StatefulWidget {
   final Hotel hotel;
   final Room? room;
+  final RatePlan? ratePlan; // chosen rate plan (multi rate-plan per room)
   final HotelPackage? package; // set → this is a Hotel Package bundle booking
   final String? channelId; // supply source to route this booking to
   final DateTime checkIn, checkOut;
   final int nights, rooms, adults;
   const RincianPesananScreen({
-    super.key, required this.hotel, this.room, this.package, this.channelId, required this.checkIn,
+    super.key, required this.hotel, this.room, this.ratePlan, this.package, this.channelId, required this.checkIn,
     required this.checkOut, required this.nights, required this.rooms, required this.adults,
   });
   @override
@@ -74,7 +75,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   bool get _isPackage => widget.package != null;
   int get _roomPrice => _isPackage
       ? widget.package!.price * widget.rooms
-      : widget.room!.price * widget.nights * widget.rooms;
+      : (widget.room!.price + (widget.ratePlan?.priceDelta ?? 0)) * widget.nights * widget.rooms;
   int get _tax => (_roomPrice * _taxPct / 100).round();
   int get _total => _roomPrice + _tax - _discount - _pointsDiscount;
 
@@ -110,6 +111,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         else ...{
           'hotelId': widget.hotel.id,
           'roomId': widget.room!.id,
+          if (widget.ratePlan != null) 'ratePlanId': widget.ratePlan!.id,
           'checkOut': widget.checkOut.toIso8601String(),
           if (widget.channelId != null) 'channelId': widget.channelId,
         },

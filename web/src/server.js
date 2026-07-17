@@ -844,6 +844,30 @@ app.post("/extranet/rooms/:id/deal", partnerGuard, async (req, res) => {
   res.redirect(req.get("referer") || "/extranet");
 });
 
+// Rate plans per room (multi rate-plan).
+app.post("/extranet/rooms/:roomId/rate-plans", partnerGuard, async (req, res) => {
+  try { await api(`/partner/rooms/${req.params.roomId}/rate-plans`, { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect(req.get("referer") || "/extranet");
+});
+app.post("/extranet/rate-plans/:id/delete", partnerGuard, async (req, res) => {
+  try { await api(`/partner/rate-plans/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect(req.get("referer") || "/extranet");
+});
+// "What's nearby" per hotel.
+app.post("/extranet/hotels/:id/nearby", partnerGuard, async (req, res) => {
+  try { await api(`/partner/hotels/${req.params.id}/nearby`, { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect(`/extranet/hotels/${req.params.id}?saved=sekitar`);
+});
+app.post("/extranet/nearby/:id/delete", partnerGuard, async (req, res) => {
+  try { await api(`/partner/nearby/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect(req.get("referer") || "/extranet");
+});
+// Property type.
+app.post("/extranet/hotels/:id/property-type", partnerGuard, async (req, res) => {
+  try { await api(`/partner/hotels/${req.params.id}/property-type`, { method: "PUT", token: res.locals.token, body: { propertyType: req.body.propertyType } }); } catch (_) {}
+  res.redirect(`/extranet/hotels/${req.params.id}?saved=tipe`);
+});
+
 // Edit property content + facilities.
 app.post("/extranet/hotels/:id/content", partnerGuard, async (req, res) => {
   await api(`/partner/hotels/${req.params.id}/content`, { method: "PUT", token: res.locals.token, body: {

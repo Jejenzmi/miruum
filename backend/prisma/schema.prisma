@@ -325,6 +325,7 @@ model Hotel {
   checkOutInfo String  @default("Sebelum 12.00")
   isPromo     Boolean  @default(false)
   promoLabel  String?
+  propertyType String  @default("HOTEL") // HOTEL | VILLA | APARTMENT | HOMESTAY | GUESTHOUSE | HOSTEL | RESORT
   ownerId     String?
   // Contracted products (a hotel on Extranet doesn't automatically contract
   // Channel Manager or PMS — those are separate paid modules).
@@ -349,6 +350,21 @@ model Hotel {
   programParticipations PromoParticipation[]
   threads     HotelThread[]
   rateObservations RateObservation[]
+  nearby      HotelNearby[]
+}
+
+// "What's nearby" — distance from the hotel to landmarks (airport, mall,
+// station, beach, attraction…). Shown on the property page like Booking/Agoda.
+model HotelNearby {
+  id        String  @id @default(cuid())
+  hotelId   String
+  name      String
+  category  String  @default("ATTRACTION") // AIRPORT | STATION | MALL | BEACH | ATTRACTION | HOSPITAL | RESTAURANT | LANDMARK
+  distanceKm Float
+  sortOrder Int     @default(0)
+  hotel     Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
 }
 
 // Manually-recorded price of the SAME hotel on external OTA platforms — for
@@ -504,6 +520,26 @@ model Room {
   availability      RoomAvailability[]
   channelMaps       RoomChannelMap[]
   units             RoomUnit[]
+  ratePlans         RatePlan[]
+}
+
+// Multiple sellable rate plans for the same room (Room Only / Breakfast /
+// Free-cancel / Non-refundable…), each with its own price delta & policy —
+// exactly like Traveloka/Booking/Agoda rate-plan matrices.
+model RatePlan {
+  id               String  @id @default(cuid())
+  roomId           String
+  name             String  // "Kamar Saja", "Termasuk Sarapan", "Bebas Batal"
+  boardBasis       String  @default("ROOM_ONLY") // ROOM_ONLY | BREAKFAST | HALF_BOARD | FULL_BOARD
+  refundable       Boolean @default(true)
+  freeCancellation Boolean @default(false)
+  priceDelta       Int     @default(0) // +/- Rupiah per night vs the room base price
+  active           Boolean @default(true)
+  sortOrder        Int     @default(0)
+  room             Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+
+  @@index([roomId])
 }
 
 // Maps a Miruum room to an OTA's room-type id — the basis for two-way sync and
@@ -615,6 +651,16 @@ model Review {
   authorName String
   rating     Float
   body       String
+  // Category sub-scores (0–10), like Booking/Agoda. Null = not rated.
+  scoreCleanliness Float?
+  scoreLocation    Float?
+  scoreStaff       Float?
+  scoreFacilities  Float?
+  scoreComfort     Float?
+  scoreValue       Float?
+  photos     String[] @default([]) // guest-uploaded review photo URLs
+  verified   Boolean  @default(false) // from a real completed stay
+  bookingId  String?  // links the review to the stay that earned it
   reply      String?  // partner's response to the guest review
   repliedAt  DateTime?
   createdAt  DateTime @default(now())
@@ -757,6 +803,10 @@ model Booking {
   refundBankName      String?
   refundBankAccount   String?
   refundAccountHolder String?
+  ratePlanId     String?       // chosen rate plan (multi rate-plan per room)
+  ratePlanName   String?       // snapshot of the plan name
+  planRefundable      Boolean? // policy snapshot (falls back to room when null)
+  planFreeCancellation Boolean?
   createdAt      DateTime      @default(now())
   roomUnit       RoomUnit?     @relation(fields: [roomUnitId], references: [id])
   folioCharges   FolioCharge[]
@@ -764,6 +814,7 @@ model Booking {
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   hotel          Hotel         @relation(fields: [hotelId], references: [id])
   room           Room          @relation(fields: [roomId], references: [id])
+  ratePlan       RatePlan?     @relation(fields: [ratePlanId], references: [id])
   package        HotelPackage? @relation(fields: [packageId], references: [id])
   channel        SupplyChannel? @relation(fields: [channelId], references: [id])
   corporate      Corporate?     @relation(fields: [corporateId], references: [id])

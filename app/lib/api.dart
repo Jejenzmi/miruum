@@ -164,8 +164,20 @@ class Api {
   Future<List<Review>> reviews(String id) async =>
       ((await _get('/hotels/$id/reviews'))['reviews'] as List).map((r) => Review.fromJson(r)).toList();
 
-  Future<void> submitReview(String hotelId, int rating, String body) async =>
-      _post('/hotels/$hotelId/reviews', {'rating': rating, 'body': body});
+  Future<void> submitReview(String hotelId, int rating, String body,
+      {Map<String, double>? scores, List<String>? photos}) async =>
+      _post('/hotels/$hotelId/reviews', {
+        'rating': rating, 'body': body,
+        if (scores != null) ...{
+          if (scores['cleanliness'] != null) 'scoreCleanliness': scores['cleanliness'],
+          if (scores['location'] != null) 'scoreLocation': scores['location'],
+          if (scores['staff'] != null) 'scoreStaff': scores['staff'],
+          if (scores['facilities'] != null) 'scoreFacilities': scores['facilities'],
+          if (scores['comfort'] != null) 'scoreComfort': scores['comfort'],
+          if (scores['value'] != null) 'scoreValue': scores['value'],
+        },
+        if (photos != null && photos.isNotEmpty) 'photos': photos,
+      });
 
   /// Per-date cheapest price + availability for a hotel (calendar).
   Future<List<Map<String, dynamic>>> hotelAvailability(String hotelId, DateTime from, DateTime to) async {

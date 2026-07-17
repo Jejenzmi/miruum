@@ -10,10 +10,11 @@ class FilterResult {
   final bool freeCancellation, refundable, breakfast;
   final String sort; // '', price_asc, price_desc, rating, popular
   final List<String> facilityIds;
+  final List<String> propertyTypes;
   const FilterResult({
     this.minPrice = 0, this.maxPrice = 5000000, this.star = 0, this.minRating = 0,
     this.freeCancellation = false, this.refundable = false, this.breakfast = false,
-    this.sort = '', this.facilityIds = const [],
+    this.sort = '', this.facilityIds = const [], this.propertyTypes = const [],
   });
 
   /// Query params for GET /hotels.
@@ -27,11 +28,12 @@ class FilterResult {
         if (breakfast) 'breakfast': 1,
         if (sort.isNotEmpty) 'sort': sort,
         if (facilityIds.isNotEmpty) 'facilities': facilityIds.join(','),
+        if (propertyTypes.isNotEmpty) 'propertyType': propertyTypes.join(','),
       };
 
   bool get isActive =>
       minPrice > 0 || maxPrice < 5000000 || star > 0 || minRating > 0 ||
-      freeCancellation || refundable || breakfast || sort.isNotEmpty || facilityIds.isNotEmpty;
+      freeCancellation || refundable || breakfast || sort.isNotEmpty || facilityIds.isNotEmpty || propertyTypes.isNotEmpty;
 }
 
 class FilterScreen extends StatefulWidget {
@@ -50,6 +52,7 @@ class _FilterScreenState extends State<FilterScreen> {
   late bool _breakfast = widget.initial.breakfast;
   late String _sort = widget.initial.sort;
   late Set<String> _facilityIds = widget.initial.facilityIds.toSet();
+  late Set<String> _propertyTypes = widget.initial.propertyTypes.toSet();
   List<Facility> _facilities = [];
 
   @override
@@ -100,6 +103,12 @@ class _FilterScreenState extends State<FilterScreen> {
               Text(rupiah(_price.end.round()), style: const TextStyle(fontWeight: FontWeight.w600)),
             ]),
 
+            _section('Jenis properti'),
+            Wrap(spacing: 8, runSpacing: 8, children: PropertyType.all.map((t) {
+              final sel = _propertyTypes.contains(t);
+              return _chip(PropertyType.label(t), sel, () => setState(() => sel ? _propertyTypes.remove(t) : _propertyTypes.add(t)));
+            }).toList()),
+
             _section('Bintang hotel'),
             Wrap(spacing: 8, children: List.generate(5, (i) {
               final v = i + 1;
@@ -129,7 +138,7 @@ class _FilterScreenState extends State<FilterScreen> {
             Navigator.pop(context, FilterResult(
               minPrice: _price.start.round(), maxPrice: _price.end.round(), star: _star, minRating: _rating,
               freeCancellation: _freeCancel, refundable: _refundable, breakfast: _breakfast,
-              sort: _sort, facilityIds: _facilityIds.toList(),
+              sort: _sort, facilityIds: _facilityIds.toList(), propertyTypes: _propertyTypes.toList(),
             ));
           })),
         ]),

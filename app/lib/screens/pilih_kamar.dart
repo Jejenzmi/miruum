@@ -118,49 +118,84 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
                 Text(room.discountLabel!, style: const TextStyle(color: MC.accent, fontSize: 11.5, fontWeight: FontWeight.w600)),
               ]),
             ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Sisa ${room.stock} Kamar', style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  if (hasDiscount)
-                    Text(rupiah(room.originalPrice!),
-                        style: TextStyle(color: MC.inkFaint, fontSize: 12, decoration: TextDecoration.lineThrough)),
-                  RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
-                    TextSpan(text: rupiah(room.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    TextSpan(text: '/malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
-                  ])),
-                ]),
-              ),
-              SizedBox(
-                height: 40,
-                child: ElevatedButton(
-                  onPressed: () => _selectRoom(h, room),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 26),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('Pilih'),
-                ),
-              ),
+          const SizedBox(height: 8),
+          Text('Sisa ${room.stock} Kamar', style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w600)),
+          if (room.ratePlans.isEmpty) ...[
+            const SizedBox(height: 6),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (hasDiscount)
+                  Text(rupiah(room.originalPrice!), style: TextStyle(color: MC.inkFaint, fontSize: 12, decoration: TextDecoration.lineThrough)),
+                RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
+                  TextSpan(text: rupiah(room.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  TextSpan(text: '/malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                ])),
+              ])),
+              SizedBox(height: 40, child: ElevatedButton(
+                onPressed: () => _selectRoom(h, room),
+                style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 26), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600)),
+                child: const Text('Pilih'))),
+            ]),
+          ] else ...[
+            const SizedBox(height: 6),
+            Text('Pilihan tarif', style: TextStyle(fontSize: 11.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
+            for (var i = 0; i < room.ratePlans.length; i++) ...[
+              if (i > 0) Divider(height: 16, color: MC.line),
+              _planRow(h, room, room.ratePlans[i]),
             ],
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Future<void> _selectRoom(Hotel h, Room room) async {
+  Future<void> _selectRoom(Hotel h, Room room, [RatePlan? plan]) async {
     if (!await ensureLoggedIn(context)) return;
     if (!mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => RincianPesananScreen(
-          hotel: h, room: room, channelId: widget.channelId,
+          hotel: h, room: room, ratePlan: plan, channelId: widget.channelId,
           checkIn: _checkIn, checkOut: _checkOut, nights: _nights, rooms: _rooms, adults: _adults,
         )));
+  }
+
+  Widget _miniChip(String label, IconData icon, Color c) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(color: c.withOpacity(0.10), borderRadius: BorderRadius.circular(6)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 11, color: c), const SizedBox(width: 3),
+          Text(label, style: TextStyle(fontSize: 10.5, color: c, fontWeight: FontWeight.w600)),
+        ]),
+      );
+
+  Widget _planRow(Hotel h, Room room, RatePlan p) {
+    final price = room.price + p.priceDelta;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          const SizedBox(height: 4),
+          Wrap(spacing: 6, runSpacing: 4, children: [
+            _miniChip(p.boardLabel, p.boardBasis == 'ROOM_ONLY' ? Icons.no_meals_rounded : Icons.free_breakfast_rounded, MC.primary),
+            if (p.freeCancellation) _miniChip('Bebas batal', Icons.event_available_rounded, MC.success)
+            else if (p.refundable) _miniChip('Refundable', Icons.replay_rounded, MC.blue)
+            else _miniChip('Non-refund', Icons.block_rounded, MC.inkFaint),
+          ]),
+          const SizedBox(height: 5),
+          RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
+            TextSpan(text: rupiah(price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            TextSpan(text: '/malam', style: TextStyle(fontSize: 10.5, color: MC.inkFaint)),
+          ])),
+        ])),
+        const SizedBox(width: 8),
+        SizedBox(height: 36, child: ElevatedButton(
+          onPressed: () => _selectRoom(h, room, p),
+          style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+          child: const Text('Pilih', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+      ]),
+    );
   }
 }

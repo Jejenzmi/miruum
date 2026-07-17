@@ -15,6 +15,12 @@
       <div><label>Bintang (1-5)</label><input name="starRating" type="number" min="1" max="5" value="<%= hotel ? hotel.starRating : 3 %>"></div>
       <div><label>Rating (0-10)</label><input name="rating" type="number" step="0.1" value="<%= hotel ? hotel.rating : 8 %>"></div>
     </div>
+    <div><label>Jenis Properti</label>
+      <% var PT = {HOTEL:'Hotel',VILLA:'Villa',APARTMENT:'Apartemen',HOMESTAY:'Homestay',GUESTHOUSE:'Guesthouse',HOSTEL:'Hostel',RESORT:'Resort'}; %>
+      <select name="propertyType">
+        <% Object.keys(PT).forEach(function(k){ %><option value="<%= k %>" <%= (hotel && hotel.propertyType===k)?'selected':'' %>><%= PT[k] %></option><% }) %>
+      </select>
+    </div>
     <label>URL Gambar</label>
     <input name="imageUrl" value="<%= hotel ? hotel.imageUrl : '' %>" placeholder="https://...">
     <div class="row2">

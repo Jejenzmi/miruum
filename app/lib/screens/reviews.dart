@@ -59,11 +59,26 @@ class ReviewsScreen extends StatelessWidget {
                         CircleAvatar(radius: 18, backgroundColor: MC.primarySoft,
                             child: Text(r.authorName.characters.first, style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700))),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(r.authorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(r.authorName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                          if (r.verified) Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.verified_rounded, size: 12, color: MC.success),
+                            const SizedBox(width: 3),
+                            Text('Menginap terverifikasi', style: TextStyle(fontSize: 10.5, color: MC.success, fontWeight: FontWeight.w600)),
+                          ]),
+                        ])),
                         RatingPill(r.rating, small: true),
                       ]),
                       const SizedBox(height: 8),
                       Text(r.body, style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
+                      if (r.photos.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(height: 72, child: ListView.separated(
+                          scrollDirection: Axis.horizontal, itemCount: r.photos.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, i) => ClipRRect(borderRadius: BorderRadius.circular(8), child: NetImage(r.photos[i], width: 72, height: 72)),
+                        )),
+                      ],
                     ]),
                   ),
                 ],

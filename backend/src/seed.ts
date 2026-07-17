@@ -633,6 +633,7 @@ async function main() {
   await ensureCorporate();
   await ensureRegions();
   await ensureToursAndShuttle();
+  await ensureRoomContent();
 
   console.log(`[seed] done — ${HOTELS.length} hotels, ${pkgCount} packages, ${PROMOS.length} promos, ${PARTNERS.length} partners, ${CHANNELS.length} channels, ${offerStats.offers} offers, ${avDays} availability days, ${bkCount} demo bookings`);
   console.log("[seed] logins: demo@miruum.id/demo123 (user) · admin@miruum.id/admin123 (admin) · partner@panji.id/partner123 (partner)");
@@ -673,6 +674,49 @@ async function ensureToursAndShuttle() {
     else await prisma.shuttleVehicleType.create({ data: v });
   }
   console.log(`[seed] tours=${TOURS.length} (+${tCount} new), shuttle vehicle types=${VTYPES.length}`);
+}
+
+// Section A content: rate plans per room, property types, and "what's nearby".
+async function ensureRoomContent() {
+  const PLANS = [
+    { name: "Kamar Saja", boardBasis: "ROOM_ONLY", refundable: true, freeCancellation: false, priceDelta: 0, sortOrder: 0 },
+    { name: "Termasuk Sarapan", boardBasis: "BREAKFAST", refundable: true, freeCancellation: false, priceDelta: 55000, sortOrder: 1 },
+    { name: "Bebas Batal + Sarapan", boardBasis: "BREAKFAST", refundable: true, freeCancellation: true, priceDelta: 90000, sortOrder: 2 },
+    { name: "Non-refundable (Hemat)", boardBasis: "ROOM_ONLY", refundable: false, freeCancellation: false, priceDelta: -45000, sortOrder: 3 },
+  ];
+  const rooms = await prisma.room.findMany({ select: { id: true } });
+  let planCount = 0;
+  for (const r of rooms) {
+    const existing = await prisma.ratePlan.count({ where: { roomId: r.id } });
+    if (existing > 0) continue;
+    for (const p of PLANS) { await prisma.ratePlan.create({ data: { roomId: r.id, ...p } }); planCount++; }
+  }
+
+  // Property types for a bit of variety across the demo catalog.
+  const TYPE_BY_SLUG: Record<string, string> = {
+    "hotel-tulip": "RESORT", "hotel-mandarin": "APARTMENT", "penginapan-rio": "GUESTHOUSE",
+    "hillside-hotel": "VILLA", "hotel-ambacang": "HOTEL",
+  };
+  for (const [slug, type] of Object.entries(TYPE_BY_SLUG)) {
+    await prisma.hotel.updateMany({ where: { slug }, data: { propertyType: type } });
+  }
+
+  // "What's nearby" for every hotel (idempotent — skip if already present).
+  const NEARBY = [
+    { name: "Bandara terdekat", category: "AIRPORT", distanceKm: 12.4 },
+    { name: "Stasiun Kota", category: "STATION", distanceKm: 2.1 },
+    { name: "Mall & Pusat Belanja", category: "MALL", distanceKm: 0.8 },
+    { name: "Pantai / Objek Wisata", category: "ATTRACTION", distanceKm: 3.5 },
+    { name: "Rumah Sakit", category: "HOSPITAL", distanceKm: 1.6 },
+  ];
+  const hotels = await prisma.hotel.findMany({ select: { id: true } });
+  let nearbyCount = 0;
+  for (const h of hotels) {
+    const existing = await prisma.hotelNearby.count({ where: { hotelId: h.id } });
+    if (existing > 0) continue;
+    for (const [i, n] of NEARBY.entries()) { await prisma.hotelNearby.create({ data: { hotelId: h.id, ...n, sortOrder: i } }); nearbyCount++; }
+  }
+  console.log(`[seed] room content — rate plans +${planCount}, nearby +${nearbyCount}, property types set`);
 }
 
 main()

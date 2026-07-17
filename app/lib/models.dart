@@ -34,14 +34,46 @@ class Review {
   final String authorName, body;
   final double rating;
   final String? createdAt, reply;
-  Review({required this.authorName, required this.body, required this.rating, this.createdAt, this.reply});
+  final bool verified;
+  final List<String> photos;
+  final Map<String, double?> scores;
+  Review({required this.authorName, required this.body, required this.rating, this.createdAt, this.reply,
+    this.verified = false, this.photos = const [], this.scores = const {}});
   factory Review.fromJson(Map<String, dynamic> j) => Review(
         authorName: j['authorName'] ?? 'Tamu',
         body: j['body'] ?? '',
         reply: j['reply'],
         rating: (j['rating'] ?? 0).toDouble(),
         createdAt: j['createdAt'],
+        verified: j['verified'] ?? false,
+        photos: (j['photos'] as List?)?.map((p) => p.toString()).toList() ?? const [],
+        scores: {
+          'cleanliness': (j['scoreCleanliness'] as num?)?.toDouble(),
+          'location': (j['scoreLocation'] as num?)?.toDouble(),
+          'staff': (j['scoreStaff'] as num?)?.toDouble(),
+          'facilities': (j['scoreFacilities'] as num?)?.toDouble(),
+          'comfort': (j['scoreComfort'] as num?)?.toDouble(),
+          'value': (j['scoreValue'] as num?)?.toDouble(),
+        },
       );
+}
+
+class RatePlan {
+  final String id, name, boardBasis;
+  final bool refundable, freeCancellation;
+  final int priceDelta;
+  RatePlan({required this.id, required this.name, required this.boardBasis, required this.refundable, required this.freeCancellation, required this.priceDelta});
+  factory RatePlan.fromJson(Map<String, dynamic> j) => RatePlan(
+        id: j['id'], name: j['name'] ?? 'Kamar Saja', boardBasis: j['boardBasis'] ?? 'ROOM_ONLY',
+        refundable: j['refundable'] ?? true, freeCancellation: j['freeCancellation'] ?? false,
+        priceDelta: j['priceDelta'] ?? 0,
+      );
+  String get boardLabel => switch (boardBasis) {
+        'BREAKFAST' => 'Termasuk sarapan',
+        'HALF_BOARD' => 'Sarapan + 1 makan',
+        'FULL_BOARD' => 'Semua makan',
+        _ => 'Tanpa sarapan',
+      };
 }
 
 class Room {
@@ -50,10 +82,12 @@ class Room {
   final int? originalPrice;
   final String? discountLabel;
   final bool refundable, breakfast, freeWifi, freeCancellation;
+  final List<RatePlan> ratePlans;
   Room({
     required this.id, required this.name, required this.bedInfo, required this.capacity,
     required this.price, required this.stock, this.originalPrice, this.discountLabel,
     required this.refundable, required this.breakfast, required this.freeWifi, required this.freeCancellation,
+    this.ratePlans = const [],
   });
   factory Room.fromJson(Map<String, dynamic> j) => Room(
         id: j['id'], name: j['name'], bedInfo: j['bedInfo'] ?? '',
@@ -61,7 +95,26 @@ class Room {
         originalPrice: j['originalPrice'], discountLabel: j['discountLabel'],
         refundable: j['refundable'] ?? true, breakfast: j['breakfast'] ?? false,
         freeWifi: j['freeWifi'] ?? true, freeCancellation: j['freeCancellation'] ?? true,
+        ratePlans: (j['ratePlans'] as List?)?.map((p) => RatePlan.fromJson(p)).toList() ?? const [],
       );
+}
+
+class HotelNearby {
+  final String name, category;
+  final double distanceKm;
+  HotelNearby({required this.name, required this.category, required this.distanceKm});
+  factory HotelNearby.fromJson(Map<String, dynamic> j) => HotelNearby(
+        name: j['name'] ?? '', category: j['category'] ?? 'ATTRACTION', distanceKm: (j['distanceKm'] ?? 0).toDouble());
+}
+
+/// Human labels + icon keys for property types.
+class PropertyType {
+  static const labels = {
+    'HOTEL': 'Hotel', 'VILLA': 'Villa', 'APARTMENT': 'Apartemen', 'HOMESTAY': 'Homestay',
+    'GUESTHOUSE': 'Guesthouse', 'HOSTEL': 'Hostel', 'RESORT': 'Resort',
+  };
+  static String label(String? t) => labels[t] ?? 'Hotel';
+  static const all = ['HOTEL', 'VILLA', 'APARTMENT', 'HOMESTAY', 'GUESTHOUSE', 'HOSTEL', 'RESORT'];
 }
 
 /// Supply source of a hotel: Miruum's own Channel Manager (DIRECT) or an OTA.
@@ -110,6 +163,9 @@ class Hotel {
   final SupplyChannel? channel;
   final List<HotelOffer> offers;
   final double? lat, lng;
+  final String propertyType;
+  final List<HotelNearby> nearby;
+  final Map<String, double?> reviewScores;
 
   Hotel({
     required this.id, required this.name, required this.city, required this.address,
@@ -118,6 +174,7 @@ class Hotel {
     this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo,
     this.photos = const [], this.facilities = const [], this.rooms = const [], this.reviews = const [],
     this.channel, this.offers = const [], this.lat, this.lng,
+    this.propertyType = 'HOTEL', this.nearby = const [], this.reviewScores = const {},
   });
 
   factory Hotel.fromJson(Map<String, dynamic> j) => Hotel(
@@ -134,6 +191,9 @@ class Hotel {
         channel: j['channel'] != null ? SupplyChannel.fromJson(j['channel']) : null,
         offers: (j['offers'] as List?)?.map((o) => HotelOffer.fromJson(o)).toList() ?? const [],
         lat: (j['lat'] as num?)?.toDouble(), lng: (j['lng'] as num?)?.toDouble(),
+        propertyType: j['propertyType'] ?? 'HOTEL',
+        nearby: (j['nearby'] as List?)?.map((n) => HotelNearby.fromJson(n)).toList() ?? const [],
+        reviewScores: (j['reviewScores'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num?)?.toDouble())) ?? const {},
       );
 }
 

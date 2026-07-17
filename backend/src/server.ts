@@ -375,7 +375,7 @@ app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
 const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
   reviewCount: true, priceFrom: true, starRating: true, imageUrl: true,
-  isPromo: true, promoLabel: true, lat: true, lng: true,
+  isPromo: true, promoLabel: true, propertyType: true, lat: true, lng: true,
   channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
 
@@ -395,6 +395,9 @@ app.get("/api/hotels", async (req, res) => {
   if (star) where.starRating = { gte: Number(star) };
   if (req.query.promo) where.isPromo = true;
   if (req.query.minRating) where.rating = { gte: Number(req.query.minRating) };
+  // Property type filter (HOTEL | VILLA | APARTMENT | HOMESTAY | GUESTHOUSE | HOSTEL | RESORT).
+  const ptypes = String(req.query.propertyType || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  if (ptypes.length) where.propertyType = { in: ptypes };
   // Room-level amenities on the property.
   const roomSome: any = {};
   if (req.query.freeCancellation === "1") roomSome.freeCancellation = true;
@@ -453,8 +456,9 @@ app.get("/api/hotels/:id", async (req, res) => {
     include: {
       photos: { orderBy: { sort: "asc" } },
       facilities: { include: { facility: true } },
-      rooms: true,
-      reviews: { orderBy: { createdAt: "desc" }, take: 5 },
+      rooms: { include: { ratePlans: { where: { active: true }, orderBy: { sortOrder: "asc" } } } },
+      reviews: { orderBy: { createdAt: "desc" }, take: 8 },
+      nearby: { orderBy: { distanceKm: "asc" } },
       channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
       offers: {
         orderBy: { price: "asc" },
@@ -463,10 +467,22 @@ app.get("/api/hotels/:id", async (req, res) => {
     },
   });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  // Category sub-score averages (0–10) across all reviews that rated them.
+  const agg = await prisma.review.aggregate({
+    where: { hotelId: hotel.id },
+    _avg: { scoreCleanliness: true, scoreLocation: true, scoreStaff: true, scoreFacilities: true, scoreComfort: true, scoreValue: true },
+    _count: true,
+  });
+  const rnd = (n: number | null) => (n == null ? null : Math.round(n * 10) / 10);
   res.json({
     hotel: {
       ...hotel,
       facilities: hotel.facilities.map((f) => f.facility),
+      reviewScores: {
+        cleanliness: rnd(agg._avg.scoreCleanliness), location: rnd(agg._avg.scoreLocation),
+        staff: rnd(agg._avg.scoreStaff), facilities: rnd(agg._avg.scoreFacilities),
+        comfort: rnd(agg._avg.scoreComfort), value: rnd(agg._avg.scoreValue),
+      },
     },
   });
 });
@@ -479,16 +495,32 @@ app.get("/api/hotels/:id/reviews", async (req, res) => {
   res.json({ reviews });
 });
 
-// Submit a review (1–5 stars, stored on a 0–10 scale) → recompute hotel rating.
+// Submit a review (1–5 stars → stored 0–10) with optional category sub-scores
+// (0–10) + photos. Marked "verified" when the guest has a completed stay here.
 app.post("/api/hotels/:id/reviews", requireAuth, async (req: AuthRequest, res) => {
-  const schema = z.object({ rating: z.number().min(1).max(5), body: z.string().min(3) });
+  const sub = z.number().min(0).max(10).optional();
+  const schema = z.object({
+    rating: z.number().min(1).max(5), body: z.string().min(3),
+    scoreCleanliness: sub, scoreLocation: sub, scoreStaff: sub, scoreFacilities: sub, scoreComfort: sub, scoreValue: sub,
+    photos: z.array(z.string()).max(6).optional(),
+  });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Beri rating & ulasan minimal 3 karakter" });
   const hotel = await prisma.hotel.findUnique({ where: { id: req.params.id } });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  const stay = await prisma.booking.findFirst({
+    where: { userId: req.userId, hotelId: hotel.id, status: { in: ["PAID", "COMPLETED"] } },
+    select: { id: true },
+  });
+  const p = parsed.data;
   await prisma.review.create({
-    data: { hotelId: hotel.id, userId: req.userId, authorName: user?.name ?? "Tamu", rating: parsed.data.rating * 2, body: parsed.data.body },
+    data: {
+      hotelId: hotel.id, userId: req.userId, authorName: user?.name ?? "Tamu", rating: p.rating * 2, body: p.body,
+      scoreCleanliness: p.scoreCleanliness, scoreLocation: p.scoreLocation, scoreStaff: p.scoreStaff,
+      scoreFacilities: p.scoreFacilities, scoreComfort: p.scoreComfort, scoreValue: p.scoreValue,
+      photos: p.photos ?? [], verified: !!stay, bookingId: stay?.id ?? null,
+    },
   });
   const agg = await prisma.review.aggregate({ where: { hotelId: hotel.id }, _avg: { rating: true }, _count: true });
   await prisma.hotel.update({
@@ -683,6 +715,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
     hotelId: z.string().optional(),
     roomId: z.string().optional(),
+    ratePlanId: z.string().optional(), // chosen rate plan (multi rate-plan per room)
     packageId: z.string().optional(), // when set, booking is a Hotel Package bundle
     channelId: z.string().optional(), // supply source the guest chose (compare-prices)
     promoCode: z.string().optional(),
@@ -705,6 +738,10 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   let roomId = d.roomId;
   let packageId: string | undefined;
   let packageTitle: string | undefined;
+  let ratePlanId: string | undefined;
+  let ratePlanName: string | undefined;
+  let planRefundable: boolean | undefined;
+  let planFreeCancellation: boolean | undefined;
   let nights: number;
   let baseAmount: number; // pre-tax room/package amount
   const checkIn = new Date(d.checkIn);
@@ -732,6 +769,16 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     if (!q.available) return res.status(409).json({ error: q.reason ?? "Kamar tidak tersedia untuk tanggal tersebut" });
     nights = q.nights;
     baseAmount = q.total;
+    // Multi rate-plan: apply the chosen plan's per-night delta + policy snapshot.
+    if (d.ratePlanId) {
+      const plan = await prisma.ratePlan.findFirst({ where: { id: d.ratePlanId, roomId, active: true } });
+      if (!plan) return res.status(404).json({ error: "Rate plan tidak ditemukan" });
+      baseAmount += plan.priceDelta * nights * d.rooms;
+      ratePlanId = plan.id;
+      ratePlanName = plan.name;
+      planRefundable = plan.refundable;
+      planFreeCancellation = plan.freeCancellation;
+    }
   }
 
   const taxFee = Math.round(baseAmount * (await getNum("taxPct")) / 100); // configurable tax & service
@@ -778,6 +825,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       hotelId: hotelId!,
       roomId: roomId!,
       packageId, packageTitle,
+      ratePlanId, ratePlanName, planRefundable, planFreeCancellation,
       channelId, supplierRef,
       checkIn, checkOut, nights,
       guests: d.guests, rooms: d.rooms,
@@ -930,6 +978,78 @@ app.get("/api/partner/hotels/:id/calendar", requireRole("PARTNER", "ADMIN"), asy
   });
 });
 
+// ═══════════════ Rate plans (multi rate-plan per room) ═══════════════
+app.get("/api/partner/rooms/:roomId/rate-plans", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsRoom(req, req.params.roomId))) return res.status(404).json({ error: "Kamar bukan milik Anda" });
+  const ratePlans = await prisma.ratePlan.findMany({ where: { roomId: req.params.roomId }, orderBy: { sortOrder: "asc" } });
+  res.json({ ratePlans });
+});
+app.post("/api/partner/rooms/:roomId/rate-plans", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsRoom(req, req.params.roomId))) return res.status(404).json({ error: "Kamar bukan milik Anda" });
+  const b = req.body;
+  const plan = await prisma.ratePlan.create({ data: {
+    roomId: req.params.roomId, name: String(b.name || "Kamar Saja"),
+    boardBasis: String(b.boardBasis || "ROOM_ONLY"),
+    refundable: b.refundable === undefined ? true : (b.refundable === "1" || b.refundable === true || b.refundable === "on"),
+    freeCancellation: b.freeCancellation === "1" || b.freeCancellation === true || b.freeCancellation === "on",
+    priceDelta: Number(b.priceDelta) || 0, sortOrder: Number(b.sortOrder) || 0,
+  }});
+  await invalidate("miruum:");
+  res.json({ ratePlan: plan });
+});
+app.put("/api/partner/rate-plans/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const existing = await prisma.ratePlan.findUnique({ where: { id: req.params.id }, select: { roomId: true } });
+  if (!existing || !(await ownsRoom(req, existing.roomId))) return res.status(404).json({ error: "Rate plan tidak ditemukan" });
+  const b = req.body; const data: any = {};
+  if (b.name != null) data.name = String(b.name);
+  if (b.boardBasis != null) data.boardBasis = String(b.boardBasis);
+  if (b.priceDelta != null && b.priceDelta !== "") data.priceDelta = Number(b.priceDelta);
+  if (b.sortOrder != null && b.sortOrder !== "") data.sortOrder = Number(b.sortOrder);
+  if (b.refundable != null) data.refundable = b.refundable === "1" || b.refundable === true || b.refundable === "on";
+  if (b.freeCancellation != null) data.freeCancellation = b.freeCancellation === "1" || b.freeCancellation === true || b.freeCancellation === "on";
+  if (b.active != null) data.active = b.active === "1" || b.active === true || b.active === "on";
+  const plan = await prisma.ratePlan.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:");
+  res.json({ ratePlan: plan });
+});
+app.delete("/api/partner/rate-plans/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const existing = await prisma.ratePlan.findUnique({ where: { id: req.params.id }, select: { roomId: true } });
+  if (!existing || !(await ownsRoom(req, existing.roomId))) return res.status(404).json({ error: "Rate plan tidak ditemukan" });
+  await prisma.ratePlan.delete({ where: { id: req.params.id } });
+  await invalidate("miruum:");
+  res.json({ ok: true });
+});
+
+// ═══════════════ "What's nearby" per hotel ═══════════════
+app.post("/api/partner/hotels/:id/nearby", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(404).json({ error: "Hotel bukan milik Anda" });
+  const b = req.body;
+  const item = await prisma.hotelNearby.create({ data: {
+    hotelId: req.params.id, name: String(b.name || ""), category: String(b.category || "ATTRACTION"),
+    distanceKm: Number(b.distanceKm) || 0, sortOrder: Number(b.sortOrder) || 0,
+  }});
+  await invalidate("miruum:");
+  res.json({ item });
+});
+app.delete("/api/partner/nearby/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const existing = await prisma.hotelNearby.findUnique({ where: { id: req.params.id }, select: { hotelId: true } });
+  if (!existing || !(await ownsHotel(req, existing.hotelId))) return res.status(404).json({ error: "Tidak ditemukan" });
+  await prisma.hotelNearby.delete({ where: { id: req.params.id } });
+  await invalidate("miruum:");
+  res.json({ ok: true });
+});
+
+// Set a hotel's property type (partner or admin).
+app.put("/api/partner/hotels/:id/property-type", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(404).json({ error: "Hotel bukan milik Anda" });
+  const allowed = ["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"];
+  const t = String(req.body?.propertyType || "").toUpperCase();
+  if (!allowed.includes(t)) return res.status(400).json({ error: "Tipe properti tidak valid" });
+  await prisma.hotel.update({ where: { id: req.params.id }, data: { propertyType: t } });
+  await invalidate("miruum:");
+  res.json({ ok: true, propertyType: t });
+});
+
 app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   const { status } = req.query as Record<string, string>;
   const where: any = { userId: req.userId };
@@ -1063,15 +1183,18 @@ async function computeRefund(booking: any): Promise<{ refundPct: number; refundA
   const partialPct = await getNum("refundPartialPct");
   const wasPaid = booking.status === "PAID";
   const hoursToCheckIn = (booking.checkIn.getTime() - Date.now()) / 3600000;
+  // Prefer the chosen rate plan's policy snapshot; fall back to the room's.
+  const freeCancel = booking.planFreeCancellation ?? booking.room.freeCancellation;
+  const refundable = booking.planRefundable ?? booking.room.refundable;
   let refundPct = 0;
-  if (booking.room.freeCancellation && hoursToCheckIn > cutoff) refundPct = fullPct;
-  else if (booking.room.refundable && hoursToCheckIn > cutoff) refundPct = partialPct;
+  if (freeCancel && hoursToCheckIn > cutoff) refundPct = fullPct;
+  else if (refundable && hoursToCheckIn > cutoff) refundPct = partialPct;
   const refundAmount = wasPaid ? Math.round((booking.totalPrice * refundPct) / 100) : 0;
   let note: string;
   if (!wasPaid) note = "Pesanan yang belum dibayar akan dibatalkan tanpa biaya.";
   else if (refundPct > 0) note = `Kamu akan mendapat refund ${refundPct}% = ${rupiah(refundAmount)}.`;
-  else if (booking.room.refundable || booking.room.freeCancellation) note = `Pembatalan kurang dari ${cutoff} jam sebelum check-in — tidak ada pengembalian dana.`;
-  else note = "Kamar ini non-refundable — tidak ada pengembalian dana.";
+  else if (refundable || freeCancel) note = `Pembatalan kurang dari ${cutoff} jam sebelum check-in — tidak ada pengembalian dana.`;
+  else note = "Rate plan ini non-refundable — tidak ada pengembalian dana.";
   return { refundPct, refundAmount, wasPaid, note };
 }
 
@@ -1984,6 +2107,7 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
     promoLabel: z.string().optional(), ownerId: z.string().optional(),
     productChannelManager: formBool, productPMS: formBool,
     channelId: z.string().optional(), externalId: z.string().optional(),
+    propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).default("HOTEL"),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data hotel tidak valid", details: p.error.issues });
@@ -2004,6 +2128,7 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
     promoLabel: z.string().optional(), ownerId: z.string().optional(),
     productChannelManager: formBool.optional(), productPMS: formBool.optional(),
     channelId: z.string().optional(), externalId: z.string().optional(),
+    propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
@@ -2744,8 +2869,12 @@ app.get("/api/partner/overview", requireRole("PARTNER", "ADMIN"), async (req: Au
 
 app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const hotel = await prisma.hotel.findFirst({
-    where: { id: req.params.id, ownerId: req.userId },
-    include: { rooms: { orderBy: { price: "asc" } }, photos: true, facilities: { select: { facilityId: true } } },
+    where: { id: req.params.id, ...((req as any).role === "ADMIN" ? {} : { ownerId: req.userId }) },
+    include: {
+      rooms: { orderBy: { price: "asc" }, include: { ratePlans: { orderBy: { sortOrder: "asc" } } } },
+      photos: true, facilities: { select: { facilityId: true } },
+      nearby: { orderBy: { distanceKm: "asc" } },
+    },
   });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan / bukan milik Anda" });
   res.json({ hotel });
