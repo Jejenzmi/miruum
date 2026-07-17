@@ -19,6 +19,8 @@ import 'map_screen.dart';
 import 'reviews.dart';
 import 'hotel_chat.dart';
 import 'pilih_kamar.dart';
+import 'trips_screen.dart';
+import 'compare_screen.dart';
 
 class HotelDetailScreen extends StatelessWidget {
   final String hotelId;
@@ -43,14 +45,18 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
   bool _watching = false, _watchChecked = false;
   bool _initDone = false;
   List<dynamic> _questions = [];
+  List<Hotel> _similar = [];
 
   void _initOnce(String hotelId) {
     if (_initDone) return;
     _initDone = true;
-    // Track view (for "Baru dilihat") + load Q&A.
+    // Track view (for "Baru dilihat") + load Q&A + similar.
     context.read<Api>().trackView(hotelId);
     context.read<Api>().hotelQuestions(hotelId).then((q) {
       if (mounted) setState(() => _questions = q);
+    }).catchError((_) {});
+    context.read<Api>().similarHotels(hotelId).then((s) {
+      if (mounted) setState(() => _similar = s);
     }).catchError((_) {});
     _checkWatch(hotelId);
   }
@@ -137,6 +143,11 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                       const SizedBox(width: 8),
                       _circleBtn(Icons.share_rounded, () => Share.share(
                           'Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://ota.gokar.id')),
+                      const SizedBox(width: 8),
+                      _circleBtn(Icons.bookmark_add_outlined, () {
+                        if (!ensureLoggedIn(context, reason: tr('Masuk untuk menyimpan ke Trip.', 'Log in to save to a Trip.'))) return;
+                        showSaveToTrip(context, kind: 'HOTEL', refId: h.id, title: h.name, imageUrl: h.imageUrl, subtitle: h.city, price: h.priceFrom);
+                      }),
                       const SizedBox(width: 8),
                       _circleBtn(_watching ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
                           () => _toggleWatch(h.id), color: _watching ? MC.primary : MC.ink),
@@ -290,6 +301,43 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                             Text('Belum ada pertanyaan. Jadilah yang pertama bertanya!', style: TextStyle(color: MC.inkMuted, fontSize: 13))
                           else
                             for (final q in _questions.take(4)) _qaTile(q),
+                          if (_similar.isNotEmpty) ...[
+                            const SizedBox(height: 22),
+                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              const Text('Properti Serupa', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                              GestureDetector(
+                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CompareScreen(hotels: [h, ..._similar.take(2)]))),
+                                child: Row(children: const [
+                                  Icon(Icons.compare_arrows_rounded, size: 16, color: MC.primary),
+                                  SizedBox(width: 4),
+                                  Text('Bandingkan', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                ]),
+                              ),
+                            ]),
+                            const SizedBox(height: 12),
+                            SizedBox(height: 176, child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _similar.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 12),
+                              itemBuilder: (_, i) {
+                                final s = _similar[i];
+                                return GestureDetector(
+                                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(s.id))),
+                                  child: SizedBox(width: 156, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    ClipRRect(borderRadius: BorderRadius.circular(14), child: NetImage(s.imageUrl, width: 156, height: 104)),
+                                    const SizedBox(height: 6),
+                                    Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                                    Row(children: [
+                                      const Icon(Icons.star_rounded, size: 13, color: MC.star),
+                                      const SizedBox(width: 2),
+                                      Text(s.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                                    ]),
+                                    Text('${rupiah(s.priceFrom)}/mlm', style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 12.5)),
+                                  ])),
+                                );
+                              },
+                            )),
+                          ],
                           const SizedBox(height: 14),
                           const Text('Waktu Check-in & Check-out', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),

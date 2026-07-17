@@ -10,7 +10,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "./prisma.js";
-import { signToken, requireAuth, optionalAuth, issueSession, rotateRefresh, revokeRefresh, revokeAllRefresh, type AuthRequest } from "./auth.js";
+import { signToken, requireAuth, optionalAuth, issueSession, rotateRefresh, revokeRefresh, revokeAllRefresh, hashToken, type AuthRequest } from "./auth.js";
 import { config } from "./config.js";
 import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
@@ -152,16 +152,34 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
   res.json({ ...(await issueSession(user.id)), user: publicUser(user) });
 });
 
+function deviceLabel(req: any): string | null {
+  return String(req.headers["x-device"] || req.headers["user-agent"] || "").slice(0, 120) || null;
+}
 app.post("/api/auth/login", authLimiter, async (req, res) => {
-  const schema = z.object({ email: z.string().email(), password: z.string() });
+  const schema = z.object({ email: z.string().email(), password: z.string(), code: z.string().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Data tidak valid" });
   const { email, password } = parsed.data;
+  const device = deviceLabel(req);
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || null;
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return res.status(401).json({ error: "Pengguna tidak terdaftar" });
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: "Email atau kata sandi salah" });
-  res.json({ ...(await issueSession(user.id)), user: publicUser(user) });
+  if (!ok) {
+    await prisma.loginEvent.create({ data: { userId: user.id, device, ip, ok: false } }).catch(() => {});
+    return res.status(401).json({ error: "Email atau kata sandi salah" });
+  }
+  // Two-factor (email OTP): first call issues a code; second call verifies it.
+  if (user.twoFactorEnabled) {
+    if (!parsed.data.code) {
+      const code = await issueCode(user.id, "OTP");
+      try { await sendMail(user.email, "Kode Masuk Miruum", `Kode verifikasi login kamu: ${code}\nBerlaku 10 menit. Abaikan jika ini bukan kamu.`); } catch { /* dev: code still valid */ }
+      return res.json({ twoFactorRequired: true });
+    }
+    if (!(await checkCode(user.id, "OTP", parsed.data.code))) return res.status(401).json({ error: "Kode verifikasi salah / kedaluwarsa" });
+  }
+  await prisma.loginEvent.create({ data: { userId: user.id, device, ip, ok: true } }).catch(() => {});
+  res.json({ ...(await issueSession(user.id, device ?? undefined)), user: publicUser(user) });
 });
 
 // Sign in / register with a Google ID token (from google_sign_in on the app).
@@ -785,6 +803,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     usePoints: z.coerce.boolean().default(false), // redeem loyalty points as discount
     specialRequest: z.string().optional(),
     payAtHotel: z.coerce.boolean().default(false), // confirmed reservation, pay at property
+    roomGuests: z.array(z.object({ name: z.string().optional(), request: z.string().optional() })).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Data pemesanan tidak valid", details: parsed.error.issues });
@@ -893,6 +912,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
       forSelf: d.forSelf, specialRequest: d.specialRequest,
       payAtHotel: d.payAtHotel, paymentMethod: d.payAtHotel ? "Bayar di Hotel" : undefined,
+      roomGuests: d.roomGuests && d.roomGuests.length ? d.roomGuests : undefined,
       roomPrice: baseAmount, taxFee, discount, promoCode, totalPrice,
       status: "PENDING",
     },
@@ -1140,6 +1160,97 @@ app.post("/api/hotels/:id/price-alert", requireAuth, async (req: AuthRequest, re
   }
   await prisma.priceAlert.create({ data: { userId: req.userId!, hotelId: hotel.id, lastNotifiedPrice: hotel.priceFrom } });
   res.json({ watching: true });
+});
+
+// ═══════════════ Security: sessions, login history, 2FA ═══════════════
+app.get("/api/auth/sessions", requireAuth, async (req: AuthRequest, res) => {
+  const currentHash = req.body?.refreshToken ? hashToken(String(req.body.refreshToken)) : null;
+  const rows = await prisma.refreshToken.findMany({
+    where: { userId: req.userId, revokedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json({ sessions: rows.map((r) => ({ id: r.id, device: r.device || "Perangkat tak dikenal", createdAt: r.createdAt, current: currentHash === r.tokenHash })) });
+});
+app.post("/api/auth/sessions/current", requireAuth, async (req: AuthRequest, res) => {
+  // Same as GET but accepts the refresh token in the body to flag the current device.
+  const currentHash = req.body?.refreshToken ? hashToken(String(req.body.refreshToken)) : null;
+  const rows = await prisma.refreshToken.findMany({ where: { userId: req.userId, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } });
+  res.json({ sessions: rows.map((r) => ({ id: r.id, device: r.device || "Perangkat tak dikenal", createdAt: r.createdAt, current: currentHash === r.tokenHash })) });
+});
+app.post("/api/auth/sessions/:id/revoke", requireAuth, async (req: AuthRequest, res) => {
+  await prisma.refreshToken.updateMany({ where: { id: req.params.id, userId: req.userId }, data: { revokedAt: new Date() } });
+  res.json({ ok: true });
+});
+app.post("/api/auth/sessions/revoke-others", requireAuth, async (req: AuthRequest, res) => {
+  const keep = req.body?.refreshToken ? hashToken(String(req.body.refreshToken)) : "";
+  await prisma.refreshToken.updateMany({ where: { userId: req.userId, revokedAt: null, tokenHash: { not: keep } }, data: { revokedAt: new Date() } });
+  res.json({ ok: true });
+});
+app.get("/api/auth/login-history", requireAuth, async (req: AuthRequest, res) => {
+  const events = await prisma.loginEvent.findMany({ where: { userId: req.userId }, orderBy: { createdAt: "desc" }, take: 30 });
+  res.json({ events });
+});
+app.get("/api/auth/2fa", requireAuth, async (req: AuthRequest, res) => {
+  const u = await prisma.user.findUnique({ where: { id: req.userId }, select: { twoFactorEnabled: true } });
+  res.json({ enabled: !!u?.twoFactorEnabled });
+});
+app.post("/api/auth/2fa", requireAuth, async (req: AuthRequest, res) => {
+  const enable = req.body?.enable === true || req.body?.enable === "true" || req.body?.enable === 1;
+  await prisma.user.update({ where: { id: req.userId }, data: { twoFactorEnabled: enable } });
+  res.json({ ok: true, enabled: enable });
+});
+
+// ═══════════════ Wishlists / Trips (named, mixed hotel+tour) ═══════════════
+app.get("/api/wishlists", requireAuth, async (req: AuthRequest, res) => {
+  const wishlists = await prisma.wishlist.findMany({
+    where: { userId: req.userId }, orderBy: { createdAt: "asc" },
+    include: { items: { orderBy: { createdAt: "desc" } } },
+  });
+  res.json({ wishlists });
+});
+app.post("/api/wishlists", requireAuth, async (req: AuthRequest, res) => {
+  const name = String(req.body?.name ?? "").trim() || "Trip Baru";
+  const wishlist = await prisma.wishlist.create({ data: { userId: req.userId!, name: name.slice(0, 60) } });
+  res.json({ wishlist });
+});
+app.delete("/api/wishlists/:id", requireAuth, async (req: AuthRequest, res) => {
+  await prisma.wishlist.deleteMany({ where: { id: req.params.id, userId: req.userId } });
+  res.json({ ok: true });
+});
+app.post("/api/wishlists/:id/items", requireAuth, async (req: AuthRequest, res) => {
+  const w = await prisma.wishlist.findFirst({ where: { id: req.params.id, userId: req.userId }, select: { id: true } });
+  if (!w) return res.status(404).json({ error: "Daftar tidak ditemukan" });
+  const b = req.body;
+  const kind = String(b.kind || "HOTEL").toUpperCase();
+  if (!["HOTEL", "TOUR"].includes(kind)) return res.status(400).json({ error: "Jenis tidak valid" });
+  try {
+    const item = await prisma.wishlistItem.create({ data: {
+      wishlistId: w.id, kind, refId: String(b.refId), title: String(b.title || ""),
+      imageUrl: b.imageUrl || null, subtitle: b.subtitle || null, price: Number(b.price) || 0,
+    }});
+    res.json({ item });
+  } catch { res.json({ ok: true, duplicate: true }); }
+});
+app.delete("/api/wishlists/items/:itemId", requireAuth, async (req: AuthRequest, res) => {
+  await prisma.wishlistItem.deleteMany({ where: { id: req.params.itemId, wishlist: { userId: req.userId } } });
+  res.json({ ok: true });
+});
+
+// ═══════════════ Similar properties ═══════════════
+app.get("/api/hotels/:id/similar", async (req, res) => {
+  const hotel = await prisma.hotel.findUnique({ where: { id: req.params.id }, select: { id: true, city: true, priceFrom: true, starRating: true, propertyType: true } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  const lo = Math.round(hotel.priceFrom * 0.6), hi = Math.round(hotel.priceFrom * 1.6);
+  let similar = await prisma.hotel.findMany({
+    where: { id: { not: hotel.id }, city: hotel.city, priceFrom: { gte: lo, lte: hi } },
+    select: hotelCard, orderBy: { rating: "desc" }, take: 6,
+  });
+  if (similar.length < 3) {
+    const more = await prisma.hotel.findMany({ where: { id: { not: hotel.id }, city: hotel.city }, select: hotelCard, take: 6 });
+    const seen = new Set(similar.map((h) => h.id));
+    similar = [...similar, ...more.filter((h) => !seen.has(h.id))].slice(0, 6);
+  }
+  res.json({ hotels: similar });
 });
 
 // ═══════════════ Recently viewed + recommendations ═══════════════

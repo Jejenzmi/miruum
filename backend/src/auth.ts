@@ -20,17 +20,19 @@ export function signToken(userId: string): string {
 const hashToken = (raw: string) => crypto.createHash("sha256").update(raw).digest("hex");
 
 /// Issue a new refresh token (returns the raw token; only its hash is stored).
-export async function issueRefresh(userId: string): Promise<string> {
+export async function issueRefresh(userId: string, device?: string): Promise<string> {
   const raw = crypto.randomBytes(48).toString("hex");
   const expiresAt = new Date(Date.now() + REFRESH_TTL_DAYS * 86400_000);
-  await prisma.refreshToken.create({ data: { userId, tokenHash: hashToken(raw), expiresAt } });
+  await prisma.refreshToken.create({ data: { userId, tokenHash: hashToken(raw), expiresAt, device: device ?? null } });
   return raw;
 }
 
 /// Issue a full session pair.
-export async function issueSession(userId: string): Promise<{ token: string; refreshToken: string }> {
-  return { token: signToken(userId), refreshToken: await issueRefresh(userId) };
+export async function issueSession(userId: string, device?: string): Promise<{ token: string; refreshToken: string }> {
+  return { token: signToken(userId), refreshToken: await issueRefresh(userId, device) };
 }
+
+export { hashToken };
 
 /// Validate + rotate a refresh token. Returns the new session, or null if invalid/expired/revoked.
 export async function rotateRefresh(raw: string): Promise<{ userId: string; token: string; refreshToken: string } | null> {

@@ -91,18 +91,39 @@ class _SignInScreenState extends State<SignInScreen> {
   final _pass = TextEditingController();
   bool _loading = false, _obscure = true;
 
-  Future<void> _submit() async {
+  Future<void> _submit({String? code}) async {
     setState(() => _loading = true);
     try {
-      final (token, user) = await context.read<Api>().login(_email.text.trim(), _pass.text);
+      final (token, user) = await context.read<Api>().login(_email.text.trim(), _pass.text, code: code);
       if (!mounted) return;
       context.read<AuthBloc>().add(AuthSessionGranted(token, user));
       Navigator.pop(context);
+    } on TwoFactorRequired {
+      if (mounted) { setState(() => _loading = false); _promptTwoFactor(); }
     } on ApiException catch (e) {
       if (mounted) _toast(context, e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _promptTwoFactor() async {
+    final ctl = TextEditingController();
+    final code = await showDialog<String>(context: context, builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text('Verifikasi 2 Langkah'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Kode verifikasi dikirim ke emailmu. Masukkan di bawah.', style: TextStyle(fontSize: 13)),
+        const SizedBox(height: 12),
+        TextField(controller: ctl, keyboardType: TextInputType.number, textAlign: TextAlign.center,
+          decoration: const InputDecoration(hintText: '••••••'), maxLength: 6),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+        FilledButton(onPressed: () => Navigator.pop(context, ctl.text.trim()), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Verifikasi')),
+      ],
+    ));
+    if (code != null && code.length >= 4) _submit(code: code);
   }
 
   @override

@@ -142,6 +142,7 @@ model User {
   lifetimePoints Int     @default(0) // total points ever earned → membership tier
   referralCode  String?  @unique     // this user's invite code
   referredById  String?             // who invited this user
+  twoFactorEnabled Boolean @default(false) // email-OTP 2FA on login
   loyaltyTxns   LoyaltyTxn[]
   hotelThreads  HotelThread[]
   tourBookings  TourBooking[]
@@ -150,6 +151,8 @@ model User {
   recentlyViewed RecentlyViewed[]
   vouchers      UserVoucher[]
   questions     HotelQuestion[]
+  loginEvents   LoginEvent[]
+  wishlists     Wishlist[]
 }
 
 // A hotel the user recently opened (for "Baru dilihat" + recommendations).
@@ -305,12 +308,54 @@ model RefreshToken {
   id        String    @id @default(cuid())
   userId    String
   tokenHash String    @unique
+  device    String?   // device/user-agent label for session management
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Login attempts for the "riwayat login" security view.
+model LoginEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  device    String?
+  ip        String?
+  ok        Boolean  @default(true)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A named wishlist / trip that can hold hotels AND tours (mixed itinerary).
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+
+  @@index([userId])
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String
+  kind       String   // HOTEL | TOUR
+  refId      String
+  title      String
+  imageUrl   String?
+  subtitle   String?  // city / category
+  price      Int      @default(0)
+  createdAt  DateTime @default(now())
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  @@unique([wishlistId, kind, refId])
+  @@index([wishlistId])
 }
 
 // A reusable guest saved by a user for faster "booking for someone else".
@@ -854,6 +899,7 @@ model Booking {
   specialRequest String?
   payAtHotel     Boolean       @default(false) // confirmed reservation, guest pays at property
   reviewRequestedAt DateTime?  // when we asked the guest to review after checkout
+  roomGuests     Json?         // per-room guest details [{name, request}] for multi-room bookings
   roomPrice      BigInt
   taxFee         BigInt
   discount       BigInt        @default(0)

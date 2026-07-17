@@ -12,6 +12,8 @@ import 'auth.dart';
 import 'chat_screen.dart';
 import 'loyalty.dart';
 import 'wallet_screen.dart';
+import 'trips_screen.dart';
+import 'security_screen.dart';
 import 'personal_data.dart';
 import 'setting.dart';
 import 'shell.dart';
@@ -73,6 +75,10 @@ class ProfileScreen extends StatelessWidget {
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoyaltyScreen()))),
                 _menuTile(context, Icons.confirmation_num_outlined, 'Voucher Saya', MC.accent,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()))),
+                _menuTile(context, Icons.luggage_outlined, 'Trips Saya', MC.success,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripsScreen()))),
+                _menuTile(context, Icons.security_rounded, 'Keamanan', MC.blue,
+                    () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityScreen()))),
                 _menuTile(context, Icons.receipt_long_outlined, 'Pesanan Saya', MC.primary,
                     () => goToTab(context, 1)),
                 _menuTile(context, Icons.favorite_border_rounded, 'Hotel Favorit', MC.danger,

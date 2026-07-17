@@ -33,6 +33,11 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   final _guest = TextEditingController(); // guest name when booking for someone else
   final _request = TextEditingController();
   final _promo = TextEditingController();
+  // Per-room guest details (multi-room bookings).
+  late final List<TextEditingController> _roomNames =
+      List.generate(widget.rooms > 1 ? widget.rooms : 0, (_) => TextEditingController());
+  late final List<TextEditingController> _roomRequests =
+      List.generate(widget.rooms > 1 ? widget.rooms : 0, (_) => TextEditingController());
   bool _forSelf = true, _loading = false, _checkingPromo = false;
   bool _payAtHotel = false;
   int _discount = 0;
@@ -128,6 +133,11 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         'forSelf': _forSelf,
         'specialRequest': _request.text.trim(),
         if (_payAtHotel) 'payAtHotel': true,
+        if (widget.rooms > 1)
+          'roomGuests': [
+            for (var i = 0; i < widget.rooms; i++)
+              {'name': _roomNames[i].text.trim(), 'request': _roomRequests[i].text.trim()},
+          ],
       });
       // Save the guest for next time (fire-and-forget).
       if (!_forSelf && _saveGuest && _guest.text.trim().isNotEmpty) {
@@ -171,6 +181,10 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                   if (_loyaltyEnabled && _points > 0) ...[
                     const SizedBox(height: 16),
                     _loyaltyCard(),
+                  ],
+                  if (widget.rooms > 1) ...[
+                    const SizedBox(height: 16),
+                    _perRoomGuests(),
                   ],
                   const SizedBox(height: 16),
                   _payAtHotelCard(),
@@ -387,6 +401,26 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
               Text('$_appliedPromo diterapkan — hemat ${rupiah(_discount)}',
                   style: const TextStyle(color: MC.success, fontSize: 12.5, fontWeight: FontWeight.w600)),
             ]),
+          ],
+        ]),
+      );
+
+  Widget _perRoomGuests() => cardBox(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.meeting_room_rounded, size: 18, color: MC.primary),
+            const SizedBox(width: 8),
+            Text('Detail Tamu per Kamar (${widget.rooms} kamar)', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          ]),
+          const SizedBox(height: 4),
+          Text('Nama tamu utama & permintaan khusus tiap kamar (opsional).', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+          for (var i = 0; i < widget.rooms; i++) ...[
+            const SizedBox(height: 12),
+            Text('Kamar ${i + 1}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            const SizedBox(height: 6),
+            TextField(controller: _roomNames[i], decoration: const InputDecoration(hintText: 'Nama tamu', isDense: true)),
+            const SizedBox(height: 8),
+            TextField(controller: _roomRequests[i], decoration: const InputDecoration(hintText: 'Permintaan khusus (mis. lantai tinggi)', isDense: true)),
           ],
         ]),
       );

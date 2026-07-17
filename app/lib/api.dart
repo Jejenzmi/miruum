@@ -14,8 +14,12 @@ class Api {
   Future<void> Function()? onSessionExpired;
   bool _refreshing = false;
 
+  /// A human label for this device — used for session/security management.
+  static String deviceLabel = 'Aplikasi Miruum';
+
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
+        'X-Device': deviceLabel,
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
@@ -98,8 +102,9 @@ class Api {
     return AppUser.fromJson(j['user']);
   }
 
-  Future<(String, AppUser)> login(String email, String password) async {
-    final j = await _post('/auth/login', {'email': email, 'password': password});
+  Future<(String, AppUser)> login(String email, String password, {String? code}) async {
+    final j = await _post('/auth/login', {'email': email, 'password': password, if (code != null) 'code': code});
+    if (j is Map && j['twoFactorRequired'] == true) throw TwoFactorRequired();
     final user = await _adoptSession(j);
     return (j['token'] as String, user);
   }
@@ -324,6 +329,26 @@ class Api {
   Future<Map<String, dynamic>> sendHotelChat(String hotelId, String body) async =>
       (await _post('/hotel-chat/$hotelId', {'body': body})) as Map<String, dynamic>;
 
+  // ── Security: sessions, login history, 2FA ──
+  Future<List<dynamic>> sessions() async =>
+      (await _post('/auth/sessions/current', {if (refreshToken != null) 'refreshToken': refreshToken}))['sessions'] as List;
+  Future<void> revokeSession(String id) async => _post('/auth/sessions/$id/revoke');
+  Future<void> revokeOtherSessions() async => _post('/auth/sessions/revoke-others', {if (refreshToken != null) 'refreshToken': refreshToken});
+  Future<List<dynamic>> loginHistory() async => (await _get('/auth/login-history'))['events'] as List;
+  Future<bool> get2fa() async => ((await _get('/auth/2fa')) as Map)['enabled'] == true;
+  Future<bool> set2fa(bool enable) async => ((await _post('/auth/2fa', {'enable': enable})) as Map)['enabled'] == true;
+
+  // ── Wishlists / Trips ──
+  Future<List<dynamic>> wishlists() async => (await _get('/wishlists'))['wishlists'] as List;
+  Future<Map<String, dynamic>> createWishlist(String name) async => (await _post('/wishlists', {'name': name}))['wishlist'] as Map<String, dynamic>;
+  Future<void> deleteWishlist(String id) async => _req('DELETE', '/wishlists/$id');
+  Future<void> addToWishlist(String id, Map<String, dynamic> item) async => _post('/wishlists/$id/items', item);
+  Future<void> removeWishlistItem(String itemId) async => _req('DELETE', '/wishlists/items/$itemId');
+
+  // ── Similar properties ──
+  Future<List<Hotel>> similarHotels(String id) async =>
+      ((await _get('/hotels/$id/similar'))['hotels'] as List).map((h) => Hotel.fromJson(h)).toList();
+
   // ── Recently viewed ──
   Future<void> trackView(String hotelId) async { try { await _post('/hotels/$hotelId/view'); } catch (_) {} }
   Future<List<Hotel>> recentlyViewed() async =>
@@ -376,6 +401,9 @@ class Api {
   Future<ShuttleRide> shuttleRideStatus(String id, String status) async =>
       ShuttleRide.fromJson((await _post('/shuttle/rides/$id/status', {'status': status}))['ride']);
 }
+
+/// Thrown by login() when the account has 2FA on and an emailed code is needed.
+class TwoFactorRequired implements Exception {}
 
 class ApiException implements Exception {
   final String message;
