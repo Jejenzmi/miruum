@@ -62,7 +62,7 @@
       <input name="ai_api_key" type="password" value="<%= i.ai_api_key %>" placeholder="sk-ant-••••••••">
       <label>Model</label>
       <input name="ai_model" value="<%= i.ai_model %>" placeholder="claude-sonnet-5">
-      <label class="pr-check" style="margin:10px 0 0"><input type="checkbox" name="ai_auto" style="width:auto" <%= i.ai_auto==='1'?'checked':'' %>> Jalankan otomatis (jadwal harian)</label>
+      <label class="pr-check" style="margin:10px 0 0"><input type="checkbox" name="ai_auto" style="width:auto" <%= i.ai_auto==='1'?'checked':'' %>> Jalankan otomatis (3× per hari / tiap 8 jam)</label>
       <p class="muted" style="font-size:11px;margin-top:8px">Harga OTA hasil AI = <b>estimasi</b> dari pencarian web (dilabeli “AI” &amp; bertanggal). Bisa dikoreksi manual di Rate Intelligence.</p>
     </div>
 

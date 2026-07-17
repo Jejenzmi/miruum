@@ -29,7 +29,7 @@ async function shopHotel(hotel: HotelRef, otas: Ota[], cfg: { apiKey: string; mo
     body: JSON.stringify({
       model: cfg.model,
       max_tokens: 1024,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
       messages: [{ role: "user", content: prompt }],
     }),
   });

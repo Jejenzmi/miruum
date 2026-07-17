@@ -4085,10 +4085,10 @@ if (process.env.NODE_ENV !== "test") {
     // Data-retention purge (UU PDP): now + every 24h.
     runRetention();
     setInterval(runRetention, 24 * 3600_000).unref();
-    // AI rate shopper: daily, only when enabled + auto (no-op otherwise).
+    // AI rate shopper: 3× per day (every 8h), only when enabled + auto.
     setInterval(() => {
       getSettings().then((s) => { if (s.ai_auto === "1") runRateShopping().catch(() => {}); }).catch(() => {});
-    }, 24 * 3600_000).unref();
+    }, 8 * 3600_000).unref();
     // Price-drop alerts: every 6h.
     setInterval(() => runPriceAlerts().catch(() => {}), 6 * 3600_000).unref();
     // Post-stay review requests: now + every 12h.
