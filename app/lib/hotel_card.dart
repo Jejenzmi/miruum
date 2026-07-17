@@ -56,6 +56,20 @@ class HotelCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   RatingPill(hotel.rating, small: true),
                   const SizedBox(height: 8),
+                  if (hotel.priceBefore != null && hotel.priceBefore! > hotel.priceFrom)
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: MC.success.withOpacity(0.12), borderRadius: BorderRadius.circular(5)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.trending_down_rounded, size: 11, color: MC.success),
+                          const SizedBox(width: 2),
+                          Text('Harga turun', style: const TextStyle(color: MC.success, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(rupiah(hotel.priceBefore!), style: TextStyle(color: MC.inkFaint, fontSize: 10.5, decoration: TextDecoration.lineThrough)),
+                    ]),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [

@@ -154,6 +154,7 @@ class Hotel {
   final String id, name, city, address, imageUrl;
   final double rating;
   final int reviewCount, priceFrom, starRating;
+  final int? priceBefore;
   final bool isPromo;
   final String? promoLabel, description, checkInInfo, checkOutInfo;
   final List<String> photos;
@@ -170,7 +171,7 @@ class Hotel {
   Hotel({
     required this.id, required this.name, required this.city, required this.address,
     required this.imageUrl, required this.rating, required this.reviewCount,
-    required this.priceFrom, required this.starRating, required this.isPromo,
+    required this.priceFrom, required this.starRating, required this.isPromo, this.priceBefore,
     this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo,
     this.photos = const [], this.facilities = const [], this.rooms = const [], this.reviews = const [],
     this.channel, this.offers = const [], this.lat, this.lng,
@@ -180,7 +181,7 @@ class Hotel {
   factory Hotel.fromJson(Map<String, dynamic> j) => Hotel(
         id: j['id'], name: j['name'] ?? '', city: j['city'] ?? '', address: j['address'] ?? '',
         imageUrl: j['imageUrl'] ?? '', rating: (j['rating'] ?? 0).toDouble(),
-        reviewCount: j['reviewCount'] ?? 0, priceFrom: j['priceFrom'] ?? 0,
+        reviewCount: j['reviewCount'] ?? 0, priceFrom: j['priceFrom'] ?? 0, priceBefore: j['priceBefore'],
         starRating: j['starRating'] ?? 3, isPromo: j['isPromo'] ?? false,
         promoLabel: j['promoLabel'], description: j['description'],
         checkInInfo: j['checkInInfo'], checkOutInfo: j['checkOutInfo'],
@@ -301,7 +302,7 @@ class Booking {
   final int nights, guests, rooms, roomPrice, taxFee, totalPrice, discount;
   final String checkIn, checkOut, bookerName, bookerEmail, bookerPhone;
   final String? paymentMethod, bank, packageTitle, promoCode;
-  final bool onlineCheckedIn;
+  final bool onlineCheckedIn, payAtHotel;
   final String? keyCode;
   final Hotel? hotel;
   final Room? room;
@@ -311,7 +312,7 @@ class Booking {
     required this.totalPrice, required this.checkIn, required this.checkOut,
     required this.bookerName, required this.bookerEmail, required this.bookerPhone,
     this.paymentMethod, this.bank, this.packageTitle, this.promoCode, this.discount = 0,
-    this.onlineCheckedIn = false, this.keyCode, this.hotel, this.room,
+    this.onlineCheckedIn = false, this.payAtHotel = false, this.keyCode, this.hotel, this.room,
   });
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
         id: j['id'], code: j['code'], status: j['status'] ?? 'PENDING',
@@ -321,7 +322,7 @@ class Booking {
         checkIn: j['checkIn'] ?? '', checkOut: j['checkOut'] ?? '',
         bookerName: j['bookerName'] ?? '', bookerEmail: j['bookerEmail'] ?? '', bookerPhone: j['bookerPhone'] ?? '',
         paymentMethod: j['paymentMethod'], bank: j['bank'], packageTitle: j['packageTitle'], promoCode: j['promoCode'],
-        onlineCheckedIn: j['onlineCheckedIn'] ?? false, keyCode: j['keyCode'],
+        onlineCheckedIn: j['onlineCheckedIn'] ?? false, payAtHotel: j['payAtHotel'] ?? false, keyCode: j['keyCode'],
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,
       );

@@ -326,6 +326,40 @@ async function runRetention() {
   } catch (e: any) { logger.error({ err: e }, "retention purge failed"); }
 }
 
+// Recompute a hotel's headline price from its rooms; track "harga turun".
+async function refreshPriceFrom(hotelId: string) {
+  const rooms = await prisma.room.findMany({ where: { hotelId }, select: { price: true } });
+  if (!rooms.length) return;
+  const min = Math.min(...rooms.map((r) => r.price));
+  const h = await prisma.hotel.findUnique({ where: { id: hotelId }, select: { priceFrom: true, priceBefore: true } });
+  if (!h) return;
+  const data: any = { priceFrom: min };
+  if (min < h.priceFrom) data.priceBefore = h.priceFrom;                 // dropped → remember old
+  else if (h.priceBefore && min >= h.priceBefore) data.priceBefore = null; // recovered → clear badge
+  await prisma.hotel.update({ where: { id: hotelId }, data });
+}
+
+// Notify price-alert watchers when a hotel's price drops below their baseline.
+async function runPriceAlerts() {
+  try {
+    const alerts = await prisma.priceAlert.findMany({ include: { hotel: { select: { id: true, name: true, priceFrom: true } } } });
+    let sent = 0;
+    for (const a of alerts) {
+      const cur = a.hotel.priceFrom;
+      const base = a.lastNotifiedPrice ?? cur;
+      if (cur < base) {
+        await dispatch(prisma, { userId: a.userId, title: `Harga turun — ${a.hotel.name}`,
+          body: `Sekarang ${rupiah(cur)}/malam (sebelumnya ${rupiah(base)}). Pesan sebelum naik lagi!`, type: "success" });
+        await prisma.priceAlert.update({ where: { id: a.id }, data: { lastNotifiedPrice: cur } });
+        sent++;
+      } else if (cur > base) {
+        await prisma.priceAlert.update({ where: { id: a.id }, data: { lastNotifiedPrice: cur } });
+      }
+    }
+    if (sent) logger.info({ sent }, "price-drop alerts sent");
+  } catch (e: any) { logger.error({ err: e }, "price alerts failed"); }
+}
+
 app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
     name: z.string().min(2).optional(),
@@ -374,7 +408,7 @@ app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
 // ─────────────────────────── Hotels ───────────────────────────
 const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
-  reviewCount: true, priceFrom: true, starRating: true, imageUrl: true,
+  reviewCount: true, priceFrom: true, priceBefore: true, starRating: true, imageUrl: true,
   isPromo: true, promoLabel: true, propertyType: true, lat: true, lng: true,
   channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
@@ -729,6 +763,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     forSelf: z.boolean().default(true),
     usePoints: z.coerce.boolean().default(false), // redeem loyalty points as discount
     specialRequest: z.string().optional(),
+    payAtHotel: z.coerce.boolean().default(false), // confirmed reservation, pay at property
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Data pemesanan tidak valid", details: parsed.error.issues });
@@ -831,6 +866,7 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       guests: d.guests, rooms: d.rooms,
       bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
       forSelf: d.forSelf, specialRequest: d.specialRequest,
+      payAtHotel: d.payAtHotel, paymentMethod: d.payAtHotel ? "Bayar di Hotel" : undefined,
       roomPrice: baseAmount, taxFee, discount, promoCode, totalPrice,
       status: "PENDING",
     },
@@ -1037,6 +1073,27 @@ app.delete("/api/partner/nearby/:id", requireRole("PARTNER", "ADMIN"), async (re
   await prisma.hotelNearby.delete({ where: { id: req.params.id } });
   await invalidate("miruum:");
   res.json({ ok: true });
+});
+
+// ═══════════════ Price alerts (watch a hotel for price drops) ═══════════════
+app.get("/api/price-alerts", requireAuth, async (req: AuthRequest, res) => {
+  const alerts = await prisma.priceAlert.findMany({
+    where: { userId: req.userId }, orderBy: { createdAt: "desc" },
+    include: { hotel: { select: hotelCard } },
+  });
+  res.json({ alerts, hotelIds: alerts.map((a) => a.hotelId) });
+});
+// Toggle a price-drop watch on a hotel.
+app.post("/api/hotels/:id/price-alert", requireAuth, async (req: AuthRequest, res) => {
+  const hotel = await prisma.hotel.findUnique({ where: { id: req.params.id }, select: { id: true, priceFrom: true } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  const existing = await prisma.priceAlert.findUnique({ where: { userId_hotelId: { userId: req.userId!, hotelId: hotel.id } } });
+  if (existing) {
+    await prisma.priceAlert.delete({ where: { id: existing.id } });
+    return res.json({ watching: false });
+  }
+  await prisma.priceAlert.create({ data: { userId: req.userId!, hotelId: hotel.id, lastNotifiedPrice: hotel.priceFrom } });
+  res.json({ watching: true });
 });
 
 // Set a hotel's property type (partner or admin).
@@ -1625,7 +1682,7 @@ app.delete("/api/saved-guests/:id", requireAuth, async (req: AuthRequest, res) =
 app.get("/api/vouchers/:code", async (req, res) => {
   const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
   if (!b) return res.status(404).send("<h1>Voucher tidak ditemukan</h1>");
-  const paid = b.status === "PAID" || b.status === "COMPLETED";
+  const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
   const qr = await qrSvg(b.code);
   res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>E-Voucher ${b.code} — Miruum</title><style>${DOC_CSS}</style></head><body>
@@ -1710,7 +1767,7 @@ app.get("/api/hotels/receipt/:code", async (req, res) => {
     include: { hotel: true, room: true, channel: { select: { code: true, name: true, type: true, commissionPct: true } } },
   });
   if (!b) return res.status(404).send("<h1>Receipt tidak ditemukan</h1>");
-  const paid = b.status === "PAID" || b.status === "COMPLETED";
+  const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
   const qr = await qrSvg(b.code);
   const f = await bookingSplit(b);
   const chLabel = f.isDirect ? "Direct (Channel Manager Miruum)" : (b.channel?.name ?? "OTA");
@@ -3704,6 +3761,7 @@ app.put("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req: A
   const room = await prisma.room.findUnique({ where: { id: req.params.id }, include: { hotel: true } });
   if (!room || room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
   const updated = await prisma.room.update({ where: { id: req.params.id }, data: p.data });
+  if (p.data.price != null) await refreshPriceFrom(room.hotelId); // update headline price + harga-turun badge
   await invalidate("miruum:");
   audit(req, "room.update", "Room", updated.id, { hotel: room.hotel.name, ...p.data });
   res.json({ room: updated });
@@ -3763,6 +3821,8 @@ if (process.env.NODE_ENV !== "test") {
     setInterval(() => {
       getSettings().then((s) => { if (s.ai_auto === "1") runRateShopping().catch(() => {}); }).catch(() => {});
     }, 24 * 3600_000).unref();
+    // Price-drop alerts: every 6h.
+    setInterval(() => runPriceAlerts().catch(() => {}), 6 * 3600_000).unref();
   });
   // Graceful shutdown — stop accepting connections, then exit.
   for (const sig of ["SIGTERM", "SIGINT"] as const) {

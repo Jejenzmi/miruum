@@ -34,6 +34,8 @@ class _PriceCalendarState extends State<_PriceCalendar> {
   final _days = <String, _DayInfo>{};
   bool _loading = true;
   DateTime? _checkIn, _checkOut;
+  int? _minPrice;
+  String? _cheapestKey;
   static const _monthsAhead = 3;
 
   DateTime get _today => DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
@@ -53,8 +55,23 @@ class _PriceCalendarState extends State<_PriceCalendar> {
       for (final r in rows) {
         _days[r['date'] as String] = _DayInfo((r['price'] ?? 0) as int, (r['available'] ?? true) as bool);
       }
+      // Cheapest available future night → for the "termurah" highlight + flexible pick.
+      final todayKey = _key(_today);
+      for (final e in _days.entries) {
+        if (!e.value.available || e.value.price <= 0 || e.key.compareTo(todayKey) < 0) continue;
+        if (_minPrice == null || e.value.price < _minPrice!) { _minPrice = e.value.price; _cheapestKey = e.key; }
+      }
     } catch (_) {/* fall back to no calendar */}
     if (mounted) setState(() => _loading = false);
+  }
+
+  DateTime _parseKey(String k) { final p = k.split('-'); return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2])); }
+
+  /// "Saya fleksibel" — jump to & select the cheapest available night.
+  void _pickCheapest() {
+    if (_cheapestKey == null) return;
+    final d = _parseKey(_cheapestKey!);
+    setState(() { _checkIn = d; _checkOut = d.add(const Duration(days: 1)); });
   }
 
   String _key(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -85,6 +102,25 @@ class _PriceCalendarState extends State<_PriceCalendar> {
         const SizedBox(height: 12),
         Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2))),
         const Padding(padding: EdgeInsets.all(14), child: Text('Pilih Tanggal Menginap', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+        if (!_loading && _minPrice != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: MC.success.withOpacity(0.10), borderRadius: BorderRadius.circular(12), border: Border.all(color: MC.success.withOpacity(0.3))),
+              child: Row(children: [
+                const Icon(Icons.trending_down_rounded, size: 18, color: MC.success),
+                const SizedBox(width: 8),
+                Expanded(child: RichText(text: TextSpan(style: TextStyle(fontSize: 12.5, color: MC.ink), children: [
+                  const TextSpan(text: 'Termurah '),
+                  TextSpan(text: rupiah(_minPrice!), style: const TextStyle(fontWeight: FontWeight.w800, color: MC.success)),
+                  const TextSpan(text: '/malam pada rentang ini'),
+                ]))),
+                TextButton(onPressed: _pickCheapest, style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                  child: const Text('Saya fleksibel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5))),
+              ]),
+            ),
+          ),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: MC.primary))
@@ -153,13 +189,15 @@ class _PriceCalendarState extends State<_PriceCalendar> {
     final isEnd = _checkOut != null && d.isAtSameMomentAs(_checkOut!);
     final selected = isStart || isEnd;
     final inRange = _inRange(d);
+    final isCheapest = !disabled && _cheapestKey == _key(d);
     return GestureDetector(
       onTap: disabled ? null : () => _tap(d),
       child: Container(
         margin: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
-          color: selected ? MC.primary : inRange ? MC.primarySoft : Colors.transparent,
+          color: selected ? MC.primary : inRange ? MC.primarySoft : isCheapest ? MC.success.withOpacity(0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
+          border: isCheapest && !selected ? Border.all(color: MC.success.withOpacity(0.5)) : null,
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text('${d.day}',
@@ -171,7 +209,8 @@ class _PriceCalendarState extends State<_PriceCalendar> {
               )),
           if (info != null && !soldOut)
             Text('${(info.price / 1000).round()}rb',
-                style: TextStyle(fontSize: 8.5, color: selected ? Colors.white70 : MC.inkFaint)),
+                style: TextStyle(fontSize: 8.5, fontWeight: isCheapest ? FontWeight.w800 : FontWeight.w400,
+                    color: selected ? Colors.white70 : isCheapest ? MC.success : MC.inkFaint)),
         ]),
       ),
     );

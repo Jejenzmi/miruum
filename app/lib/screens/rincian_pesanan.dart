@@ -8,6 +8,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'pembayaran.dart';
+import 'booking_detail.dart';
 
 class RincianPesananScreen extends StatefulWidget {
   final Hotel hotel;
@@ -33,6 +34,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   final _request = TextEditingController();
   final _promo = TextEditingController();
   bool _forSelf = true, _loading = false, _checkingPromo = false;
+  bool _payAtHotel = false;
   int _discount = 0;
   String? _appliedPromo;
   List<SavedGuest> _savedGuests = [];
@@ -125,13 +127,20 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         'bookerPhone': _phone.text.trim(),
         'forSelf': _forSelf,
         'specialRequest': _request.text.trim(),
+        if (_payAtHotel) 'payAtHotel': true,
       });
       // Save the guest for next time (fire-and-forget).
       if (!_forSelf && _saveGuest && _guest.text.trim().isNotEmpty) {
         context.read<Api>().saveGuest(_guest.text.trim()).catchError((_) {});
       }
       if (!mounted) return;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: booking.id)));
+      if (_payAtHotel) {
+        // Confirmed reservation — no upfront payment. Show the booking + voucher.
+        showSnack(context, 'Reservasi terkonfirmasi — bayar saat check-in di hotel.', kind: SnackKind.success);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => BookingDetailScreen(booking)));
+      } else {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: booking.id)));
+      }
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, kind: SnackKind.error);
     } finally {
@@ -163,6 +172,8 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                     const SizedBox(height: 16),
                     _loyaltyCard(),
                   ],
+                  const SizedBox(height: 16),
+                  _payAtHotelCard(),
                   const SizedBox(height: 16),
                   _priceBreakdown(),
                 ],
@@ -380,6 +391,21 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         ]),
       );
 
+  Widget _payAtHotelCard() => cardBox(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.storefront_rounded, size: 18, color: MC.primary),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Bayar di Hotel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+            Switch(value: _payAtHotel, activeColor: MC.primary, onChanged: (v) => setState(() => _payAtHotel = v)),
+          ]),
+          Text(_payAtHotel
+              ? 'Reservasi langsung terkonfirmasi. Bayar tunai/kartu saat check-in di hotel.'
+              : 'Aktifkan untuk memesan tanpa bayar di muka — bayar saat tiba di hotel.',
+              style: TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.4)),
+        ]),
+      );
+
   Widget _specialRequest() => cardBox(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Permintaan Khusus', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
@@ -447,7 +473,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
               ]),
             ),
             const SizedBox(width: 12),
-            Expanded(flex: 5, child: PrimaryButton('Pesan Sekarang', loading: _loading, onPressed: _submit)),
+            Expanded(flex: 5, child: PrimaryButton(_payAtHotel ? 'Konfirmasi Reservasi' : 'Pesan Sekarang', loading: _loading, onPressed: _submit)),
           ]),
         ),
       );

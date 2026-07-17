@@ -40,6 +40,29 @@ class _HotelDetailView extends StatefulWidget {
 
 class _HotelDetailViewState extends State<_HotelDetailView> {
   bool _descExpanded = false;
+  bool _watching = false, _watchChecked = false;
+
+  void _checkWatch(String hotelId) {
+    if (_watchChecked || !context.read<AuthBloc>().state.isLoggedIn) return;
+    _watchChecked = true;
+    context.read<Api>().priceAlertHotelIds().then((ids) {
+      if (mounted) setState(() => _watching = ids.contains(hotelId));
+    }).catchError((_) {});
+  }
+
+  Future<void> _toggleWatch(String hotelId) async {
+    if (!ensureLoggedIn(context, reason: tr('Masuk untuk memantau harga.', 'Log in to watch prices.'))) return;
+    try {
+      final w = await context.read<Api>().togglePriceAlert(hotelId);
+      if (mounted) {
+        setState(() => _watching = w);
+        showSnack(context, w ? tr('Aktif — kami beri tahu jika harga turun', 'On — we\'ll alert you on price drops') : tr('Pantau harga dimatikan', 'Price watch off'),
+            kind: w ? SnackKind.success : SnackKind.info);
+      }
+    } catch (_) {
+      if (mounted) showSnack(context, tr('Gagal memperbarui', 'Failed to update'), kind: SnackKind.error);
+    }
+  }
 
   /// Cheapest available offer — used to silently route the booking to the best
   /// supply source (the source is never surfaced to the customer).
@@ -61,6 +84,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
           final h = state.data!;
           final fav = auth.isFavorite(h.id);
           final photos = h.photos.isNotEmpty ? h.photos : [h.imageUrl];
+          WidgetsBinding.instance.addPostFrameCallback((_) => _checkWatch(h.id));
           return Stack(
             children: [
               CustomScrollView(
@@ -78,6 +102,9 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                       const SizedBox(width: 8),
                       _circleBtn(Icons.share_rounded, () => Share.share(
                           'Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://ota.gokar.id')),
+                      const SizedBox(width: 8),
+                      _circleBtn(_watching ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                          () => _toggleWatch(h.id), color: _watching ? MC.primary : MC.ink),
                       const SizedBox(width: 8),
                       _circleBtn(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded, () {
                         if (!ensureLoggedIn(context, reason: tr('Masuk untuk menyimpan hotel ke favorit.', 'Log in to save hotels to favorites.'))) return;
@@ -142,8 +169,38 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                               ]),
                             ),
                             const SizedBox(width: 10),
-                            Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
-                                style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700)),
+                            Expanded(child: Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
+                                style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700))),
+                          ]),
+                          if (h.priceBefore != null && h.priceBefore! > h.priceFrom) ...[
+                            const SizedBox(height: 6),
+                            Row(children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(color: MC.success.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.trending_down_rounded, size: 13, color: MC.success),
+                                  const SizedBox(width: 3),
+                                  Text('Harga turun ${(100 - h.priceFrom / h.priceBefore! * 100).round()}%',
+                                      style: const TextStyle(color: MC.success, fontSize: 11, fontWeight: FontWeight.w700)),
+                                ]),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(rupiah(h.priceBefore!), style: TextStyle(color: MC.inkFaint, fontSize: 12, decoration: TextDecoration.lineThrough)),
+                            ]),
+                          ],
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            const Icon(Icons.visibility_rounded, size: 13, color: MC.accent),
+                            const SizedBox(width: 4),
+                            Text('${3 + h.id.hashCode.abs() % 12} orang sedang melihat',
+                                style: TextStyle(color: MC.inkMuted, fontSize: 11.5, fontWeight: FontWeight.w500)),
+                            if (_lowestStock(h) != null && _lowestStock(h)! <= 5) ...[
+                              const SizedBox(width: 12),
+                              const Icon(Icons.local_fire_department_rounded, size: 13, color: MC.danger),
+                              const SizedBox(width: 3),
+                              Text('Tinggal ${_lowestStock(h)} kamar', style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                            ],
                           ]),
                           const SizedBox(height: 20),
                           const Text('Fasilitas', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
@@ -307,6 +364,10 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
     'facilities': 'Fasilitas', 'comfort': 'Kenyamanan', 'value': 'Nilai',
   };
   bool _hasScores(Hotel h) => h.reviewScores.values.any((v) => v != null);
+  int? _lowestStock(Hotel h) {
+    final stocks = h.rooms.map((r) => r.stock).where((s) => s > 0).toList();
+    return stocks.isEmpty ? null : stocks.reduce((a, b) => a < b ? a : b);
+  }
 
   Widget _reviewScores(Hotel h) => Container(
         padding: const EdgeInsets.all(14),

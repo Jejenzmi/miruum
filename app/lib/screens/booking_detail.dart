@@ -17,7 +17,9 @@ class BookingDetailScreen extends StatelessWidget {
   final Booking booking;
   const BookingDetailScreen(this.booking, {super.key});
 
-  ({Color color, String label}) get _status => switch (booking.status) {
+  ({Color color, String label}) get _status => booking.payAtHotel && booking.status == 'PENDING'
+      ? (color: MC.success, label: 'Terkonfirmasi · Bayar di Hotel')
+      : switch (booking.status) {
         'PENDING' => (color: MC.accent, label: 'Menunggu dibayar'),
         'PAID' => (color: MC.success, label: 'Sudah dibayar'),
         'COMPLETED' => (color: MC.primaryDark, label: 'Selesai'),
@@ -74,10 +76,10 @@ class BookingDetailScreen extends StatelessWidget {
             _row('Total', rupiah(b.totalPrice), bold: true),
           ])),
           const SizedBox(height: 18),
-          if (b.status == 'PENDING')
+          if (b.status == 'PENDING' && !b.payAtHotel)
             PrimaryButton('Lanjutkan Pembayaran', icon: Icons.payment_rounded,
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id))))
-          else if (b.status == 'PAID' || b.status == 'COMPLETED') ...[
+          else if (b.status == 'PAID' || b.status == 'COMPLETED' || b.payAtHotel) ...[
             PrimaryButton('Lihat E-Voucher (PDF)', icon: Icons.picture_as_pdf_rounded, onPressed: () async {
               try {
                 final bytes = await buildGuestVoucherPdf(b);

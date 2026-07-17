@@ -324,6 +324,12 @@ class Api {
   Future<Map<String, dynamic>> sendHotelChat(String hotelId, String body) async =>
       (await _post('/hotel-chat/$hotelId', {'body': body})) as Map<String, dynamic>;
 
+  // ── Price alerts (watch a hotel for price drops) ──
+  Future<bool> togglePriceAlert(String hotelId) async =>
+      ((await _post('/hotels/$hotelId/price-alert')) as Map)['watching'] == true;
+  Future<Set<String>> priceAlertHotelIds() async =>
+      ((await _get('/price-alerts'))['hotelIds'] as List).map((e) => e.toString()).toSet();
+
   // ── Module config (which modules are enabled) ──
   Future<Map<String, bool>> modules() async {
     final r = (await _get('/config')) as Map<String, dynamic>;

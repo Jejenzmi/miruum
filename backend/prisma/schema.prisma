@@ -143,6 +143,7 @@ model User {
   hotelThreads  HotelThread[]
   tourBookings  TourBooking[]
   shuttleRides  ShuttleRide[]
+  priceAlerts   PriceAlert[]
 }
 
 // Direct guest ↔ hotel messaging (one thread per user+hotel).
@@ -319,6 +320,7 @@ model Hotel {
   rating      Float    @default(0)
   reviewCount Int      @default(0)
   priceFrom   Int      @default(0) // rupiah / night
+  priceBefore Int?     // previous priceFrom when it dropped → "harga turun" badge
   starRating  Int      @default(3)
   imageUrl    String
   checkInInfo  String  @default("Dari jam 14.00")
@@ -351,6 +353,21 @@ model Hotel {
   threads     HotelThread[]
   rateObservations RateObservation[]
   nearby      HotelNearby[]
+  priceAlerts PriceAlert[]
+}
+
+// A guest's price-drop watch on a hotel — notified when priceFrom falls.
+model PriceAlert {
+  id                String   @id @default(cuid())
+  userId            String
+  hotelId           String
+  lastNotifiedPrice Int?     // price at last notification (avoid repeat pings)
+  createdAt         DateTime @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel             Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hotelId])
+  @@index([hotelId])
 }
 
 // "What's nearby" — distance from the hotel to landmarks (airport, mall,
@@ -784,6 +801,7 @@ model Booking {
   bookerPhone    String
   forSelf        Boolean       @default(true)
   specialRequest String?
+  payAtHotel     Boolean       @default(false) // confirmed reservation, guest pays at property
   roomPrice      BigInt
   taxFee         BigInt
   discount       BigInt        @default(0)
