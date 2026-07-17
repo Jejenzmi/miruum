@@ -51,14 +51,27 @@ export function aiConfigured(s: Record<string, string>): boolean {
   return s.ai_enabled === "1" && !!s.ai_api_key;
 }
 
-// Run the shopper across hotels; upserts AI-sourced observations. Returns stats.
-export async function runRateShopping(limitHotels = 60): Promise<{ hotels: number; updated: number; skipped: number; ok: boolean }> {
+// Is a hotel due for a scheduled check? freq = runs/day; allow a 1h tick tolerance.
+function isDue(h: { rateShopFreq: number; rateShoppedAt: Date | null }): boolean {
+  if (h.rateShopFreq <= 0) return false;
+  if (!h.rateShoppedAt) return true;
+  const thresholdMs = (24 / h.rateShopFreq - 1) * 3600_000;
+  return Date.now() - h.rateShoppedAt.getTime() >= thresholdMs;
+}
+
+// Run the shopper. force=true → every hotel (admin manual). force=false → only
+// hotels with a Miruum Intelligent schedule (rateShopFreq>0) that are due now.
+export async function runRateShopping(force = false, limitHotels = 100): Promise<{ hotels: number; updated: number; skipped: number; ok: boolean }> {
   const s = await getSettings();
   if (!aiConfigured(s)) return { hotels: 0, updated: 0, skipped: 0, ok: false };
   const model = s.ai_model || "claude-sonnet-5";
   const otas = await prisma.supplyChannel.findMany({ where: { type: "OTA", active: true }, select: { id: true, code: true, name: true } });
   if (!otas.length) return { hotels: 0, updated: 0, skipped: 0, ok: true };
-  const hotels = await prisma.hotel.findMany({ take: limitHotels, select: { id: true, name: true, city: true } });
+  const all = await prisma.hotel.findMany({
+    where: force ? {} : { rateShopFreq: { gt: 0 } }, take: limitHotels,
+    select: { id: true, name: true, city: true, rateShopFreq: true, rateShoppedAt: true },
+  });
+  const hotels = force ? all : all.filter(isDue);
 
   let updated = 0, skipped = 0;
   for (const h of hotels) {
@@ -78,6 +91,8 @@ export async function runRateShopping(limitHotels = 60): Promise<{ hotels: numbe
     } catch (e: any) {
       skipped++;
       console.warn(`[rateshopper] ${h.name}: ${e.message}`);
+    } finally {
+      await prisma.hotel.update({ where: { id: h.id }, data: { rateShoppedAt: new Date() } }).catch(() => {});
     }
   }
   return { hotels: hotels.length, updated, skipped, ok: true };

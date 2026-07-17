@@ -1374,6 +1374,39 @@ app.put("/api/partner/hotels/:id/property-type", requireRole("PARTNER", "ADMIN")
   res.json({ ok: true, propertyType: t });
 });
 
+// ═══════════════ Miruum Intelligent (partner rate-intel + per-hotel schedule) ═══════════════
+app.get("/api/partner/rate-intelligence", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const otaChannels = await prisma.supplyChannel.findMany({ where: { type: "OTA", active: true }, orderBy: { sortOrder: "asc" }, select: { id: true, code: true, name: true, color: true } });
+  const hotels = await prisma.hotel.findMany({
+    where: admin ? {} : { ownerId: req.userId }, orderBy: { name: "asc" },
+    select: { id: true, name: true, city: true, priceFrom: true, rateShopFreq: true, rateShoppedAt: true,
+      rateObservations: { select: { channelId: true, price: true, source: true } } },
+  });
+  const s = await getSettings();
+  const rows = hotels.map((h) => {
+    const obs: Record<string, number> = {}, obsSource: Record<string, string> = {};
+    for (const o of h.rateObservations) { obs[o.channelId] = o.price; obsSource[o.channelId] = o.source; }
+    const otaPrices = Object.values(obs).filter((p) => p > 0);
+    return {
+      hotelId: h.id, hotel: h.name, city: h.city, ownPrice: h.priceFrom, obs, obsSource,
+      rateShopFreq: h.rateShopFreq, rateShoppedAt: h.rateShoppedAt,
+      cheapest: otaPrices.length ? h.priceFrom <= Math.min(...otaPrices) : null,
+      marketMin: otaPrices.length ? Math.min(h.priceFrom, ...otaPrices) : h.priceFrom,
+    };
+  });
+  res.json({ otaChannels, rows, aiReady: aiConfigured(s), aiAuto: s.ai_auto === "1", model: s.ai_model || "" });
+});
+
+// Partner sets their hotel's auto rate-check frequency (guardrail: 0..3 per day).
+app.put("/api/partner/hotels/:id/rate-shop", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(404).json({ error: "Hotel bukan milik Anda" });
+  const freq = Math.max(0, Math.min(3, Number(req.body?.freq) || 0)); // clamp 0..3/day
+  await prisma.hotel.update({ where: { id: req.params.id }, data: { rateShopFreq: freq } });
+  await invalidate("miruum:");
+  res.json({ ok: true, freq });
+});
+
 app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   const { status } = req.query as Record<string, string>;
   const where: any = { userId: req.userId };
@@ -2658,7 +2691,7 @@ app.get("/api/admin/rate-intelligence", requireRole("ADMIN"), async (_req, res) 
 app.post("/api/admin/rate-intelligence/search", requireRole("ADMIN"), async (_req, res) => {
   const s = await getSettings();
   if (!aiConfigured(s)) return res.status(400).json({ error: "Agen AI belum aktif. Aktifkan & isi API key di Integrasi." });
-  runRateShopping().then((r) => logger.info(r, "[rateshopper] done")).catch((e) => logger.error({ err: e }, "[rateshopper] failed"));
+  runRateShopping(true).then((r) => logger.info(r, "[rateshopper] done")).catch((e) => logger.error({ err: e }, "[rateshopper] failed"));
   res.json({ ok: true, started: true });
 });
 
@@ -4085,10 +4118,11 @@ if (process.env.NODE_ENV !== "test") {
     // Data-retention purge (UU PDP): now + every 24h.
     runRetention();
     setInterval(runRetention, 24 * 3600_000).unref();
-    // AI rate shopper: 3× per day (every 8h), only when enabled + auto.
+    // Miruum Intelligent: tick every 4h; each hotel runs at its own 1/2/3×-per-day
+    // cadence (only hotels that are "due" get an API call).
     setInterval(() => {
-      getSettings().then((s) => { if (s.ai_auto === "1") runRateShopping().catch(() => {}); }).catch(() => {});
-    }, 8 * 3600_000).unref();
+      getSettings().then((s) => { if (s.ai_auto === "1") runRateShopping(false).catch(() => {}); }).catch(() => {});
+    }, 4 * 3600_000).unref();
     // Price-drop alerts: every 6h.
     setInterval(() => runPriceAlerts().catch(() => {}), 6 * 3600_000).unref();
     // Post-stay review requests: now + every 12h.

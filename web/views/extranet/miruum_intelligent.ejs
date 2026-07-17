@@ -1,0 +1,65 @@
+<%- include('../partials/top', { title:'Miruum Intelligent', heading:'Miruum Intelligent', section:'extranet', active:'miruum-intelligent', me }) %>
+
+<% if (saved==='1') { %><div class="notice ok">Jadwal tersimpan.</div><% } %>
+<% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan.</div><% } %>
+
+<div class="card" style="background:#EAF2FB;color:#1c4e80;font-size:12.5px;line-height:1.7">
+  🤖 <b>Miruum Intelligent</b> — pantau harga hotel Anda di OTA lain (Tiket.com, Agoda, Traveloka) secara otomatis pakai AI, lalu bandingkan dengan harga Anda di Miruum.
+  Atur seberapa sering AI mengecek: <b>maksimal 3× per hari</b> per hotel.
+  <br>Status mesin AI:
+  <% if (aiReady) { %><b style="color:#1E7E38">Aktif</b> (<%= model %>)<%= aiAuto ? ' · penjadwal ON' : ' · penjadwal OFF (minta admin aktifkan)' %><% } else { %><b style="color:#b0700f">Belum aktif</b> — hubungi admin Miruum untuk mengaktifkan.<% } %>
+</div>
+
+<% if (!otaChannels || !otaChannels.length) { %>
+  <div class="card"><div class="empty">Belum ada kanal OTA pembanding.</div></div>
+<% } %>
+
+<% (rows||[]).forEach(function(r){ %>
+  <div class="card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div>
+        <b style="font-size:15px"><%= r.hotel %></b>
+        <span class="muted" style="font-size:12px">· <%= r.city %></span>
+      </div>
+      <% if (r.obs && Object.keys(r.obs).length) { %>
+        <span class="pill <%= r.cheapest ? 'PAID':'CANCELLED' %>"><%= r.cheapest ? '✓ Kita termurah' : 'Ada OTA lebih murah' %></span>
+      <% } else { %>
+        <span class="pill" style="background:#eee;color:#777">Belum ada data OTA</span>
+      <% } %>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+      <div style="min-width:150px">
+        <label style="margin:0 0 4px;font-size:11.5px;color:#1E7E38;font-weight:700">Harga Kita</label>
+        <div style="padding:9px 12px;background:#EAF7EE;border-radius:8px;font-weight:800;color:#1E7E38"><%= rupiah(r.ownPrice) %></div>
+      </div>
+      <% otaChannels.forEach(function(c){ var val = r.obs ? r.obs[c.id] : null; var cheaper = val && val < r.ownPrice; %>
+        <div style="min-width:130px">
+          <label style="margin:0 0 4px;font-size:11.5px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= c.color||'#888' %>;margin-right:5px"></span><%= c.name %>
+          </label>
+          <div style="padding:9px 12px;background:var(--field,#f4f5f7);border-radius:8px;font-weight:700;<%= cheaper ? 'color:#c0392b' : '' %>">
+            <%= val ? rupiah(val) : '—' %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <form method="post" action="/extranet/hotels/<%= r.hotelId %>/rate-shop" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:12px">
+      <div><label style="margin:0 0 4px">Auto cek harga OTA</label>
+        <select name="freq" style="max-width:170px">
+          <option value="0" <%= r.rateShopFreq===0?'selected':'' %>>Nonaktif</option>
+          <option value="1" <%= r.rateShopFreq===1?'selected':'' %>>1× per hari</option>
+          <option value="2" <%= r.rateShopFreq===2?'selected':'' %>>2× per hari</option>
+          <option value="3" <%= r.rateShopFreq===3?'selected':'' %>>3× per hari</option>
+        </select>
+      </div>
+      <button class="btn sm" style="margin-bottom:2px">Simpan Jadwal</button>
+      <span class="muted" style="font-size:11.5px;margin-bottom:8px">
+        <% if (r.rateShoppedAt) { %>Terakhir dicek: <%= new Date(r.rateShoppedAt).toLocaleString('id-ID') %><% } else { %>Belum pernah dicek<% } %>
+      </span>
+    </form>
+  </div>
+<% }) %>
+
+<%- include('../partials/bottom') %>

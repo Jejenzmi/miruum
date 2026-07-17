@@ -415,6 +415,8 @@ model Hotel {
   reviewCount Int      @default(0)
   priceFrom   Int      @default(0) // rupiah / night
   priceBefore Int?     // previous priceFrom when it dropped → "harga turun" badge
+  rateShopFreq Int     @default(0) // Miruum Intelligent auto rate-check: 0=off, 1/2/3 per day
+  rateShoppedAt DateTime?          // last AI rate-shop for this hotel
   starRating  Int      @default(3)
   imageUrl    String
   checkInInfo  String  @default("Dari jam 14.00")

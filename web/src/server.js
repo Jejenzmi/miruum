@@ -890,6 +890,16 @@ app.post("/extranet/reviews/:id/reply", partnerGuard, async (req, res) => {
   res.redirect("/extranet/reviews?saved=1");
 });
 
+// Miruum Intelligent — per-hotel OTA rate comparison + auto-check schedule.
+app.get("/extranet/miruum-intelligent", partnerGuard, async (req, res) => {
+  const data = await api("/partner/rate-intelligence", { token: res.locals.token });
+  res.render("extranet/miruum_intelligent", { ...data, active: "miruum-intelligent", saved: req.query.saved });
+});
+app.post("/extranet/hotels/:id/rate-shop", partnerGuard, async (req, res) => {
+  try { await api(`/partner/hotels/${req.params.id}/rate-shop`, { method: "PUT", token: res.locals.token, body: { freq: req.body.freq } }); res.redirect("/extranet/miruum-intelligent?saved=1"); }
+  catch (e) { res.redirect("/extranet/miruum-intelligent?saved=err"); }
+});
+
 // Property Q&A — partner answers guest questions.
 app.get("/extranet/questions", partnerGuard, async (req, res) => {
   const { questions } = await api("/partner/questions", { token: res.locals.token });
