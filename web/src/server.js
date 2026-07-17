@@ -51,7 +51,8 @@ app.use(session({
 // Same app + data, but each subdomain renders its own focused sidebar menu.
 app.use((req, res, next) => {
   const h = (req.hostname || "").toLowerCase();
-  res.locals.portal = h.startsWith("cm.") ? "cm" : h.startsWith("pms.") ? "pms" : h.startsWith("corporate.") ? "corporate" : h.startsWith("admin.") ? "admin" : h.startsWith("extranet.") ? "extranet" : null;
+  // Channel Manager answers to both "cm." (gokar.id) and "chanel." (miruum.id).
+  res.locals.portal = (h.startsWith("cm.") || h.startsWith("chanel.")) ? "cm" : h.startsWith("pms.") ? "pms" : h.startsWith("corporate.") ? "corporate" : h.startsWith("admin.") ? "admin" : h.startsWith("extranet.") ? "extranet" : null;
   next();
 });
 
