@@ -348,6 +348,26 @@ model Hotel {
   payoutClaims PayoutClaim[]
   programParticipations PromoParticipation[]
   threads     HotelThread[]
+  rateObservations RateObservation[]
+}
+
+// Manually-recorded price of the SAME hotel on external OTA platforms — for
+// Rate Intelligence comparison only (informational, no integration). Admin
+// types "hotel A costs X on Tiket.com, Y on Agoda" and Miruum shows where our
+// own price stands versus the market. Not sellable, not fetched via any API.
+model RateObservation {
+  id         String   @id @default(cuid())
+  hotelId    String
+  channelId  String
+  price      Int      // observed price / night on that OTA (rupiah)
+  note       String?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  hotel      Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  channel    SupplyChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelId, channelId])
+  @@index([hotelId])
 }
 
 // A payout to a DIRECT hotel (own Channel Manager) for its confirmed bookings,
@@ -413,6 +433,7 @@ model SupplyChannel {
   offers        HotelOffer[]
   bookings      Booking[]
   roomMaps      RoomChannelMap[]
+  rateObservations RateObservation[]
 }
 
 // A price/availability offer for a hotel from ONE supply source. The same

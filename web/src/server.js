@@ -185,8 +185,18 @@ app.post("/admin/channels/sync", adminGuard, async (req, res) => {
 });
 
 app.get("/admin/rate-intelligence", adminGuard, async (req, res) => {
-  const { rows } = await api("/admin/rate-intelligence", { token: res.locals.token });
-  res.render("admin/rate_intelligence", { rows, active: "rate-intel" });
+  const { rows, otaChannels } = await api("/admin/rate-intelligence", { token: res.locals.token });
+  res.render("admin/rate_intelligence", { rows, otaChannels, active: "rate-intel", saved: req.query.saved });
+});
+// Save observed OTA prices for one hotel (body = { <channelId>: "<price>", ... }).
+app.post("/admin/rate-intelligence/:hotelId", adminGuard, async (req, res) => {
+  const observations = Object.entries(req.body)
+    .filter(([k]) => k.startsWith("ch_"))
+    .map(([k, v]) => ({ channelId: k.slice(3), price: Number(v) || 0 }));
+  try {
+    await api("/admin/rate-observations", { method: "PUT", token: res.locals.token, body: { hotelId: req.params.hotelId, observations } });
+    res.redirect("/admin/rate-intelligence?saved=1");
+  } catch (e) { res.redirect("/admin/rate-intelligence?saved=err"); }
 });
 
 // Rate parity monitor
@@ -223,10 +233,6 @@ app.get("/admin/audit", adminGuard, async (req, res) => {
   const q = req.query.action ? `?action=${encodeURIComponent(req.query.action)}` : "";
   const { logs, actions } = await api(`/admin/audit${q}`, { token: res.locals.token });
   res.render("admin/audit", { logs, actions, filter: req.query.action || "", active: "audit" });
-});
-app.post("/admin/rate-intelligence/sync", adminGuard, async (req, res) => {
-  await api("/admin/offers/sync", { method: "POST", token: res.locals.token });
-  res.redirect("/admin/rate-intelligence");
 });
 
 async function renderChannels(res, extra = {}) {

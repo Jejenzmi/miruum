@@ -2166,41 +2166,65 @@ app.get("/api/admin/revenue-management", requireRole("ADMIN"), async (_req, res)
   res.json({ horizon, avgOccupancy: avgOcc, rows: rows.sort((a, b) => b.occupancy - a.occupancy) });
 });
 
+// Rate Intelligence = a manual price-comparison board. Admin records the price
+// of the SAME hotel on external OTA platforms (Tiket.com, Agoda, Traveloka…);
+// Miruum shows where our own rate stands vs the market. Informational only —
+// no API, no integration, nothing sellable.
 app.get("/api/admin/rate-intelligence", requireRole("ADMIN"), async (_req, res) => {
+  const otaChannels = await prisma.supplyChannel.findMany({
+    where: { type: "OTA", active: true }, orderBy: { sortOrder: "asc" },
+    select: { id: true, code: true, name: true, color: true },
+  });
   const hotels = await prisma.hotel.findMany({
     orderBy: { name: "asc" },
-    select: {
-      id: true, name: true, city: true, priceFrom: true,
-      offers: {
-        select: {
-          basePrice: true, price: true, available: true, roomsLeft: true,
-          channel: { select: { code: true, name: true, type: true, contracted: true, color: true,
-            markupType: true, commissionPct: true, markupNominal: true, feeIncluded: true } },
-        },
-      },
-    },
+    select: { id: true, name: true, city: true, priceFrom: true,
+      rateObservations: { select: { channelId: true, price: true, updatedAt: true } } },
   });
-  const rows = hotels.filter((h) => h.offers.length).map((h) => {
-    const offers = h.offers.map((o) => ({
-      channel: o.channel.name, code: o.channel.code, color: o.channel.color,
-      type: o.channel.type, contracted: o.channel.contracted,
-      basePrice: o.basePrice, price: o.price, available: o.available, roomsLeft: o.roomsLeft,
-      markupType: o.channel.feeIncluded ? "INCLUDED" : o.channel.markupType,
-      markupPct: o.channel.commissionPct, markupNominal: o.channel.markupNominal,
-    })).sort((a, b) => a.price - b.price);
-    const sellable = offers.filter((o) => o.contracted && o.available).map((o) => o.price);
-    const market = offers.map((o) => o.price);
-    const bestSellable = sellable.length ? Math.min(...sellable) : null;
-    const marketMin = market.length ? Math.min(...market) : null;
-    const marketMax = market.length ? Math.max(...market) : null;
+  const rows = hotels.map((h) => {
+    const obs: Record<string, number> = {};
+    let lastUpdated: Date | null = null;
+    for (const o of h.rateObservations) {
+      obs[o.channelId] = o.price;
+      if (!lastUpdated || o.updatedAt > lastUpdated) lastUpdated = o.updatedAt;
+    }
+    const otaPrices = Object.values(obs).filter((p) => p > 0);
+    const marketPrices = [h.priceFrom, ...otaPrices].filter((p) => p > 0);
+    const marketMin = marketPrices.length ? Math.min(...marketPrices) : null;
+    const marketMax = marketPrices.length ? Math.max(...marketPrices) : null;
     return {
-      hotelId: h.id, hotel: h.name, city: h.city, offers, bestSellable, marketMin, marketMax,
-      contractedCount: offers.filter((o) => o.contracted).length,
-      monitorCount: offers.filter((o) => !o.contracted).length,
-      isCheapest: bestSellable != null && marketMin != null && bestSellable <= marketMin,
+      hotelId: h.id, hotel: h.name, city: h.city, ownPrice: h.priceFrom,
+      obs, marketMin, marketMax, observedCount: otaPrices.length,
+      cheapest: otaPrices.length ? h.priceFrom <= Math.min(...otaPrices) : null,
+      lastUpdated,
     };
   });
-  res.json({ rows });
+  res.json({ otaChannels, rows });
+});
+
+// Save observed OTA prices for one hotel (price ≤ 0 clears that observation).
+app.put("/api/admin/rate-observations", requireRole("ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({
+    hotelId: z.string(),
+    observations: z.array(z.object({ channelId: z.string(), price: z.coerce.number().int() })),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const hotel = await prisma.hotel.findUnique({ where: { id: p.data.hotelId }, select: { id: true } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  for (const o of p.data.observations) {
+    if (o.price > 0) {
+      await prisma.rateObservation.upsert({
+        where: { hotelId_channelId: { hotelId: hotel.id, channelId: o.channelId } },
+        create: { hotelId: hotel.id, channelId: o.channelId, price: o.price },
+        update: { price: o.price },
+      });
+    } else {
+      await prisma.rateObservation.deleteMany({ where: { hotelId: hotel.id, channelId: o.channelId } });
+    }
+  }
+  audit(req, "rate.observe", "Hotel", hotel.id, { count: p.data.observations.length });
+  await invalidate("miruum:");
+  res.json({ ok: true });
 });
 
 app.put("/api/admin/channels/:id", requireRole("ADMIN"), async (req, res) => {

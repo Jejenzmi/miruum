@@ -1,61 +1,53 @@
 <%- include('../partials/top', { title:'Rate Intelligence', heading:'Rate Intelligence', section:'admin', active:'rate-intel', me }) %>
 
-<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-  <p class="muted" style="margin:0;max-width:640px;line-height:1.6">
-    Membaca harga <b>seluruh OTA</b> per hotel — baik yang <b>dikontrak sub-agent</b> (bisa dijual) maupun
-    yang <b>hanya dipantau</b> (kompetitor). Markup diatur per kanal di
-    <a href="/admin/channels">Channel Manager</a> — kolom <b>%</b> dan <b>Rp</b>.
-  </p>
-  <form method="post" action="/admin/rate-intelligence/sync"><button class="btn">↻ Tarik Harga Terbaru</button></form>
+<% if (saved==='1') { %><div class="notice ok">Harga pembanding tersimpan.</div><% } %>
+<% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan.</div><% } %>
+
+<div class="card" style="background:#EAF2FB;color:#1c4e80;font-size:12.5px;line-height:1.6">
+  ℹ️ <b>Pembanding harga pasar</b> — catat harga hotel yang sama di OTA lain (Tiket.com, Agoda, Traveloka, dst) untuk melihat posisi harga kita.
+  Ini <b>informasi manual</b>, bukan integrasi API. Kelola daftar OTA di <a href="/admin/channels">Channel Manager</a>.
 </div>
 
-<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:12px">
-  <span><span class="pill PAID">Kontrak</span> bisa dijual (sub-agent)</span>
-  <span><span class="pill" style="background:#eee;color:#777">Pantau</span> kompetitor (read-only)</span>
-</div>
-
-<% if (!rows || !rows.length) { %>
-  <div class="card"><div class="empty">Belum ada data harga. Klik <b>Tarik Harga Terbaru</b> untuk mengambil harga dari kanal OTA.</div></div>
+<% if (!otaChannels || !otaChannels.length) { %>
+  <div class="card"><div class="empty">Belum ada kanal OTA. Tambahkan di <a href="/admin/channels">Channel Manager</a> untuk mulai membandingkan.</div></div>
 <% } %>
 
 <% (rows || []).forEach(function(r){ %>
-  <div class="card" style="margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <div>
-        <b style="font-size:15px"><%= r.hotel %></b>
-        <span class="muted" style="font-size:12px">· <%= r.city %></span>
+  <div class="card" style="margin-bottom:14px">
+    <form method="post" action="/admin/rate-intelligence/<%= r.hotelId %>">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <b style="font-size:15px"><%= r.hotel %></b>
+          <span class="muted" style="font-size:12px">· <%= r.city %></span>
+        </div>
+        <div style="font-size:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <span class="muted">Pasar: <%= r.marketMin ? rupiah(r.marketMin) : '—' %> – <%= r.marketMax ? rupiah(r.marketMax) : '—' %></span>
+          <% if (r.observedCount > 0) { %>
+            <span class="pill <%= r.cheapest ? 'PAID':'CANCELLED' %>"><%= r.cheapest ? '✓ Kita termurah' : 'Ada yang lebih murah' %></span>
+          <% } else { %>
+            <span class="pill" style="background:#eee;color:#777">Belum ada data OTA</span>
+          <% } %>
+        </div>
       </div>
-      <div style="font-size:12px;display:flex;gap:14px;align-items:center">
-        <span>Termurah jual: <b style="color:#1E7E38"><%= r.bestSellable ? rupiah(r.bestSellable) : '—' %></b></span>
-        <span class="muted">Pasar: <%= r.marketMin ? rupiah(r.marketMin) : '—' %> – <%= r.marketMax ? rupiah(r.marketMax) : '—' %></span>
-        <% if (r.bestSellable) { %>
-          <span class="pill <%= r.isCheapest ? 'PAID':'CANCELLED' %>"><%= r.isCheapest ? '✓ Termurah di pasar' : 'Bisa lebih kompetitif' %></span>
-        <% } %>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div style="min-width:150px">
+          <label style="margin:0 0 4px;font-size:11.5px;color:#1E7E38;font-weight:700">Harga Kita (Direct)</label>
+          <div style="padding:9px 12px;background:#EAF7EE;border-radius:8px;font-weight:800;color:#1E7E38"><%= rupiah(r.ownPrice) %></div>
+        </div>
+        <% otaChannels.forEach(function(c){ var val = r.obs[c.id]; var cheaper = val && val < r.ownPrice; %>
+          <div style="min-width:140px">
+            <label style="margin:0 0 4px;font-size:11.5px">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= c.color||'#888' %>;margin-right:5px"></span><%= c.name %>
+            </label>
+            <input name="ch_<%= c.id %>" type="number" min="0" step="1000" placeholder="—"
+              value="<%= val || '' %>"
+              style="max-width:150px;<%= cheaper ? 'border-color:#e07c17;color:#c0392b;font-weight:700' : '' %>">
+          </div>
+        <% }) %>
+        <button class="btn sm" style="margin-bottom:2px">Simpan</button>
       </div>
-    </div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;font-size:12.5px">
-        <thead><tr>
-          <th>Kanal</th><th>Status</th><th style="text-align:right">Harga Sumber</th>
-          <th style="text-align:right">Markup %</th><th style="text-align:right">Markup Rp</th>
-          <th style="text-align:right">Harga Jual</th><th>Ketersediaan</th>
-        </tr></thead>
-        <tbody>
-          <% r.offers.forEach(function(o){ %>
-            <tr style="<%= (o.contracted && o.price===r.bestSellable) ? 'background:#EAF7EE' : '' %>">
-              <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= o.color||'#888' %>;margin-right:6px"></span><b><%= o.channel %></b> <span class="muted" style="font-size:10px"><%= o.type %></span></td>
-              <td><% if (o.contracted) { %><span class="pill PAID">Kontrak</span><% } else { %><span class="pill" style="background:#eee;color:#777">Pantau</span><% } %></td>
-              <td style="text-align:right"><%= rupiah(o.basePrice) %></td>
-              <td style="text-align:right"><%= o.markupType==='INCLUDED' ? '—' : (o.markupType==='PCT' ? o.markupPct+'%' : '—') %></td>
-              <td style="text-align:right"><%= o.markupType==='NOMINAL' ? rupiah(o.markupNominal) : '—' %></td>
-              <td style="text-align:right"><b><%= rupiah(o.price) %></b></td>
-              <td><% if (o.available) { %><span style="color:#1E7E38">● Tersedia<%= o.roomsLeft ? ' ('+o.roomsLeft+')' : '' %></span><% } else { %><span class="muted">○ Habis</span><% } %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
-    <div class="muted" style="font-size:11px;margin-top:8px"><%= r.contractedCount %> kanal kontrak · <%= r.monitorCount %> kanal dipantau</div>
+      <% if (r.lastUpdated) { %><div class="muted" style="font-size:11px;margin-top:8px">Diperbarui: <%= new Date(r.lastUpdated).toLocaleString('id-ID') %></div><% } %>
+    </form>
   </div>
 <% }) %>
 
