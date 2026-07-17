@@ -55,10 +55,23 @@
     </div>
 
     <div class="card">
+      <h2>🤖 Agen AI — Rate Intelligence</h2>
+      <p class="muted" style="font-size:12px;margin-top:-4px">Agen AI otomatis mencari harga hotel Miruum di OTA lain (web-search) untuk mengisi Rate Intelligence. Butuh API key Anthropic (Claude).</p>
+      <label class="pr-check" style="margin-bottom:10px"><input type="checkbox" name="ai_enabled" style="width:auto" <%= i.ai_enabled==='1'?'checked':'' %>> Aktifkan Agen AI</label>
+      <label style="margin-top:0">Anthropic API Key</label>
+      <input name="ai_api_key" type="password" value="<%= i.ai_api_key %>" placeholder="sk-ant-••••••••">
+      <label>Model</label>
+      <input name="ai_model" value="<%= i.ai_model %>" placeholder="claude-sonnet-5">
+      <label class="pr-check" style="margin:10px 0 0"><input type="checkbox" name="ai_auto" style="width:auto" <%= i.ai_auto==='1'?'checked':'' %>> Jalankan otomatis (jadwal harian)</label>
+      <p class="muted" style="font-size:11px;margin-top:8px">Harga OTA hasil AI = <b>estimasi</b> dari pencarian web (dilabeli “AI” &amp; bertanggal). Bisa dikoreksi manual di Rate Intelligence.</p>
+    </div>
+
+    <div class="card">
       <h2>Status Kanal</h2>
       <div class="pms-row"><div><b>Email (SMTP)</b></div><span class="pill <%= i.mail_enabled==='1'&&i.smtp_host?'PAID':'CANCELLED' %>"><%= i.mail_enabled==='1'&&i.smtp_host?'Aktif':'Nonaktif' %></span></div>
       <div class="pms-row"><div><b>Push (FCM)</b></div><span class="pill <%= i.fcm_enabled==='1'&&i.fcm_service_account?'PAID':'CANCELLED' %>"><%= i.fcm_enabled==='1'&&i.fcm_service_account?'Aktif':'Nonaktif' %></span></div>
-      <div class="pms-row" style="border-bottom:none"><div><b>WhatsApp</b></div><span class="pill <%= i.wa_enabled==='1'&&i.wa_api_url?'PAID':'CANCELLED' %>"><%= i.wa_enabled==='1'&&i.wa_api_url?'Aktif':'Nonaktif' %></span></div>
+      <div class="pms-row"><div><b>WhatsApp</b></div><span class="pill <%= i.wa_enabled==='1'&&i.wa_api_url?'PAID':'CANCELLED' %>"><%= i.wa_enabled==='1'&&i.wa_api_url?'Aktif':'Nonaktif' %></span></div>
+      <div class="pms-row" style="border-bottom:none"><div><b>Agen AI (Rate Intel)</b></div><span class="pill <%= i.ai_enabled==='1'&&i.ai_api_key?'PAID':'CANCELLED' %>"><%= i.ai_enabled==='1'&&i.ai_api_key?'Aktif':'Nonaktif' %></span></div>
       <p class="muted" style="font-size:11px;margin-top:12px">Semua kredensial tersimpan di server &amp; hanya bisa diakses admin.</p>
     </div>
   </div>

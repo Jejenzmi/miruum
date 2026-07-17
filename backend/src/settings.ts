@@ -26,6 +26,11 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   moduleHotelPackage: "1",
   moduleTour: "1",
   moduleShuttle: "1",
+  // AI rate shopper — auto-finds each hotel's price on other OTAs (web search).
+  ai_enabled: "0",       // "1" = enabled (needs ai_api_key)
+  ai_api_key: "",        // Anthropic API key
+  ai_model: "claude-sonnet-5",
+  ai_auto: "0",          // "1" = run automatically on a daily schedule
 };
 
 let cache: Record<string, string> | null = null;

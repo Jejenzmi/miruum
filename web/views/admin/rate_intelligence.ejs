@@ -2,10 +2,19 @@
 
 <% if (saved==='1') { %><div class="notice ok">Harga pembanding tersimpan.</div><% } %>
 <% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan.</div><% } %>
+<% if (saved==='search') { %><div class="notice ok">🔍 Agen AI sedang mencari harga di OTA lain — refresh halaman ini beberapa saat lagi.</div><% } %>
+<% if (saved==='aierr') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Agen AI belum aktif. Aktifkan & isi API key di <a href="/admin/integrations">Integrasi</a>.</div><% } %>
 
-<div class="card" style="background:#EAF2FB;color:#1c4e80;font-size:12.5px;line-height:1.6">
-  ℹ️ <b>Pembanding harga pasar</b> — catat harga hotel yang sama di OTA lain (Tiket.com, Agoda, Traveloka, dst) untuk melihat posisi harga kita.
-  Ini <b>informasi manual</b>, bukan integrasi API. Kelola daftar OTA di <a href="/admin/channels">Channel Manager</a>.
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:#EAF2FB;color:#1c4e80">
+  <div style="font-size:12.5px;line-height:1.6;max-width:640px">
+    🤖 <b>Rate Intelligence</b> — agen AI otomatis mencari harga hotel yang sama di OTA lain (Tiket.com, Agoda, Traveloka…) lalu mengisi tabel ini sendiri.
+    <% if (ai && ai.enabled) { %>
+      Status: <b style="color:#1E7E38">AI aktif</b> (<%= ai.model %>)<%= ai.auto ? ' · jadwal harian ON' : '' %>. Angka OTA = <b>estimasi AI</b>, bisa dikoreksi manual.
+    <% } else { %>
+      Status: <b style="color:#b0700f">AI belum aktif</b> — aktifkan di <a href="/admin/integrations">Integrasi</a>. Sementara harga OTA bisa diisi manual di bawah.
+    <% } %>
+  </div>
+  <form method="post" action="/admin/rate-intelligence/search"><button class="btn" <%= (ai && ai.enabled) ? '' : 'disabled' %>>🔍 Cari Harga Otomatis (AI)</button></form>
 </div>
 
 <% if (!otaChannels || !otaChannels.length) { %>
@@ -34,10 +43,11 @@
           <label style="margin:0 0 4px;font-size:11.5px;color:#1E7E38;font-weight:700">Harga Kita (Direct)</label>
           <div style="padding:9px 12px;background:#EAF7EE;border-radius:8px;font-weight:800;color:#1E7E38"><%= rupiah(r.ownPrice) %></div>
         </div>
-        <% otaChannels.forEach(function(c){ var val = r.obs[c.id]; var cheaper = val && val < r.ownPrice; %>
+        <% otaChannels.forEach(function(c){ var val = r.obs[c.id]; var src = r.obsSource ? r.obsSource[c.id] : null; var cheaper = val && val < r.ownPrice; %>
           <div style="min-width:140px">
-            <label style="margin:0 0 4px;font-size:11.5px">
-              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= c.color||'#888' %>;margin-right:5px"></span><%= c.name %>
+            <label style="margin:0 0 4px;font-size:11.5px;display:flex;align-items:center;gap:5px">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= c.color||'#888' %>"></span><%= c.name %>
+              <% if (src==='AI') { %><span style="font-size:9px;background:#EDE7FB;color:#6C3FD6;padding:1px 4px;border-radius:4px;font-weight:700">AI</span><% } else if (src==='MANUAL') { %><span style="font-size:9px;background:#eee;color:#777;padding:1px 4px;border-radius:4px">manual</span><% } %>
             </label>
             <input name="ch_<%= c.id %>" type="number" min="0" step="1000" placeholder="—"
               value="<%= val || '' %>"

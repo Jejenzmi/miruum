@@ -1,0 +1,1 @@
+ALTER TABLE "RateObservation" ADD COLUMN "source" TEXT NOT NULL DEFAULT 'MANUAL';

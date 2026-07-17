@@ -360,6 +360,7 @@ model RateObservation {
   hotelId    String
   channelId  String
   price      Int      // observed price / night on that OTA (rupiah)
+  source     String   @default("MANUAL") // MANUAL | AI (auto-found by the AI rate shopper)
   note       String?
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())

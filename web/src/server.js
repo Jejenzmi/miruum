@@ -185,8 +185,13 @@ app.post("/admin/channels/sync", adminGuard, async (req, res) => {
 });
 
 app.get("/admin/rate-intelligence", adminGuard, async (req, res) => {
-  const { rows, otaChannels } = await api("/admin/rate-intelligence", { token: res.locals.token });
-  res.render("admin/rate_intelligence", { rows, otaChannels, active: "rate-intel", saved: req.query.saved });
+  const { rows, otaChannels, ai } = await api("/admin/rate-intelligence", { token: res.locals.token });
+  res.render("admin/rate_intelligence", { rows, otaChannels, ai: ai || {}, active: "rate-intel", saved: req.query.saved });
+});
+// Kick off the AI rate shopper (auto-find OTA prices).
+app.post("/admin/rate-intelligence/search", adminGuard, async (req, res) => {
+  try { await api("/admin/rate-intelligence/search", { method: "POST", token: res.locals.token, body: {} }); res.redirect("/admin/rate-intelligence?saved=search"); }
+  catch (e) { res.redirect("/admin/rate-intelligence?saved=aierr"); }
 });
 // Save observed OTA prices for one hotel (body = { <channelId>: "<price>", ... }).
 app.post("/admin/rate-intelligence/:hotelId", adminGuard, async (req, res) => {
@@ -567,7 +572,7 @@ app.get("/admin/integrations", adminGuard, async (req, res) => {
 });
 app.post("/admin/integrations", adminGuard, async (req, res) => {
   const body = { ...req.body };
-  ["mail_enabled", "smtp_secure", "fcm_enabled", "wa_enabled"].forEach((k) => { body[k] = req.body[k] === "on" ? "1" : "0"; });
+  ["mail_enabled", "smtp_secure", "fcm_enabled", "wa_enabled", "ai_enabled", "ai_auto"].forEach((k) => { body[k] = req.body[k] === "on" ? "1" : "0"; });
   await api("/admin/integrations", { method: "PUT", token: res.locals.token, body });
   res.redirect("/admin/integrations?saved=1");
 });

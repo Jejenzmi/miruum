@@ -22,6 +22,7 @@ import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.j
 import { pushDistribution } from "./distribution.js";
 import { botReply } from "./chatbot.js";
 import { screenChat, violationNotice } from "./moderation.js";
+import { runRateShopping, aiConfigured } from "./rateshopper.js";
 import { dispatch, sendMail } from "./notify.js";
 import { testFcm } from "./fcm.js";
 import { quote, consume } from "./availability.js";
@@ -2178,13 +2179,15 @@ app.get("/api/admin/rate-intelligence", requireRole("ADMIN"), async (_req, res) 
   const hotels = await prisma.hotel.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, city: true, priceFrom: true,
-      rateObservations: { select: { channelId: true, price: true, updatedAt: true } } },
+      rateObservations: { select: { channelId: true, price: true, source: true, updatedAt: true } } },
   });
   const rows = hotels.map((h) => {
     const obs: Record<string, number> = {};
+    const obsSource: Record<string, string> = {};
     let lastUpdated: Date | null = null;
     for (const o of h.rateObservations) {
       obs[o.channelId] = o.price;
+      obsSource[o.channelId] = o.source;
       if (!lastUpdated || o.updatedAt > lastUpdated) lastUpdated = o.updatedAt;
     }
     const otaPrices = Object.values(obs).filter((p) => p > 0);
@@ -2193,12 +2196,21 @@ app.get("/api/admin/rate-intelligence", requireRole("ADMIN"), async (_req, res) 
     const marketMax = marketPrices.length ? Math.max(...marketPrices) : null;
     return {
       hotelId: h.id, hotel: h.name, city: h.city, ownPrice: h.priceFrom,
-      obs, marketMin, marketMax, observedCount: otaPrices.length,
+      obs, obsSource, marketMin, marketMax, observedCount: otaPrices.length,
       cheapest: otaPrices.length ? h.priceFrom <= Math.min(...otaPrices) : null,
       lastUpdated,
     };
   });
-  res.json({ otaChannels, rows });
+  const s = await getSettings();
+  res.json({ otaChannels, rows, ai: { enabled: aiConfigured(s), auto: s.ai_auto === "1", model: s.ai_model || "" } });
+});
+
+// Trigger the AI rate shopper for all hotels (runs in the background).
+app.post("/api/admin/rate-intelligence/search", requireRole("ADMIN"), async (_req, res) => {
+  const s = await getSettings();
+  if (!aiConfigured(s)) return res.status(400).json({ error: "Agen AI belum aktif. Aktifkan & isi API key di Integrasi." });
+  runRateShopping().then((r) => logger.info(r, "[rateshopper] done")).catch((e) => logger.error({ err: e }, "[rateshopper] failed"));
+  res.json({ ok: true, started: true });
 });
 
 // Save observed OTA prices for one hotel (price ≤ 0 clears that observation).
@@ -2498,7 +2510,7 @@ app.put("/api/admin/settings", requireRole("ADMIN"), async (req, res) => {
 });
 
 // ─────────────── Integrasi (Email/SMTP, FCM, WhatsApp) — configurable in Back Office ───────────────
-const INTEGRATION_KEYS = ["mail_enabled", "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from", "fcm_enabled", "fcm_service_account", "wa_enabled", "wa_api_url", "wa_api_token", "google_client_id"];
+const INTEGRATION_KEYS = ["mail_enabled", "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from", "fcm_enabled", "fcm_service_account", "wa_enabled", "wa_api_url", "wa_api_token", "google_client_id", "ai_enabled", "ai_api_key", "ai_model", "ai_auto"];
 app.get("/api/admin/integrations", requireRole("ADMIN"), async (_req, res) => {
   const s = await getSettings();
   const out: Record<string, string> = {};
@@ -3618,6 +3630,10 @@ if (process.env.NODE_ENV !== "test") {
     // Data-retention purge (UU PDP): now + every 24h.
     runRetention();
     setInterval(runRetention, 24 * 3600_000).unref();
+    // AI rate shopper: daily, only when enabled + auto (no-op otherwise).
+    setInterval(() => {
+      getSettings().then((s) => { if (s.ai_auto === "1") runRateShopping().catch(() => {}); }).catch(() => {});
+    }, 24 * 3600_000).unref();
   });
   // Graceful shutdown — stop accepting connections, then exit.
   for (const sig of ["SIGTERM", "SIGINT"] as const) {
