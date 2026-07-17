@@ -1,4 +1,6 @@
-<%- include('../partials/top', { title:'Shuttle', heading:'Kelola Shuttle', section:'admin', active:'shuttle', me }) %>
+<%- include('../partials/top', { title:'Shuttle', heading:'Shuttle Bandara — Soekarno-Hatta', section:'admin', active:'shuttle', me }) %>
+
+<div class="card" style="background:#EAF2FB;color:#1c4e80;font-size:12.5px">✈️ Modul shuttle khusus antar-jemput <b>Bandara Soekarno-Hatta (CGK)</b>. Jenis kendaraan & tarif di bawah berlaku untuk rute ke/dari bandara.</div>
 
 <% if (saved==='err') { %><div class="card" style="background:#FDE7E7;color:#b02a2a">✗ Gagal menyimpan.</div><% } %>
 <% if (saved==='1') { %><div class="notice ok">Tersimpan.</div><% } %>

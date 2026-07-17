@@ -205,7 +205,7 @@ class _HomeView extends StatelessWidget {
             if (mods['tour'] ?? true)
               _categoryTile(context, 'Tour', Icons.travel_explore_rounded, MC.success, const TourListScreen()),
             if (mods['shuttle'] ?? true)
-              _categoryTile(context, 'Shuttle', Icons.local_taxi_rounded, MC.accent, const ShuttleScreen()),
+              _categoryTile(context, 'Shuttle Bandara', Icons.local_airport_rounded, MC.accent, const ShuttleScreen()),
           ];
           // 2 per row.
           final rows = <Widget>[];
