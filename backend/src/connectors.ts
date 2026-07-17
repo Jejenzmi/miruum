@@ -97,10 +97,12 @@ export const CONNECTORS: Record<string, OtaConnector> = {
   TRAVELOKA: otaConnector("TRAVELOKA", 1.02, 0.05, "traveloka.com"),
 };
 
-// Which extra OTA channels also list a given hotel (mapping of the same
-// canonical hotel across sources). The hotel's origin channel is always kept.
-function listsHotel(slug: string, channelCode: string): boolean {
-  return hash(`${slug}:${channelCode}:list`) % 3 !== 0; // ~2 of 3
+// An OTA sub-agent produces offers ONLY once its real B2B API is connected
+// (connectorType = HTTP with a gateway config). Until then it stays empty — no
+// simulated competitor prices — because Miruum has no contract with that OTA yet.
+// Connect the API in Back Office → Channel Manager and offers start flowing.
+function isConnectedOta(c: { type: string; connectorType?: string | null; config?: unknown }): boolean {
+  return c.type === "OTA" && c.connectorType === "HTTP" && !!c.config;
 }
 
 // Resolve the connector for a channel from its stored config. HTTP → real B2B
@@ -119,16 +121,13 @@ export function getConnector(channel: { code: string; connectorType?: string | n
  */
 export async function syncOffers(prisma: PrismaClient): Promise<{ hotels: number; offers: number }> {
   const channels = await prisma.supplyChannel.findMany({ where: { active: true } });
-  const byId: Record<string, (typeof channels)[number]> = Object.fromEntries(channels.map((c) => [c.id, c]));
   const hotels = await prisma.hotel.findMany();
   let offerCount = 0;
 
   for (const hotel of hotels) {
-    const originCode = hotel.channelId ? byId[hotel.channelId]?.code : "DIRECT";
-    // sources = origin channel + OTA channels that also list this hotel
-    const sources = channels.filter(
-      (c) => c.code === originCode || (c.type === "OTA" && listsHotel(hotel.slug, c.code))
-    );
+    // sources = own Channel Manager (DIRECT) + any OTA whose real API is connected.
+    // Mock/uncontracted OTA sub-agents are skipped → no fake competitor offers.
+    const sources = channels.filter((c) => c.type === "DIRECT" || isConnectedOta(c));
 
     for (const ch of sources) {
       const conn = getConnector(ch);

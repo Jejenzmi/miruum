@@ -99,14 +99,16 @@ const PARTNERS = [
   { name: "Mandarin Hospitality", email: "partner@mandarin.id", owns: ["hotel-mandarin", "hotel-tulip"] },
 ];
 
-// Supply channels — Miruum's own Channel Manager (DIRECT) + OTA sub-agent sources.
+// Supply channels — Miruum's own Channel Manager (DIRECT) + OTA sub-agent slots.
+// OTA sub-agents start NOT contracted & MOCK: no contract with any OTA yet, so
+// they produce no offers until their real API is connected (connectorType HTTP).
 const CHANNELS = [
-  { code: "DIRECT",    name: "Direct (Channel Manager)", type: "DIRECT" as const, commissionPct: 0,  color: "#2FA84F", sortOrder: 0 },
-  { code: "TIKETCOM",  name: "Tiket.com",                type: "OTA" as const,    commissionPct: 8,  color: "#0064D2", sortOrder: 1 },
-  { code: "AGODA",     name: "Agoda",                    type: "OTA" as const,    commissionPct: 10, color: "#5A34A5", sortOrder: 2 },
-  { code: "TRAVELOKA", name: "Traveloka",                type: "OTA" as const,    commissionPct: 9,  color: "#1BA0E2", sortOrder: 3 },
+  { code: "DIRECT",    name: "Direct (Channel Manager)", type: "DIRECT" as const, commissionPct: 0,  color: "#2FA84F", sortOrder: 0, contracted: true },
+  { code: "TIKETCOM",  name: "Tiket.com",                type: "OTA" as const,    commissionPct: 8,  color: "#0064D2", sortOrder: 1, contracted: false },
+  { code: "AGODA",     name: "Agoda",                    type: "OTA" as const,    commissionPct: 10, color: "#5A34A5", sortOrder: 2, contracted: false },
+  { code: "TRAVELOKA", name: "Traveloka",                type: "OTA" as const,    commissionPct: 9,  color: "#1BA0E2", sortOrder: 3, contracted: false },
 ];
-// Which source each demo hotel comes from (rest default to DIRECT).
+// Which source each demo hotel comes from (all DIRECT until an OTA API connects).
 const HOTEL_CHANNEL: Record<string, string> = {
   "hotel-tulip": "TRAVELOKA",
   "hotel-mandarin": "AGODA",
