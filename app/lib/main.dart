@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,16 +23,20 @@ Future<void> main() async {
   AppSettings.themeMode.value = tm == 'dark' ? ThemeMode.dark : tm == 'system' ? ThemeMode.system : ThemeMode.light;
   AppSettings.locale.value = Locale(prefs.getString('miruum_lang') ?? 'id');
 
-  await Push.init(); // Firebase + FCM (guarded; app runs even if unavailable)
+  // Firebase (FCM + Crashlytics) is mobile-only — skip entirely on web, where
+  // there's no Firebase config and these plugins aren't supported.
+  if (!kIsWeb) {
+    await Push.init(); // Firebase + FCM (guarded; app runs even if unavailable)
 
-  // Crash reporting → Firebase Crashlytics (guarded; no-op if Firebase unavailable).
-  try {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-  } catch (_) {}
+    // Crash reporting → Firebase Crashlytics (guarded; no-op if Firebase unavailable).
+    try {
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+    } catch (_) {}
+  }
 
   final api = Api();
   runApp(
