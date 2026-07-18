@@ -105,7 +105,7 @@
         <a href="/extranet/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Pesanan dari OTA</a>
         <a href="/extranet/payouts" class="<%= active==='payouts'?'active':'' %>"><%- ni('finance') %>Pencairan / Klaim</a>
         <div class="nav-label">Lainnya</div>
-        <a href="https://extranet.gokar.id/extranet" target="_blank" rel="noopener"><%- ni('hotel') %>Extranet Properti ↗</a>
+        <a href="https://extranet.miruum.id/extranet" target="_blank" rel="noopener"><%- ni('hotel') %>Extranet Properti ↗</a>
         <a href="/extranet/logout" class="logout" data-confirm="Yakin ingin keluar dari Channel Manager?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } else if (pv === 'corporate') { %>
         <div class="nav-label">Korporat</div>
@@ -124,8 +124,8 @@
         <a href="/pms/reports" class="<%= active==='reports'?'active':'' %>"><%- ni('trend') %>Laporan Harian (D-Report)</a>
         <a href="/pms#housekeeping"><%- ni('hotel') %>Housekeeping</a>
         <div class="nav-label">Ekosistem</div>
-        <a href="https://cm.gokar.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager ↗</a>
-        <a href="https://extranet.gokar.id/extranet" target="_blank" rel="noopener"><%- ni('package') %>Extranet Properti ↗</a>
+        <a href="https://chanel.miruum.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager ↗</a>
+        <a href="https://extranet.miruum.id/extranet" target="_blank" rel="noopener"><%- ni('package') %>Extranet Properti ↗</a>
         <a href="/extranet/logout" class="logout" data-confirm="Yakin ingin keluar dari PMS?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } else { %>
         <div class="nav-label">Properti</div>
@@ -145,8 +145,8 @@
         <a href="/extranet/campaigns" class="<%= active==='campaigns'?'active':'' %>"><%- ni('promos') %>Campaign Hotel</a>
         <a href="/extranet/programs" class="<%= active==='programs'?'active':'' %>"><%- ni('campaign') %>Program & Campaign</a>
         <div class="nav-label">Distribusi</div>
-        <a href="https://cm.gokar.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager <%= (locals.ent && locals.ent.channelManager) ? '↗' : '🔒' %></a>
-        <a href="https://pms.gokar.id/pms" target="_blank" rel="noopener"><%- ni('hotel') %>PMS Front Desk <%= (locals.ent && locals.ent.pms) ? '↗' : '🔒' %></a>
+        <a href="https://chanel.miruum.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager <%= (locals.ent && locals.ent.channelManager) ? '↗' : '🔒' %></a>
+        <a href="https://pms.miruum.id/pms" target="_blank" rel="noopener"><%- ni('hotel') %>PMS Front Desk <%= (locals.ent && locals.ent.pms) ? '↗' : '🔒' %></a>
         <a href="/extranet/logout" class="logout" data-confirm="Yakin ingin keluar dari Extranet?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } %>
     </nav>

@@ -381,7 +381,7 @@ async function ensureRegions() {
   return n;
 }
 
-// Demo corporate & government booking accounts (corporate.gokar.id).
+// Demo corporate & government booking accounts (corporate.miruum.id).
 async function ensureCorporate() {
   const orgs = [
     { type: "CORPORATE" as const, name: "PT Nusantara Jaya", email: "billing@nusantarajaya.co.id", phone: "0215551234", address: "Jl. Sudirman No. 1, Jakarta", taxId: "01.234.567.8-901.000", creditLimit: 100000000, adminName: "Corporate Admin", adminEmail: "corp@nusantara.id", pass: "corp123" },

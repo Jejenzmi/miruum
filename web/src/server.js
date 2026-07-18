@@ -51,7 +51,7 @@ app.use(session({
 // Same app + data, but each subdomain renders its own focused sidebar menu.
 app.use((req, res, next) => {
   const h = (req.hostname || "").toLowerCase();
-  // Channel Manager answers to both "cm." (gokar.id) and "chanel." (miruum.id).
+  // Channel Manager answers to both "cm." and "chanel." (miruum.id) prefixes.
   res.locals.portal = (h.startsWith("cm.") || h.startsWith("chanel.")) ? "cm" : h.startsWith("pms.") ? "pms" : h.startsWith("corporate.") ? "corporate" : h.startsWith("admin.") ? "admin" : h.startsWith("extranet.") ? "extranet" : null;
   next();
 });
@@ -689,7 +689,7 @@ app.get("/extranet/hotels/:id/calendar", partnerGuard, async (req, res) => {
   res.render("extranet/calendar", { cal, hotelId: req.params.id, active: "dashboard", saved: req.query.saved });
 });
 
-// ── Channel Manager (partner-facing, cm.gokar.id) ──
+// ── Channel Manager (partner-facing, chanel.miruum.id) ──
 app.get("/extranet/channel-manager", partnerGuard, productGuard("channelManager", "Channel Manager"), async (req, res) => {
   const cm = await api("/partner/channel-manager", { token: res.locals.token });
   res.render("extranet/channel_manager", { ...cm, active: "cm", pushed: req.query.pushed, saved: req.query.saved });
@@ -711,7 +711,7 @@ app.post("/extranet/distribution/push", partnerGuard, productGuard("channelManag
   res.redirect(`/extranet/channel-manager?pushed=${r.pushed || 0}`);
 });
 
-// ═══════════════════ CORPORATE & GOVERNMENT (corporate.gokar.id) ═══════════════════
+// ═══════════════════ CORPORATE & GOVERNMENT (corporate.miruum.id) ═══════════════════
 app.get("/corporate/login", (req, res) => res.render("corporate/login", { error: null }));
 app.post("/corporate/login", loginLimiter, async (req, res) => {
   try {
@@ -821,7 +821,7 @@ app.get("/extranet/analytics", partnerGuard, async (req, res) => {
   res.render("extranet/analytics", { a, active: "analytics" });
 });
 
-// ── PMS — Property Management System (pms.gokar.id) ──
+// ── PMS — Property Management System (pms.miruum.id) ──
 app.get("/pms", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
   const pms = await api("/partner/pms", { token: res.locals.token });
   res.render("pms/dashboard", { ...pms, active: "pms", done: req.query.done });

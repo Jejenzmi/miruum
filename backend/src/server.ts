@@ -65,7 +65,7 @@ const otpLimiter = rateLimit({
 });
 
 const PORT = config.port;
-const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || "https://ota.gokar.id";
+const PUBLIC_ORIGIN = process.env.PUBLIC_ORIGIN || "https://api.miruum.id";
 const rupiah = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 
 const publicUser = (u: any) => ({
@@ -1707,7 +1707,7 @@ async function qrSvg(text: string): Promise<string> {
 const fmtDate = (d: Date) => d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const fmtShort = (d: Date) => d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
 
-// ─────────── Corporate & Government booking (corporate.gokar.id) ───────────
+// ─────────── Corporate & Government booking (corporate.miruum.id) ───────────
 async function corporateOf(req: AuthRequest) {
   const u = await prisma.user.findUnique({ where: { id: req.userId }, select: { name: true, email: true, phone: true, corporate: true } });
   if (!u?.corporate) return null;
@@ -1854,7 +1854,7 @@ app.get("/api/corporate-invoices/:id", async (req, res) => {
   <table class="items">${rows}</table>
   <div class="tot"><span>Total Tagihan</span><span>${rupiah(Number(inv.amount))}</span></div>
   ${inv.note ? `<div class="muted" style="font-size:12px;margin-top:10px">${inv.note}</div>` : ""}
-  <div class="foot">Mohon lakukan pembayaran sebelum jatuh tempo. Diterbitkan elektronik oleh Miruum, sah tanpa tanda tangan.<br>ota.gokar.id · support@miruum.id</div>
+  <div class="foot">Mohon lakukan pembayaran sebelum jatuh tempo. Diterbitkan elektronik oleh Miruum, sah tanpa tanda tangan.<br>miruum.id · support@miruum.id</div>
 </div></div>
 <div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
@@ -1899,7 +1899,7 @@ app.post("/api/admin/corporate-applications/:id/approve", requireRole("ADMIN"), 
     data: { name: app.picName, email: app.email, passwordHash: await bcrypt.hash(tempPass, 10), role: "CORPORATE", corporateId: corp.id, phone: app.phone },
   });
   await prisma.corporateApplication.update({ where: { id: app.id }, data: { status: "APPROVED" } });
-  await dispatch(prisma, { title: "Akun Korporat Disetujui", body: `Akun korporat ${app.companyName} aktif. Login di corporate.gokar.id — email: ${app.email}, sandi: ${tempPass}`, type: "success", email: app.email });
+  await dispatch(prisma, { title: "Akun Korporat Disetujui", body: `Akun korporat ${app.companyName} aktif. Login di corporate.miruum.id — email: ${app.email}, sandi: ${tempPass}`, type: "success", email: app.email });
   res.json({ ok: true, credentials: { email: app.email, password: tempPass } });
 });
 
@@ -2007,7 +2007,7 @@ app.get("/api/vouchers/:code", async (req, res) => {
   <div class="row"><span class="k">Durasi</span><span class="v2">${b.nights} malam</span></div>
   <div class="row"><span class="k">Alamat</span><span class="v2">${b.hotel.address}</span></div>
   ${b.hotel.checkInInfo ? `<div class="sec">Informasi Check-in</div><div style="font-size:12.5px;color:#5a6069;line-height:1.6">${b.hotel.checkInInfo}</div>` : ""}
-  <div class="foot">E-voucher resmi Miruum — bukti pemesanan menginap. Tunjukkan saat check-in.<br>Butuh bantuan? Live Chat CS di aplikasi Miruum · ota.gokar.id</div>
+  <div class="foot">E-voucher resmi Miruum — bukti pemesanan menginap. Tunjukkan saat check-in.<br>Butuh bantuan? Live Chat CS di aplikasi Miruum · miruum.id</div>
 </div></div>
 <div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
@@ -2031,7 +2031,7 @@ app.get("/api/invoices/:code", async (req, res) => {
 <div class="bd">
   <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
     <div><div class="sec" style="margin-top:0">Ditagihkan kepada</div><div style="font-weight:700">${b.bookerName}</div><div class="muted" style="color:#8a8f98;font-size:12px">${b.bookerEmail}<br>${b.bookerPhone}</div></div>
-    <div style="text-align:right"><div class="sec" style="margin-top:0">Penerbit</div><div style="font-weight:700">Miruum OTA</div><div class="muted" style="color:#8a8f98;font-size:12px">ota.gokar.id<br>support@miruum.id</div></div>
+    <div style="text-align:right"><div class="sec" style="margin-top:0">Penerbit</div><div style="font-weight:700">Miruum OTA</div><div class="muted" style="color:#8a8f98;font-size:12px">miruum.id<br>support@miruum.id</div></div>
   </div>
   <div class="sec">Rincian</div>
   <table class="items">
@@ -2044,7 +2044,7 @@ app.get("/api/invoices/:code", async (req, res) => {
   <div class="row"><span class="k">Status</span><span class="v2">${paid ? "Lunas" : "Menunggu pembayaran"}</span></div>
   ${b.paymentMethod ? `<div class="row"><span class="k">Metode</span><span class="v2">${b.paymentMethod}${b.bank ? " · " + b.bank : ""}</span></div>` : ""}
   ${b.paidAt ? `<div class="row"><span class="k">Dibayar pada</span><span class="v2">${fmtShort(b.paidAt)}</span></div>` : ""}
-  <div class="foot">Invoice ini diterbitkan secara elektronik oleh Miruum dan sah tanpa tanda tangan.<br>ota.gokar.id</div>
+  <div class="foot">Invoice ini diterbitkan secara elektronik oleh Miruum dan sah tanpa tanda tangan.<br>miruum.id</div>
 </div></div>
 <div class="actions"><a href="/api/vouchers/${b.code}" class="pbtn" style="background:#fff;color:#20262e;border:1px solid #d7dae1;margin-right:8px">Lihat E-Voucher</a><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
@@ -2103,7 +2103,7 @@ app.get("/api/hotels/receipt/:code", async (req, res) => {
   </table>
   ${payoutLine}
   <div class="tot"><span>Net untuk Hotel</span><span>${rupiah(f.hotelNet)}</span></div>
-  <div class="foot">Dokumen internal untuk pihak hotel. Nominal komisi mengikuti perjanjian kanal.<br>Miruum OTA · ota.gokar.id</div>
+  <div class="foot">Dokumen internal untuk pihak hotel. Nominal komisi mengikuti perjanjian kanal.<br>Miruum OTA · miruum.id</div>
 </div></div>
 <div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
@@ -2816,7 +2816,7 @@ app.get("/api/admin/channel-manager", requireRole("ADMIN"), async (_req, res) =>
     mapping: { mapped: roomsWithMap, otaChannels: otaCount },
     channels: { total: channels.length, ota: otaCount, direct: channels.filter((c) => c.type === "DIRECT").length, active: channels.filter((c) => c.connectorType !== "OFF").length },
     pms: { connected: false }, // two-way PMS sync — connect via connector config
-    bookingEngine: { base: process.env.PUBLIC_APP_URL || "https://ota.gokar.id" },
+    bookingEngine: { base: process.env.PUBLIC_APP_URL || "https://miruum.id" },
     channelStats,
   };
 
@@ -2950,7 +2950,7 @@ app.get("/api/app/config", async (_req, res) => {
     update: {
       latestVersion: s.app_latest_version || "",
       minVersion: s.app_min_version || "",
-      url: s.app_update_url || "https://ota.gokar.id/ota.apk",
+      url: s.app_update_url || "https://api.miruum.id/ota.apk",
       notes: s.app_update_notes || "",
     },
   });
@@ -3251,7 +3251,7 @@ async function ownsRoom(req: AuthRequest, roomId: string): Promise<boolean> {
   return !!r;
 }
 
-// ─────────── Partner Channel Manager (cm.gokar.id) ───────────
+// ─────────── Partner Channel Manager (chanel.miruum.id) ───────────
 // The hotel partner distributes its own inventory & rates host-to-host to every
 // OTA connected to Miruum's Channel Manager. Scoped to the partner's hotels.
 app.get("/api/partner/channel-manager", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
@@ -3404,7 +3404,7 @@ app.post("/api/admin/claims/:id/reject", requireRole("ADMIN"), async (req, res) 
   res.json({ ok: true });
 });
 
-// ─────────── PMS — Property Management System (pms.gokar.id) ───────────
+// ─────────── PMS — Property Management System (pms.miruum.id) ───────────
 // Front-office operations for the hotel: arrivals/departures/in-house, check-in
 // & check-out, and housekeeping. Integrated: reservations from OTAs (via Channel
 // Manager) & direct all land here; check-out frees inventory back to the channels.

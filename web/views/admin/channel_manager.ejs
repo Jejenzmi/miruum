@@ -188,12 +188,12 @@
     <h2>Booking Engine</h2>
     <p class="muted" style="margin-top:-8px">Pasang tombol pesan langsung di situs resmi hotel — pemesanan tanpa komisi OTA, masuk ke Reservasi Miruum.</p>
     <label>Kode embed (salin ke situs hotel)</label>
-    <textarea id="beSnippet" rows="3" readonly spellcheck="false" style="font-family:monospace;font-size:11px"><a href="<%= ov.bookingEngine ? ov.bookingEngine.base : 'https://ota.gokar.id' %>" style="background:#E07C17;color:#fff;padding:12px 22px;border-radius:24px;font-weight:700;text-decoration:none;font-family:sans-serif">Pesan di Miruum</a></textarea>
+    <textarea id="beSnippet" rows="3" readonly spellcheck="false" style="font-family:monospace;font-size:11px"><a href="<%= ov.bookingEngine ? ov.bookingEngine.base : 'https://miruum.id' %>" style="background:#E07C17;color:#fff;padding:12px 22px;border-radius:24px;font-weight:700;text-decoration:none;font-family:sans-serif">Pesan di Miruum</a></textarea>
     <div style="margin-top:10px"><button type="button" class="btn sm" onclick="navigator.clipboard.writeText(document.getElementById('beSnippet').value);mToast&&mToast('success','Kode embed disalin')">Salin kode</button></div>
     <div style="border-top:1.5px solid var(--line);margin-top:14px;padding-top:12px">
       <label style="margin-top:0">Link langsung per hotel</label>
       <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto">
-        <% hotels.forEach(function(h){ var link = (ov.bookingEngine?ov.bookingEngine.base:'https://ota.gokar.id') + '/?hotel=' + (h.slug||h.id); %>
+        <% hotels.forEach(function(h){ var link = (ov.bookingEngine?ov.bookingEngine.base:'https://miruum.id') + '/?hotel=' + (h.slug||h.id); %>
           <div style="display:flex;gap:8px;align-items:center;font-size:12px">
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b><%= h.name %></b> <span class="muted"><%= link %></span></span>
             <button type="button" class="btn ghost sm" onclick="navigator.clipboard.writeText('<%= link %>');mToast&&mToast('success','Link disalin')">Salin</button>

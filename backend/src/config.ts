@@ -13,7 +13,7 @@ export const config = {
     secretKey: process.env.MINIO_SECRET_KEY || "miruum123",
     bucket: process.env.MINIO_BUCKET || "miruum",
   },
-  // Public base for stored objects, e.g. https://ota.gokar.id/storage (nginx → minio).
+  // Public base for stored objects, e.g. https://miruum.id/storage (nginx → minio).
   // Falls back to the direct minio endpoint for local dev.
   publicStorageUrl:
     process.env.PUBLIC_STORAGE_URL ||

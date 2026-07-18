@@ -12,7 +12,7 @@ function dayUTC(d: Date): Date {
 }
 
 // Push host-to-host to every connected OTA. Pass `ownerId` to scope to one
-// partner hotel's inventory (the partner-facing Channel Manager at cm.gokar.id).
+// partner hotel's inventory (the partner-facing Channel Manager at chanel.miruum.id).
 export async function pushDistribution(prisma: PrismaClient, ownerId?: string): Promise<{ pushed: number; skipped: number }> {
   const maps = await prisma.roomChannelMap.findMany({
     where: {
