@@ -10,6 +10,7 @@ export default defineNuxtConfig({
       // Client-side: same-origin, proxied by nginx to the backend.
       apiBase: process.env.API_PUBLIC || '/api',
       siteUrl: process.env.SITE_URL || 'https://miruum.id',
+      googleClientId: process.env.GOOGLE_CLIENT_ID || '987023196687-0dj97fungsqi4ai98mqcs92nqboghlqg.apps.googleusercontent.com',
     },
   },
   app: {

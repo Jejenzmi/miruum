@@ -2,10 +2,7 @@
   <footer class="mt-20 border-t border-line bg-white">
     <div class="container-site py-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
       <div>
-        <div class="flex items-center gap-2 mb-3">
-          <span class="w-8 h-8 rounded-lg bg-brand grid place-items-center text-white font-display font-bold">M</span>
-          <span class="text-lg font-display font-bold">Miruum</span>
-        </div>
+        <img src="/logo.png" alt="Miruum" class="h-8 w-auto mb-3" />
         <p class="text-sm text-ink-muted leading-relaxed">Pesan hotel, paket menginap, tour & transfer bandara dengan harga terbaik.</p>
       </div>
       <div>

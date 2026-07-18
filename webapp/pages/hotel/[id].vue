@@ -122,6 +122,42 @@
         <div v-if="hotel.lat && hotel.lng" class="card overflow-hidden mt-8">
           <iframe :src="mapUrl" class="w-full h-64 border-0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
+
+        <!-- Tanya Jawab -->
+        <div class="card p-5 mt-8">
+          <h2 class="font-bold text-lg mb-3">Tanya Jawab</h2>
+          <div v-if="questions.length" class="space-y-3 mb-4">
+            <div v-for="q in questions" :key="q.id" class="border-b border-line/60 pb-3">
+              <div class="font-semibold text-[14px]">T: {{ q.body || q.question }}</div>
+              <div v-if="q.answer" class="text-[14px] text-ink-muted mt-1">J: {{ q.answer }}</div>
+              <div v-else class="text-[13px] text-ink-faint mt-1 italic">Belum dijawab hotel.</div>
+            </div>
+          </div>
+          <p v-else class="text-ink-muted text-sm mb-3">Belum ada pertanyaan. Jadilah yang pertama bertanya.</p>
+          <div v-if="isLoggedIn" class="flex gap-2">
+            <input v-model="qText" class="input !py-2.5 !text-sm" placeholder="Ajukan pertanyaan…" />
+            <button @click="ask" :disabled="qBusy" class="btn-brand btn-sm">Kirim</button>
+          </div>
+          <NuxtLink v-else :to="`/login?redirect=/hotel/${hotel.id}`" class="text-brand-600 text-sm font-semibold">Masuk untuk bertanya</NuxtLink>
+        </div>
+
+        <!-- Chat dengan Hotel -->
+        <div class="card p-5 mt-4">
+          <h2 class="font-bold text-lg mb-1">Chat dengan Hotel</h2>
+          <p class="text-[13px] text-ink-muted mb-3">Tanya langsung ke pihak hotel. Demi keamanan, kontak/transaksi di luar sistem otomatis disaring.</p>
+          <template v-if="isLoggedIn">
+            <div v-if="hotelMsgs.length" class="space-y-2 mb-3 max-h-56 overflow-y-auto">
+              <div v-for="(m,i) in hotelMsgs" :key="i" class="flex" :class="m.fromGuest || m.sender==='GUEST' ? 'justify-end' : 'justify-start'">
+                <div class="max-w-[80%] rounded-2xl px-3 py-2 text-[14px]" :class="(m.fromGuest || m.sender==='GUEST') ? 'bg-brand text-white' : 'bg-paper border border-line'">{{ m.body }}</div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <input v-model="hcText" class="input !py-2.5 !text-sm" placeholder="Tulis pesan ke hotel…" />
+              <button @click="sendHotel" :disabled="hcBusy" class="btn-brand btn-sm">Kirim</button>
+            </div>
+          </template>
+          <NuxtLink v-else :to="`/login?redirect=/hotel/${hotel.id}`" class="text-brand-600 text-sm font-semibold">Masuk untuk chat</NuxtLink>
+        </div>
       </div>
 
       <!-- Sticky booking aside -->
@@ -134,6 +170,11 @@
             <div class="flex justify-between"><span>Check-out</span><b class="text-ink">{{ hotel.checkOutInfo }}</b></div>
           </div>
           <a href="#rooms" class="btn-brand w-full mt-4">Lihat Kamar</a>
+          <div class="flex gap-2 mt-2">
+            <button @click="favToggle(hotel.id)" class="btn-ghost btn-sm flex-1" :class="{ '!text-red-600 !border-red-200': isFav(hotel.id) }">{{ isFav(hotel.id) ? '♥ Favorit' : '♡ Simpan' }}</button>
+            <button @click="cmpToggle(hotel)" class="btn-ghost btn-sm flex-1" :class="{ 'chip-on': cmpHas(hotel.id) }">{{ cmpHas(hotel.id) ? '✓ Banding' : '+ Banding' }}</button>
+          </div>
+          <button @click="togglePriceAlert" class="btn-ghost btn-sm w-full mt-2" :class="{ 'chip-on': watching }">{{ watching ? '🔔 Memantau harga turun' : 'Pantau Harga Turun' }}</button>
         </div>
       </aside>
     </div>
@@ -190,6 +231,48 @@ const mapUrl = computed(() => {
   const la = hotel.value.lat, lo = hotel.value.lng
   const d = 0.01
   return `https://www.openstreetmap.org/export/embed.html?bbox=${lo - d}%2C${la - d}%2C${lo + d}%2C${la + d}&layer=mapnik&marker=${la}%2C${lo}`
+})
+
+// ── Favorites / compare ──
+const { isLoggedIn } = useAuth()
+const { isFav, toggle: favToggle, load: loadFav } = useFavorites()
+const { has: cmpHas, toggle: cmpToggle } = useCompare()
+
+// ── Price alert ──
+const watching = ref(false)
+async function togglePriceAlert() {
+  if (!isLoggedIn.value) return navigateTo(`/login?redirect=/hotel/${id}`)
+  try { const r: any = await $api(`/hotels/${id}/price-alert`, { method: 'POST', body: {} }); watching.value = !!r.watching } catch {}
+}
+
+// ── Q&A ──
+const questions = ref<any[]>([])
+const qText = ref(''); const qBusy = ref(false)
+async function ask() {
+  const body = qText.value.trim(); if (!body) return
+  qBusy.value = true
+  try { await $api(`/hotels/${id}/questions`, { method: 'POST', body: { body } }); qText.value = ''; const r: any = await $api(`/hotels/${id}/questions`); questions.value = r.questions || [] } catch {}
+  finally { qBusy.value = false }
+}
+
+// ── Hotel chat ──
+const hotelMsgs = ref<any[]>([])
+const hcText = ref(''); const hcBusy = ref(false)
+async function sendHotel() {
+  const body = hcText.value.trim(); if (!body) return
+  hcBusy.value = true
+  try { const r: any = await $api(`/hotel-chat/${id}`, { method: 'POST', body: { body } }); hcText.value = ''; hotelMsgs.value = r.messages || r.thread?.messages || hotelMsgs.value } catch {}
+  finally { hcBusy.value = false }
+}
+
+onMounted(async () => {
+  try { $api(`/hotels/${id}/view`, { method: 'POST', body: {} }).catch(() => {}) } catch {}
+  try { const r: any = await $api(`/hotels/${id}/questions`); questions.value = r.questions || [] } catch {}
+  if (isLoggedIn.value) {
+    loadFav()
+    try { const pa: any = await $api('/price-alerts'); watching.value = (pa.hotelIds || []).includes(id) } catch {}
+    try { const hc: any = await $api(`/hotel-chat/${id}`); hotelMsgs.value = hc.messages || hc.thread?.messages || [] } catch {}
+  }
 })
 
 useHead(() => ({ title: hotel.value ? `${hotel.value.name}, ${hotel.value.city} · Miruum` : 'Miruum' }))

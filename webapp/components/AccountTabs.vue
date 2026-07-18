@@ -13,7 +13,9 @@ defineProps<{ active: string }>()
 const tabs = [
   { key: 'profile', to: '/account', label: 'Profil' },
   { key: 'bookings', to: '/account/bookings', label: 'Pesanan' },
+  { key: 'favorites', to: '/account/favorites', label: 'Favorit' },
   { key: 'vouchers', to: '/account/vouchers', label: 'Voucher' },
-  { key: 'loyalty', to: '/account/loyalty', label: 'Poin Miruum' },
+  { key: 'loyalty', to: '/account/loyalty', label: 'Poin' },
+  { key: 'security', to: '/account/security', label: 'Keamanan' },
 ]
 </script>

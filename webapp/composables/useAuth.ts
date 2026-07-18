@@ -34,6 +34,13 @@ export const useAuth = () => {
     return res
   }
 
+  async function loginWithGoogle(idToken: string) {
+    const res: any = await $api('/auth/google', { method: 'POST', body: { idToken } })
+    token.value = res.token
+    user.value = res.user
+    return res
+  }
+
   async function logout() {
     try { await $api('/auth/logout', { method: 'POST', body: {} }) } catch {}
     token.value = null
@@ -41,5 +48,5 @@ export const useAuth = () => {
     await navigateTo('/')
   }
 
-  return { token, user, isLoggedIn, fetchMe, login, register, logout }
+  return { token, user, isLoggedIn, fetchMe, login, register, loginWithGoogle, logout }
 }

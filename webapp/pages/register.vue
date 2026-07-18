@@ -1,10 +1,8 @@
 <template>
   <div class="container-site py-12 max-w-md">
     <div class="card p-7">
-      <div class="flex items-center gap-2 mb-5">
-        <span class="w-10 h-10 rounded-xl bg-brand grid place-items-center text-white font-display font-bold text-lg">M</span>
-        <h1 class="text-2xl font-bold">Daftar</h1>
-      </div>
+      <img src="/logo.png" alt="Miruum" class="h-9 w-auto mb-4" />
+      <h1 class="text-2xl font-bold mb-5">Daftar</h1>
       <form @submit.prevent="submit" class="space-y-4">
         <div><label class="label">Nama Lengkap</label><input v-model="f.name" class="input" required /></div>
         <div><label class="label">Email</label><input v-model="f.email" type="email" class="input" required /></div>
@@ -13,6 +11,7 @@
         <p v-if="err" class="text-red-600 text-[13px]">{{ err }}</p>
         <button :disabled="loading" class="btn-brand w-full">{{ loading ? 'Memproses…' : 'Buat Akun' }}</button>
       </form>
+      <ClientOnly><GoogleButton /></ClientOnly>
       <p class="text-center mt-4 text-[14px] text-ink-muted">Sudah punya akun? <NuxtLink to="/login" class="text-brand-600 font-semibold">Masuk</NuxtLink></p>
     </div>
   </div>

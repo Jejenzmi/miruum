@@ -21,9 +21,8 @@
         <div class="text-right mt-3 sm:mt-0 shrink-0">
           <div class="font-extrabold text-brand-700">{{ rupiah(b.totalPrice) }}</div>
           <div class="flex gap-2 mt-2 justify-end">
-            <a v-if="isPaid(b.status)" :href="`/api/vouchers/${b.code}`" target="_blank" class="btn-ghost btn-sm">E-Voucher</a>
-            <a v-if="isPaid(b.status)" :href="`/api/invoices/${b.code}`" target="_blank" class="btn-ghost btn-sm">Invoice</a>
-            <NuxtLink v-else-if="b.status==='PENDING'" :to="`/payment/${b.id}`" class="btn-brand btn-sm">Bayar</NuxtLink>
+            <NuxtLink :to="`/account/bookings/${b.id}`" class="btn-ghost btn-sm">Detail / Kelola</NuxtLink>
+            <NuxtLink v-if="b.status==='PENDING'" :to="`/payment/${b.id}`" class="btn-brand btn-sm">Bayar</NuxtLink>
           </div>
         </div>
       </div>

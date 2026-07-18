@@ -36,6 +36,10 @@
       </div>
     </section>
 
+    <RailSection v-if="recentlyViewed.length" title="Baru Dilihat" subtitle="Lanjutkan dari tempat kamu berhenti">
+      <HotelCard v-for="h in recentlyViewed" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
+    </RailSection>
+
     <RailSection title="Rekomendasi untukmu" subtitle="Hotel pilihan dengan ulasan terbaik" more="/search">
       <HotelCard v-for="h in recommended" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
     </RailSection>
@@ -82,6 +86,9 @@ const [{ data: rec }, { data: pro }, { data: ban }, { data: pkg }] = await Promi
 const arr = (d: any, k: string) => (d?.[k] || d || []) as any[]
 const recommended = computed(() => arr(rec.value, 'hotels').slice(0, 10))
 const promo = computed(() => arr(pro.value, 'hotels').slice(0, 10))
+
+const { data: rv } = await useAsyncData('recent', () => $api('/recently-viewed').catch(() => ({ hotels: [] })))
+const recentlyViewed = computed(() => arr(rv.value, 'hotels').slice(0, 10))
 const banners = computed(() => arr(ban.value, 'banners'))
 const packages = computed(() => arr(pkg.value, 'packages'))
 
