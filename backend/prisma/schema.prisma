@@ -1192,3 +1192,40 @@ model ShuttleRide {
 
   @@index([userId])
 }
+
+// ─────────────────────────── Articles / Blog (customer web) ───────────────────────────
+model Article {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  body        String
+  coverImage  String
+  category    String   @default("Tips")   // Tips | Destinasi | Panduan | Promo | Inspirasi
+  published   Boolean  @default(true)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([published])
+}
+
+// ─── Partner (hotel) self-registration — "Daftarkan Properti Anda" ───
+// Public application from the customer web / extranet; admin approves → creates
+// a PARTNER user + Hotel so the owner can log into the Extranet.
+model PartnerApplication {
+  id           String   @id @default(cuid())
+  propertyName String
+  propertyType String   @default("HOTEL")
+  city         String
+  address      String
+  picName      String
+  email        String
+  phone        String
+  website      String?
+  roomCount    Int?
+  note         String?
+  status       String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt    DateTime @default(now())
+
+  @@index([status])
+}

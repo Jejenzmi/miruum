@@ -78,6 +78,39 @@
       </div>
     </section>
 
+    <!-- Articles -->
+    <section v-if="articles.length" class="container-site mt-12">
+      <div class="flex items-end justify-between mb-4">
+        <div>
+          <h2 class="text-2xl font-bold">Artikel & Inspirasi</h2>
+          <p class="text-ink-muted text-sm">Tips & panduan untuk perjalananmu</p>
+        </div>
+        <NuxtLink to="/articles" class="text-brand-600 font-semibold text-sm hover:underline shrink-0">Lihat semua →</NuxtLink>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <NuxtLink v-for="a in articles.slice(0,3)" :key="a.id" :to="`/articles/${a.slug}`" class="group card overflow-hidden hover:shadow-cardhover hover:-translate-y-0.5 transition-all">
+          <div class="aspect-[16/10] bg-line overflow-hidden"><img :src="a.coverImage" :alt="a.title" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>
+          <div class="p-4">
+            <span class="pill bg-brand-50 text-brand-700 mb-2">{{ a.category }}</span>
+            <h3 class="font-bold text-[15px] leading-snug line-clamp-2 group-hover:text-brand-600">{{ a.title }}</h3>
+            <p class="text-[13px] text-ink-muted line-clamp-2 mt-1">{{ a.excerpt }}</p>
+          </div>
+        </NuxtLink>
+      </div>
+    </section>
+
+    <!-- Property registration CTA -->
+    <section class="container-site mt-14">
+      <div class="rounded-xl2 overflow-hidden relative bg-gradient-to-r from-sky-700 to-sky text-white p-8 sm:p-12">
+        <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1400&q=60')] bg-cover bg-center"></div>
+        <div class="relative max-w-xl">
+          <h2 class="text-2xl sm:text-3xl font-display font-bold">Punya hotel atau properti?</h2>
+          <p class="mt-2 text-white/90">Daftarkan properti Anda ke Miruum — jangkau jutaan tamu di aplikasi & web, kelola harga, kamar, dan pesanan lewat Extranet. Gratis untuk memulai.</p>
+          <a href="https://extranet.miruum.id/register" class="btn bg-white text-sky-700 hover:bg-white/90 px-6 py-3 mt-5 font-bold shadow">Daftarkan Properti Anda →</a>
+        </div>
+      </div>
+    </section>
+
     <!-- Trust strip -->
     <section class="container-site mt-16 grid gap-4 sm:grid-cols-3">
       <div v-for="f in features" :key="f.t" class="card p-5 flex items-start gap-3">
@@ -105,6 +138,9 @@ const promo = computed(() => arr(pro.value, 'hotels').slice(0, 10))
 
 const { data: rv } = await useAsyncData('recent', () => $api('/recently-viewed').catch(() => ({ hotels: [] })))
 const recentlyViewed = computed(() => arr(rv.value, 'hotels').slice(0, 10))
+
+const { data: art } = await useAsyncData('home-articles', () => $api('/articles').catch(() => ({ articles: [] })))
+const articles = computed(() => arr(art.value, 'articles').slice(0, 6))
 const banners = computed(() => arr(ban.value, 'banners'))
 const packages = computed(() => arr(pkg.value, 'packages'))
 

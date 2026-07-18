@@ -1,0 +1,36 @@
+<%- include('../partials/top', { title:'Pengajuan Mitra', heading:'Pengajuan Mitra Properti', section:'admin', active:'partner-apps', me }) %>
+
+<% if (creds) { %>
+  <div class="notice ok">Disetujui &amp; akun dibuat. Kredensial Extranet: <b><%= creds.email %></b> · sandi <b><%= creds.password %></b> — mitra login di <b>extranet.miruum.id</b>. (Juga dikirim via email.)</div>
+<% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Pemilik properti mendaftar lewat <b>miruum.id</b> / <b>extranet.miruum.id/register</b>. Setujui untuk otomatis membuat akun <b>PARTNER</b> + properti di Extranet.</p>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Properti</th><th>PIC / Kontak</th><th>Lokasi</th><th>Kamar</th><th>Status</th><th style="text-align:right">Aksi</th></tr></thead>
+    <tbody>
+      <% var TYPES={HOTEL:'Hotel',VILLA:'Villa',APARTMENT:'Apartemen',HOMESTAY:'Homestay',GUESTHOUSE:'Guest House',HOSTEL:'Hostel',RESORT:'Resort'}; %>
+      <% applications.forEach(function(a){ %>
+        <tr>
+          <td><b><%= a.propertyName %></b><br><span class="muted" style="font-size:11px"><%= TYPES[a.propertyType]||a.propertyType %><% if (a.website) { %> · <%= a.website %><% } %></span></td>
+          <td><%= a.picName %><br><span class="muted" style="font-size:11.5px"><%= a.email %> · <%= a.phone %></span></td>
+          <td style="font-size:12.5px"><%= a.city %><br><span class="muted"><%= (a.address||'').slice(0,40) %></span></td>
+          <td><%= a.roomCount || '—' %></td>
+          <td><span class="pill <%= a.status==='APPROVED'?'PAID':a.status==='REJECTED'?'CANCELLED':'PENDING' %>"><%= a.status==='APPROVED'?'Disetujui':a.status==='REJECTED'?'Ditolak':'Menunggu' %></span></td>
+          <td style="text-align:right">
+            <% if (a.status==='PENDING') { %>
+              <form method="post" action="/admin/partner-applications/<%= a.id %>/approve" style="display:inline"><button class="btn sm">Setujui</button></form>
+              <form method="post" action="/admin/partner-applications/<%= a.id %>/reject" style="display:inline" data-confirm="Tolak pengajuan '<%= a.propertyName %>'?"><button class="btn danger sm">Tolak</button></form>
+            <% } else { %><span class="muted">—</span><% } %>
+          </td>
+        </tr>
+        <% if (a.note) { %><tr><td colspan="6" class="muted" style="font-size:12px;padding-top:0">Catatan: <%= a.note %></td></tr><% } %>
+      <% }) %>
+      <% if (!applications.length) { %><tr><td colspan="6" class="empty">Belum ada pengajuan mitra</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -413,6 +413,44 @@ app.post("/admin/invoices/generate", adminGuard, async (req, res) => {
   catch (e) { res.redirect("/admin/invoices?gen=err"); }
 });
 
+// ── Artikel / Blog ──
+app.get("/admin/articles", adminGuard, async (req, res) => {
+  const { articles } = await api("/admin/articles", { token: res.locals.token });
+  const edit = req.query.edit ? articles.find((a) => a.id === req.query.edit) : null;
+  res.render("admin/articles", { articles, edit, active: "articles", saved: req.query.saved });
+});
+app.post("/admin/articles", adminGuard, upload.single("cover"), async (req, res) => {
+  let coverImage = req.body.coverImage;
+  try { if (req.file) coverImage = await uploadFile(res.locals.token, req.file, "articles"); } catch (_) {}
+  const body = { ...req.body, coverImage, published: req.body.published === "on" };
+  try {
+    if (req.body.id) await api(`/admin/articles/${req.body.id}`, { method: "PUT", token: res.locals.token, body });
+    else await api("/admin/articles", { method: "POST", token: res.locals.token, body });
+    res.redirect("/admin/articles?saved=1");
+  } catch (e) { res.redirect("/admin/articles?saved=err"); }
+});
+app.post("/admin/articles/:id/delete", adminGuard, async (req, res) => {
+  try { await api(`/admin/articles/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/admin/articles");
+});
+
+// ── Pengajuan Mitra (property registration) ──
+app.get("/admin/partner-applications", adminGuard, async (req, res) => {
+  const { applications } = await api("/admin/partner-applications", { token: res.locals.token });
+  res.render("admin/partner_applications", { applications, active: "partner-apps",
+    creds: req.query.email ? { email: req.query.email, password: req.query.pass } : null, err: req.query.err });
+});
+app.post("/admin/partner-applications/:id/approve", adminGuard, async (req, res) => {
+  try {
+    const r = await api(`/admin/partner-applications/${req.params.id}/approve`, { method: "POST", token: res.locals.token, body: {} });
+    res.redirect("/admin/partner-applications?email=" + encodeURIComponent(r.credentials.email) + "&pass=" + encodeURIComponent(r.credentials.password));
+  } catch (e) { res.redirect("/admin/partner-applications?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/partner-applications/:id/reject", adminGuard, async (req, res) => {
+  try { await api(`/admin/partner-applications/${req.params.id}/reject`, { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/partner-applications");
+});
+
 // ── Moderasi Ulasan ──
 app.get("/admin/reviews", adminGuard, async (req, res) => {
   const { reviews, stats } = await api("/admin/reviews", { token: res.locals.token });
@@ -668,6 +706,13 @@ app.post("/extranet/login", loginLimiter, async (req, res) => {
   }
 });
 app.get("/extranet/logout", (req, res) => { delete req.session.partner; res.redirect("/extranet/login"); });
+
+// Public: register/list your property to become a Miruum partner.
+app.get("/extranet/register", (req, res) => res.render("extranet/register", { done: req.query.done, error: null }));
+app.post("/extranet/register", async (req, res) => {
+  try { await api("/partner-apply", { method: "POST", body: req.body }); res.redirect("/extranet/register?done=1"); }
+  catch (e) { res.render("extranet/register", { done: null, error: e.message }); }
+});
 
 app.get("/extranet", partnerGuard, async (req, res) => {
   const overview = await api("/partner/overview", { token: res.locals.token });

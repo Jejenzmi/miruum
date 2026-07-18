@@ -10,6 +10,7 @@
         <NuxtLink to="/packages" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Paket</NuxtLink>
         <NuxtLink v-if="modules.tour" to="/tours" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Tour</NuxtLink>
         <NuxtLink v-if="modules.shuttle" to="/shuttle" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Transfer Bandara</NuxtLink>
+        <NuxtLink to="/articles" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Artikel</NuxtLink>
       </nav>
 
       <div class="flex-1"></div>

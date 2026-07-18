@@ -4374,6 +4374,85 @@ app.get("/api/partner/analytics", requireRole("PARTNER", "ADMIN"), async (req: A
   });
 });
 
+// ═══════════════════════ ARTICLES / BLOG ═══════════════════════
+const slugify = (s: string) => ((s || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "item");
+
+app.get("/api/articles", async (_req, res) => {
+  const articles = await prisma.article.findMany({ where: { published: true }, orderBy: { publishedAt: "desc" }, take: 50 });
+  res.json({ articles });
+});
+app.get("/api/articles/:slug", async (req, res) => {
+  const article = await prisma.article.findUnique({ where: { slug: req.params.slug } });
+  if (!article || !article.published) return res.status(404).json({ error: "Artikel tidak ditemukan" });
+  res.json({ article });
+});
+app.get("/api/admin/articles", requireRole("ADMIN"), async (_req, res) => {
+  res.json({ articles: await prisma.article.findMany({ orderBy: { createdAt: "desc" } }) });
+});
+app.post("/api/admin/articles", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().min(3), excerpt: z.string().default(""), body: z.string().default(""), coverImage: z.string().default(""), category: z.string().default("Tips"), published: formBool.optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data artikel tidak valid" });
+  const slug = slugify(p.data.title) + "-" + Math.random().toString(36).slice(2, 6);
+  const article = await prisma.article.create({ data: { ...p.data, published: p.data.published ?? true, slug } });
+  audit(req, "article.create", "Article", article.id);
+  res.json({ article });
+});
+app.put("/api/admin/articles/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ title: z.string().optional(), excerpt: z.string().optional(), body: z.string().optional(), coverImage: z.string().optional(), category: z.string().optional(), published: formBool.optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const article = await prisma.article.update({ where: { id: req.params.id }, data: p.data });
+  res.json({ article });
+});
+app.delete("/api/admin/articles/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.article.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+// ═══════════════════════ PARTNER (PROPERTY) SELF-REGISTRATION ═══════════════════════
+app.post("/api/partner-apply", async (req, res) => {
+  const schema = z.object({
+    propertyName: z.string().min(2), propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).default("HOTEL"),
+    city: z.string().min(2), address: z.string().min(2), picName: z.string().min(2),
+    email: z.string().email(), phone: z.string().min(5), website: z.string().optional(),
+    roomCount: z.coerce.number().int().min(0).optional(), note: z.string().optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Lengkapi data properti dengan benar" });
+  const application = await prisma.partnerApplication.create({ data: p.data });
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+  for (const a of admins) await dispatch(prisma, { userId: a.id, title: "Pendaftaran Properti Baru", body: `${p.data.propertyName} (${p.data.city}) ingin bergabung sebagai mitra. Tinjau di Pengajuan Mitra.`, type: "info" });
+  res.json({ application });
+});
+app.get("/api/admin/partner-applications", requireRole("ADMIN"), async (_req, res) => {
+  res.json({ applications: await prisma.partnerApplication.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], take: 200 }) });
+});
+app.post("/api/admin/partner-applications/:id/approve", requireRole("ADMIN"), async (req, res) => {
+  const a0 = await prisma.partnerApplication.findUnique({ where: { id: req.params.id } });
+  if (!a0) return res.status(404).json({ error: "Pengajuan tidak ditemukan" });
+  if (a0.status === "APPROVED") return res.status(400).json({ error: "Sudah disetujui" });
+  if (await prisma.user.findUnique({ where: { email: a0.email } })) return res.status(409).json({ error: "Email sudah terpakai akun lain" });
+  const tempPass = "MRM" + Math.random().toString(36).slice(2, 8);
+  const owner = await prisma.user.create({ data: { name: a0.picName, email: a0.email, passwordHash: await bcrypt.hash(tempPass, 10), role: "PARTNER", phone: a0.phone } });
+  const slug = slugify(a0.propertyName) + "-" + Math.random().toString(36).slice(2, 6);
+  await prisma.hotel.create({ data: {
+    name: a0.propertyName, slug, city: a0.city, address: a0.address,
+    description: a0.note || `${a0.propertyName} — properti mitra Miruum di ${a0.city}.`,
+    imageUrl: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=60",
+    propertyType: a0.propertyType, ownerId: owner.id, starRating: 3, rating: 0,
+  } });
+  await prisma.partnerApplication.update({ where: { id: a0.id }, data: { status: "APPROVED" } });
+  await dispatch(prisma, { title: "Pendaftaran Properti Disetujui", body: `Properti ${a0.propertyName} aktif. Login Extranet di https://extranet.miruum.id — email: ${a0.email}, sandi: ${tempPass}`, type: "success", email: a0.email });
+  audit(req, "partner.approve", "PartnerApplication", a0.id, { property: a0.propertyName });
+  res.json({ ok: true, credentials: { email: a0.email, password: tempPass } });
+});
+app.post("/api/admin/partner-applications/:id/reject", requireRole("ADMIN"), async (req, res) => {
+  await prisma.partnerApplication.update({ where: { id: req.params.id }, data: { status: "REJECTED" } });
+  audit(req, "partner.reject", "PartnerApplication", req.params.id);
+  res.json({ ok: true });
+});
+
 export { app };
 
 // Only bind the port when run directly (tests import `app` without listening).

@@ -1,0 +1,60 @@
+<%- include('../partials/top', { title:'Artikel', heading:'Artikel & Blog', section:'admin', active:'articles', me }) %>
+
+<% if (saved==='1') { %><div class="notice ok">Artikel tersimpan.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal menyimpan artikel.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Kelola artikel/inspirasi yang tampil di situs pelanggan <b>miruum.id/artikel</b>. Hanya artikel <b>Terbit</b> yang muncul di publik.</p>
+
+<div class="grid-2">
+  <div class="card">
+    <h2><%= edit ? 'Edit Artikel' : 'Tulis Artikel Baru' %></h2>
+    <form method="post" action="/admin/articles" enctype="multipart/form-data">
+      <% if (edit) { %><input type="hidden" name="id" value="<%= edit.id %>"><% } %>
+      <label style="margin-top:0">Judul</label>
+      <input name="title" value="<%= edit ? edit.title : '' %>" placeholder="mis. 7 Hotel Terbaik di Bandung" required>
+      <div class="row2">
+        <div><label>Kategori</label>
+          <select name="category">
+            <% ['Tips','Destinasi','Panduan','Promo','Inspirasi'].forEach(function(c){ %>
+              <option value="<%= c %>" <%= edit && edit.category===c ? 'selected' : '' %>><%= c %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div><label>Status</label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" name="published" <%= !edit || edit.published ? 'checked' : '' %>> Terbitkan</label>
+        </div>
+      </div>
+      <label>Ringkasan (excerpt)</label>
+      <textarea name="excerpt" rows="2" placeholder="Kalimat pembuka singkat untuk kartu artikel" required><%= edit ? edit.excerpt : '' %></textarea>
+      <label>Isi Artikel</label>
+      <textarea name="body" rows="8" placeholder="Tulis isi artikel di sini…" required><%= edit ? edit.body : '' %></textarea>
+      <label>Gambar Sampul — URL</label>
+      <input name="coverImage" value="<%= edit ? edit.coverImage : '' %>" placeholder="https://…">
+      <label>atau unggah file</label>
+      <input type="file" name="cover" accept="image/*">
+      <div style="margin-top:16px"><button class="btn"><%= edit ? 'Simpan Perubahan' : 'Terbitkan Artikel' %></button>
+        <% if (edit) { %><a href="/admin/articles" class="btn ghost sm" style="margin-left:8px">Batal</a><% } %></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Daftar Artikel</h2>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <% articles.forEach(function(a){ %>
+        <div style="border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center">
+          <% if (a.coverImage) { %><img src="<%= a.coverImage %>" style="width:64px;height:48px;object-fit:cover;border-radius:8px"><% } %>
+          <div style="flex:1;min-width:0">
+            <span class="pill <%= a.published ? 'PAID' : 'CANCELLED' %>"><%= a.published ? 'Terbit' : 'Draft' %></span>
+            <span class="pill" style="background:var(--accent-s);color:#b8791a"><%= a.category %></span>
+            <b style="display:block;margin-top:6px;font-size:14px"><%= a.title %></b>
+          </div>
+          <a href="/admin/articles?edit=<%= a.id %>" class="btn ghost sm">Edit</a>
+          <form method="post" action="/admin/articles/<%= a.id %>/delete" data-confirm="Hapus artikel '<%= a.title %>'?"><button class="btn danger sm">Hapus</button></form>
+        </div>
+      <% }) %>
+      <% if (!articles.length) { %><p class="empty">Belum ada artikel</p><% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

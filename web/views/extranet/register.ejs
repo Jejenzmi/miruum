@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daftarkan Properti — Miruum</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="auth">
+  <div class="auth-form-wrap">
+    <div class="auth-card" style="max-width:520px">
+      <img src="/static/logo.png" alt="Miruum" class="auth-logo">
+      <span class="eyebrow">Extranet Mitra</span>
+      <h2>Daftarkan Properti Anda</h2>
+      <p class="lead">Jangkau jutaan tamu di aplikasi & web Miruum. Isi data properti — tim kami meninjau lalu mengirim akun Extranet Anda.</p>
+
+      <% if (done) { %>
+        <div class="notice ok" style="text-align:left">Pengajuan terkirim! Tim Miruum akan meninjau &amp; menghubungi Anda via email. Setelah disetujui, Anda menerima akun Extranet untuk mengelola properti.</div>
+        <p style="text-align:center;margin-top:16px"><a href="/extranet/login" style="color:var(--primary-d);font-weight:700">← Kembali ke Login</a></p>
+      <% } else { %>
+        <% if (error) { %><div class="error"><%= error %></div><% } %>
+        <form method="post" action="/extranet/register">
+          <div class="row2">
+            <div><label style="margin-top:0">Nama Properti *</label><input name="propertyName" placeholder="mis. Hotel Nusantara" required></div>
+            <div><label style="margin-top:0">Tipe *</label>
+              <select name="propertyType">
+                <option value="HOTEL">Hotel</option><option value="VILLA">Villa</option><option value="APARTMENT">Apartemen</option>
+                <option value="HOMESTAY">Homestay</option><option value="GUESTHOUSE">Guest House</option><option value="HOSTEL">Hostel</option><option value="RESORT">Resort</option>
+              </select>
+            </div>
+          </div>
+          <div class="row2">
+            <div><label>Kota *</label><input name="city" placeholder="mis. Bandung" required></div>
+            <div><label>Jumlah Kamar</label><input name="roomCount" type="number" min="1" placeholder="mis. 40"></div>
+          </div>
+          <label>Alamat Lengkap *</label>
+          <input name="address" placeholder="Jl. …" required>
+          <div class="row2">
+            <div><label>Nama PIC *</label><input name="picName" placeholder="Nama penanggung jawab" required></div>
+            <div><label>No. HP / WA *</label><input name="phone" placeholder="08xxxx" required></div>
+          </div>
+          <div class="row2">
+            <div><label>Email *</label><input name="email" type="email" placeholder="email@properti.com" required></div>
+            <div><label>Website (opsional)</label><input name="website" placeholder="https://…"></div>
+          </div>
+          <label>Catatan (opsional)</label>
+          <textarea name="note" rows="2" placeholder="Ceritakan singkat tentang properti Anda"></textarea>
+          <button class="btn" style="width:100%;justify-content:center;margin-top:16px">Kirim Pengajuan</button>
+        </form>
+        <p style="text-align:center;margin:16px 0 0;font-size:14px;color:var(--muted)">Sudah punya akun? <a href="/extranet/login" style="color:var(--primary-d);font-weight:700">Masuk di sini</a></p>
+      <% } %>
+      <div class="auth-foot">© 2026 Miruum · Extranet Mitra. All rights reserved.</div>
+    </div>
+  </div>
+  <%- include('../partials/auth_brand', { variant: 'mitra' }) %>
+</div>
+</body>
+</html>
