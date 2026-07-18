@@ -5,11 +5,11 @@
         <img src="/logo.png" alt="Miruum" class="h-8 sm:h-9 w-auto" />
       </NuxtLink>
 
-      <nav class="hidden md:flex items-center gap-1 ml-2 text-[15px] font-medium text-ink-muted">
-        <NuxtLink to="/search" class="px-3 py-2 rounded-lg hover:text-brand-600 hover:bg-brand-50">Hotel</NuxtLink>
-        <NuxtLink to="/packages" class="px-3 py-2 rounded-lg hover:text-brand-600 hover:bg-brand-50">Paket</NuxtLink>
-        <NuxtLink v-if="modules.tour" to="/tours" class="px-3 py-2 rounded-lg hover:text-brand-600 hover:bg-brand-50">Tour</NuxtLink>
-        <NuxtLink v-if="modules.shuttle" to="/shuttle" class="px-3 py-2 rounded-lg hover:text-brand-600 hover:bg-brand-50">Transfer Bandara</NuxtLink>
+      <nav class="hidden md:flex items-center gap-1 ml-2 text-[15px] font-semibold text-ink-muted">
+        <NuxtLink to="/search" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Hotel</NuxtLink>
+        <NuxtLink to="/packages" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Paket</NuxtLink>
+        <NuxtLink v-if="modules.tour" to="/tours" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Tour</NuxtLink>
+        <NuxtLink v-if="modules.shuttle" to="/shuttle" class="px-3 py-2 rounded-lg hover:text-sky hover:bg-sky-50">Transfer Bandara</NuxtLink>
       </nav>
 
       <div class="flex-1"></div>

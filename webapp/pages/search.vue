@@ -1,6 +1,6 @@
 <template>
   <div class="container-site py-6">
-    <SearchBar class="mb-6" />
+    <SearchWidget class="mb-6" />
 
     <div class="grid lg:grid-cols-[260px_1fr] gap-6">
       <!-- Filters -->

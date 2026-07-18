@@ -1,23 +1,39 @@
 <template>
   <div>
-    <!-- Hero -->
+    <!-- Hero (Traveloka-style) -->
     <section class="relative">
-      <div class="absolute inset-0 bg-gradient-to-br from-brand-600 to-brand-500"></div>
-      <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=60')] bg-cover bg-center"></div>
-      <div class="relative container-site pt-14 pb-28 text-white">
-        <h1 class="text-3xl sm:text-5xl font-display font-bold max-w-2xl leading-tight">Temukan tempat menginap terbaikmu</h1>
-        <p class="mt-3 text-white/90 text-lg max-w-xl">Ribuan hotel, villa & paket menginap dengan harga terbaik — pesan mudah, bayar aman.</p>
+      <div class="absolute inset-0 bg-gradient-to-b from-sky to-sky-600"></div>
+      <div class="absolute inset-0 opacity-25 bg-[url('https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=60')] bg-cover bg-center"></div>
+      <div class="relative container-site pt-10 sm:pt-14 pb-36 text-white text-center">
+        <h1 class="text-2xl sm:text-4xl font-display font-bold max-w-2xl mx-auto leading-tight">Dari hotel mewah sampai budget, semua ada di Miruum</h1>
+        <p class="mt-2.5 text-white/90 text-base sm:text-lg">Harga terbaik dijamin — pesan mudah, bayar aman.</p>
       </div>
     </section>
-    <div class="container-site -mt-20 relative z-10">
-      <SearchBar />
+    <div class="container-site -mt-28 relative z-10">
+      <SearchWidget />
     </div>
 
     <!-- Property types -->
-    <section class="container-site mt-10">
+    <section class="container-site mt-8">
       <div class="flex gap-3 overflow-x-auto no-scrollbar pb-1">
         <NuxtLink v-for="t in propTypes" :key="t.key" :to="`/search?propertyType=${t.key}`"
                   class="chip whitespace-nowrap !py-2.5 !px-4">{{ t.label }}</NuxtLink>
+      </div>
+    </section>
+
+    <!-- Popular destinations -->
+    <section v-if="cities.length" class="container-site mt-10">
+      <h2 class="text-2xl font-bold mb-4">Destinasi Populer</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <NuxtLink v-for="c in cities" :key="c.name" :to="`/search?q=${encodeURIComponent(c.name)}`"
+                  class="group relative rounded-xl overflow-hidden aspect-[4/5]">
+          <img :src="c.img" :alt="c.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+          <div class="absolute bottom-0 p-3 text-white">
+            <div class="font-bold text-[15px]">{{ c.name }}</div>
+            <div class="text-[11px] text-white/80">{{ c.count }} properti</div>
+          </div>
+        </NuxtLink>
       </div>
     </section>
 
@@ -93,6 +109,18 @@ const banners = computed(() => arr(ban.value, 'banners'))
 const packages = computed(() => arr(pkg.value, 'packages'))
 
 const propTypes = Object.entries(PROPERTY_TYPES).map(([key, label]) => ({ key, label }))
+
+// Popular destinations derived from available hotels (city + a representative image).
+const cities = computed(() => {
+  const pool = [...recommended.value, ...promo.value]
+  const map: Record<string, { name: string; img: string; count: number }> = {}
+  for (const h of pool) {
+    if (!h.city) continue
+    if (!map[h.city]) map[h.city] = { name: h.city, img: h.imageUrl, count: 0 }
+    map[h.city].count++
+  }
+  return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6)
+})
 const features = [
   { t: 'Harga Terbaik', d: 'Bandingkan & dapatkan harga termurah otomatis.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M20 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 000 4h4v-4z\'/></svg>' },
   { t: 'Pembayaran Aman', d: 'VA bank, e-wallet & QRIS — terenkripsi.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z\'/></svg>' },
