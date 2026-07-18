@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Hero slider -->
-    <HeroSlider :banners="banners" />
+    <HeroSlider :banners="banners" :fallback="{ title: content.homeHeadline, subtitle: content.homeSub }" />
     <div class="container-site -mt-24 relative z-10">
       <SearchWidget />
     </div>
@@ -98,8 +98,8 @@
         <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
         <div class="relative flex flex-col flex-1">
           <span class="pill bg-white/20 text-white w-fit mb-2">Untuk Mitra Properti</span>
-          <h2 class="text-2xl font-display font-bold">Punya hotel atau properti?</h2>
-          <p class="mt-2 text-white/90 text-[15px] flex-1">Daftarkan properti Anda — jangkau jutaan tamu, kelola harga & pesanan lewat Extranet. Gratis mulai.</p>
+          <h2 class="text-2xl font-display font-bold">{{ content.ctaPropertyTitle }}</h2>
+          <p class="mt-2 text-white/90 text-[15px] flex-1">{{ content.ctaPropertyText }}</p>
           <NuxtLink to="/mitra" class="btn bg-white text-brand-700 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">Pelajari & Daftar →</NuxtLink>
         </div>
       </div>
@@ -108,8 +108,8 @@
         <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
         <div class="relative flex flex-col flex-1">
           <span class="pill bg-white/20 text-white w-fit mb-2">Corporate & Government</span>
-          <h2 class="text-2xl font-display font-bold">Perusahaan atau instansi?</h2>
-          <p class="mt-2 text-white/90 text-[15px] flex-1">Kelola perjalanan dinas karyawan/pegawai dengan tagihan & laporan terpusat. Ajukan akun Corporate/Government.</p>
+          <h2 class="text-2xl font-display font-bold">{{ content.ctaCorpTitle }}</h2>
+          <p class="mt-2 text-white/90 text-[15px] flex-1">{{ content.ctaCorpText }}</p>
           <a href="https://corporate.miruum.id/corporate/register" class="btn bg-white text-slate-800 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">Ajukan Akun →</a>
         </div>
       </div>
@@ -148,6 +148,7 @@ const articles = computed(() => arr(art.value, 'articles').slice(0, 6))
 const banners = computed(() => arr(ban.value, 'banners'))
 const packages = computed(() => arr(pkg.value, 'packages'))
 
+const content = await useSiteContent()
 const propTypes = Object.entries(PROPERTY_TYPES).map(([key, label]) => ({ key, label }))
 
 // Popular destinations derived from available hotels (city + a representative image).
@@ -161,9 +162,10 @@ const cities = computed(() => {
   }
   return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6)
 })
-const features = [
-  { t: 'Harga Terbaik', d: 'Bandingkan & dapatkan harga termurah otomatis.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M20 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 000 4h4v-4z\'/></svg>' },
-  { t: 'Pembayaran Aman', d: 'VA bank, e-wallet & QRIS — terenkripsi.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z\'/></svg>' },
-  { t: 'Bantuan 24/7', d: 'Tim CS siap membantu kapan saja.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z\'/></svg>' },
+const FEATURE_ICONS = [
+  '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M20 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 000 4h4v-4z\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z\'/></svg>',
 ]
+const features = computed(() => (content.value.features || []).map((f: any, i: number) => ({ ...f, icon: FEATURE_ICONS[i % FEATURE_ICONS.length] })))
 </script>

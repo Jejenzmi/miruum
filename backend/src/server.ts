@@ -4453,6 +4453,78 @@ app.post("/api/admin/partner-applications/:id/reject", requireRole("ADMIN"), asy
   res.json({ ok: true });
 });
 
+// ═══════════════════════ SITE CONTENT (admin-managed web copy) ═══════════════════════
+// All customer-web marketing copy lives here so admins can edit it (Back Office →
+// Konten Web) instead of it being hardcoded in the Nuxt app.
+const DEFAULT_SITE_CONTENT: any = {
+  homeHeadline: "Dari hotel mewah sampai budget, semua ada di Miruum",
+  homeSub: "Harga terbaik dijamin — pesan mudah, bayar aman.",
+  ctaPropertyTitle: "Punya hotel atau properti?",
+  ctaPropertyText: "Daftarkan properti Anda — jangkau jutaan tamu, kelola harga & pesanan lewat Extranet. Gratis mulai.",
+  ctaCorpTitle: "Perusahaan atau instansi?",
+  ctaCorpText: "Kelola perjalanan dinas karyawan/pegawai dengan tagihan & laporan terpusat. Ajukan akun Corporate/Government.",
+  mitraHeadline: "Kembangkan bisnis properti Anda bersama Miruum",
+  mitraSub: "Jangkau jutaan tamu di aplikasi & web Miruum. Kelola kamar, harga, dan pesanan dari satu Extranet — gratis untuk memulai.",
+  features: [
+    { t: "Harga Terbaik", d: "Bandingkan & dapatkan harga termurah otomatis." },
+    { t: "Pembayaran Aman", d: "VA bank, e-wallet & QRIS — terenkripsi." },
+    { t: "Bantuan 24/7", d: "Tim CS siap membantu kapan saja." },
+  ],
+  benefits: [
+    { t: "Jangkauan Luas", d: "Properti Anda tampil di aplikasi & web Miruum, dilihat jutaan calon tamu." },
+    { t: "Extranet Lengkap", d: "Atur kamar, rate plan, foto, promo, kalender allotment & campaign dari satu dasbor." },
+    { t: "Channel Manager", d: "Distribusikan satu inventaris ke banyak OTA host-to-host — anti overbooking." },
+    { t: "Pembayaran Aman", d: "Dana pesanan dibayarkan tepat waktu & aman langsung ke rekening Anda." },
+    { t: "Analitik & Miruum Intelligent", d: "Pantau Room Night, ADR & pendapatan; AI membandingkan harga Anda dengan OTA lain." },
+    { t: "Dukungan Mitra", d: "Tim Miruum & live chat siap membantu Anda kapan saja." },
+  ],
+  stats: [
+    { value: "Jutaan", label: "Tamu aktif" }, { value: "100%", label: "Gratis mendaftar" },
+    { value: "24/7", label: "Dukungan mitra" }, { value: "Real-time", label: "Kelola harga & stok" },
+  ],
+  steps: [
+    { t: "Daftarkan Properti", d: "Isi form data properti Anda — hanya beberapa menit." },
+    { t: "Verifikasi", d: "Tim Miruum meninjau & mengaktifkan akun Extranet Anda." },
+    { t: "Atur Kamar & Harga", d: "Lengkapi kamar, foto, dan harga lewat Extranet." },
+    { t: "Terima Tamu", d: "Pesanan masuk otomatis & dana dibayarkan aman." },
+  ],
+  commission: [
+    "Gratis mendaftar & tanpa biaya langganan", "Bayar komisi hanya saat mendapat pesanan",
+    "Dana dibayarkan aman via transfer bank", "Bisa nonaktifkan/keluar kapan saja",
+  ],
+  testimonials: [
+    { name: "Panji Wibowo", role: "Pemilik, Hotel Panji", quote: "Okupansi naik signifikan sejak gabung Miruum. Extranet-nya mudah dipakai." },
+    { name: "Sari Melati", role: "Manajer, Villa Melati", quote: "Dana pesanan cair tepat waktu. Tim supportnya responsif banget." },
+    { name: "Broto Santoso", role: "Owner, Guest House Broto", quote: "Channel Manager-nya bikin distribusi ke OTA jadi gampang, tanpa overbooking." },
+  ],
+  faqs: [
+    { q: "Apakah gratis mendaftar?", a: "Ya, mendaftar dan mengelola properti di Extranet Miruum 100% gratis. Anda hanya membayar komisi saat mendapat pesanan." },
+    { q: "Berapa lama proses verifikasi?", a: "Tim Miruum biasanya meninjau pengajuan dalam 1–3 hari kerja, lalu mengirim akun Extranet ke email Anda." },
+    { q: "Bagaimana saya menerima pembayaran?", a: "Dana pesanan dibayarkan ke rekening bank Anda secara berkala melalui menu Pencairan / Invoice di Extranet." },
+    { q: "Tipe properti apa saja yang bisa didaftarkan?", a: "Hotel, villa, apartemen, homestay, guest house, hostel, dan resort — semuanya bisa." },
+  ],
+};
+app.get("/api/site-content", async (_req, res) => {
+  const s = await getSettings();
+  let stored: any = {};
+  try { stored = s.siteContent ? JSON.parse(s.siteContent) : {}; } catch { stored = {}; }
+  res.json({ content: { ...DEFAULT_SITE_CONTENT, ...stored } });
+});
+app.get("/api/admin/site-content", requireRole("ADMIN"), async (_req, res) => {
+  const s = await getSettings();
+  let stored: any = {};
+  try { stored = s.siteContent ? JSON.parse(s.siteContent) : {}; } catch { stored = {}; }
+  res.json({ content: { ...DEFAULT_SITE_CONTENT, ...stored }, defaults: DEFAULT_SITE_CONTENT });
+});
+app.put("/api/admin/site-content", requireRole("ADMIN"), async (req, res) => {
+  const body = req.body || {};
+  // Merge over defaults so partial saves keep the rest intact.
+  const merged = { ...DEFAULT_SITE_CONTENT, ...body };
+  await setSettings({ siteContent: JSON.stringify(merged) });
+  audit(req, "site-content.update", "Setting", "siteContent");
+  res.json({ ok: true });
+});
+
 export { app };
 
 // Only bind the port when run directly (tests import `app` without listening).

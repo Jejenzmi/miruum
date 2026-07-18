@@ -36,19 +36,19 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ banners?: any[] }>()
+const props = defineProps<{ banners?: any[]; fallback?: { title?: string; subtitle?: string } }>()
 
-const DEFAULTS = [
-  { title: 'Dari hotel mewah sampai budget, semua ada di Miruum', subtitle: 'Harga terbaik dijamin — pesan mudah, bayar aman.', image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=60', badge: '' },
+const DEFAULTS = computed(() => [
+  { title: props.fallback?.title || 'Dari hotel mewah sampai budget, semua ada di Miruum', subtitle: props.fallback?.subtitle || 'Harga terbaik dijamin — pesan mudah, bayar aman.', image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=60', badge: '' },
   { title: 'Paket menginap hemat + sarapan & benefit', subtitle: 'Bundel spesial biar liburanmu makin worth it.', image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1600&q=60', badge: 'Paket Hotel' },
   { title: 'Jelajahi tour & transfer bandara', subtitle: 'Lengkapi perjalananmu, semua dari satu aplikasi.', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=60', badge: 'Aktivitas' },
-]
+])
 
 // Prefer admin-managed banners as slides when there are enough of them.
 const slides = computed(() => {
   const b = (props.banners || []).filter((x) => x.imageUrl)
   if (b.length >= 2) return b.map((x) => ({ title: x.title, subtitle: x.subtitle || '', image: x.imageUrl, badge: x.badge || '' }))
-  return DEFAULTS
+  return DEFAULTS.value
 })
 
 const cur = ref(0)

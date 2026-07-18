@@ -1,0 +1,56 @@
+<%- include('../partials/top', { title:'Konten Web', heading:'Konten Web (miruum.id)', section:'admin', active:'site-content', me }) %>
+
+<% if (saved==='1') { %><div class="notice ok">Konten web tersimpan. Perubahan langsung tampil di miruum.id.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal menyimpan. Periksa format JSON pada daftar (array).</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Semua teks pemasaran di situs pelanggan <b>miruum.id</b> & halaman <b>/mitra</b> diatur di sini — tidak hardcode. Bagian berupa <b>daftar</b> (benefit, testimoni, FAQ, dll) memakai format <b>JSON</b>; ubah teks di dalam tanda kutip.</p>
+
+<% function j(v){ return JSON.stringify(v, null, 2); } %>
+
+<form method="post" action="/admin/site-content">
+  <div class="card">
+    <h2>Beranda</h2>
+    <label style="margin-top:0">Headline (fallback bila tak ada banner)</label>
+    <input name="homeHeadline" value="<%= content.homeHeadline %>">
+    <label>Sub-headline</label>
+    <input name="homeSub" value="<%= content.homeSub %>">
+    <label>Fitur / Keunggulan (JSON: [{"t":"judul","d":"deskripsi"}])</label>
+    <textarea name="features" rows="6" style="font-family:monospace;font-size:12px"><%= j(content.features) %></textarea>
+  </div>
+
+  <div class="card">
+    <h2>Ajakan (CTA) Bisnis</h2>
+    <div class="row2">
+      <div><label style="margin-top:0">Judul CTA Properti</label><input name="ctaPropertyTitle" value="<%= content.ctaPropertyTitle %>"></div>
+      <div><label style="margin-top:0">Judul CTA Corporate/Gov</label><input name="ctaCorpTitle" value="<%= content.ctaCorpTitle %>"></div>
+    </div>
+    <label>Teks CTA Properti</label>
+    <textarea name="ctaPropertyText" rows="2"><%= content.ctaPropertyText %></textarea>
+    <label>Teks CTA Corporate/Gov</label>
+    <textarea name="ctaCorpText" rows="2"><%= content.ctaCorpText %></textarea>
+  </div>
+
+  <div class="card">
+    <h2>Halaman Mitra (/mitra)</h2>
+    <label style="margin-top:0">Headline</label>
+    <input name="mitraHeadline" value="<%= content.mitraHeadline %>">
+    <label>Sub-headline</label>
+    <textarea name="mitraSub" rows="2"><%= content.mitraSub %></textarea>
+    <div class="row2">
+      <div><label>Statistik (JSON)</label><textarea name="stats" rows="7" style="font-family:monospace;font-size:12px"><%= j(content.stats) %></textarea></div>
+      <div><label>Cara Kerja / Langkah (JSON)</label><textarea name="steps" rows="7" style="font-family:monospace;font-size:12px"><%= j(content.steps) %></textarea></div>
+    </div>
+    <label>Benefit (JSON: [{"t","d"}])</label>
+    <textarea name="benefits" rows="8" style="font-family:monospace;font-size:12px"><%= j(content.benefits) %></textarea>
+    <label>Poin Komisi (JSON: ["poin 1","poin 2"])</label>
+    <textarea name="commission" rows="4" style="font-family:monospace;font-size:12px"><%= j(content.commission) %></textarea>
+    <label>Testimoni (JSON: [{"name","role","quote"}])</label>
+    <textarea name="testimonials" rows="8" style="font-family:monospace;font-size:12px"><%= j(content.testimonials) %></textarea>
+    <label>FAQ (JSON: [{"q","a"}])</label>
+    <textarea name="faqs" rows="8" style="font-family:monospace;font-size:12px"><%= j(content.faqs) %></textarea>
+  </div>
+
+  <div style="margin:16px 0 40px"><button class="btn">Simpan Konten Web</button></div>
+</form>
+
+<%- include('../partials/bottom') %>

@@ -434,6 +434,21 @@ app.post("/admin/articles/:id/delete", adminGuard, async (req, res) => {
   res.redirect("/admin/articles");
 });
 
+// ── Konten Web (customer-web marketing copy) ──
+app.get("/admin/site-content", adminGuard, async (req, res) => {
+  const { content } = await api("/admin/site-content", { token: res.locals.token });
+  res.render("admin/site_content", { content, active: "site-content", saved: req.query.saved });
+});
+app.post("/admin/site-content", adminGuard, async (req, res) => {
+  const body = {};
+  ["homeHeadline", "homeSub", "ctaPropertyTitle", "ctaPropertyText", "ctaCorpTitle", "ctaCorpText", "mitraHeadline", "mitraSub"].forEach((k) => { if (req.body[k] != null) body[k] = req.body[k]; });
+  ["features", "benefits", "stats", "steps", "commission", "testimonials", "faqs"].forEach((k) => {
+    try { const v = JSON.parse(req.body[k] || "null"); if (v) body[k] = v; } catch (_) {}
+  });
+  try { await api("/admin/site-content", { method: "PUT", token: res.locals.token, body }); res.redirect("/admin/site-content?saved=1"); }
+  catch (e) { res.redirect("/admin/site-content?saved=err"); }
+});
+
 // ── Pengajuan Mitra (property registration) ──
 app.get("/admin/partner-applications", adminGuard, async (req, res) => {
   const { applications } = await api("/admin/partner-applications", { token: res.locals.token });

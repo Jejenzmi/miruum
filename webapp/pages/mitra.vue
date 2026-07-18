@@ -7,8 +7,8 @@
       <div class="relative container-site py-16 sm:py-24 text-white">
         <div class="max-w-2xl">
           <span class="pill bg-white/15 text-white mb-4">Miruum untuk Mitra</span>
-          <h1 class="text-3xl sm:text-5xl font-display font-bold leading-tight">Kembangkan bisnis properti Anda bersama Miruum</h1>
-          <p class="mt-4 text-white/90 text-lg">Jangkau jutaan tamu di aplikasi & web Miruum. Kelola kamar, harga, dan pesanan dari satu Extranet — gratis untuk memulai.</p>
+          <h1 class="text-3xl sm:text-5xl font-display font-bold leading-tight">{{ content.mitraHeadline }}</h1>
+          <p class="mt-4 text-white/90 text-lg">{{ content.mitraSub }}</p>
           <div class="flex flex-wrap gap-3 mt-6">
             <a href="https://extranet.miruum.id/register" class="btn bg-white text-brand-700 hover:bg-white/90 px-6 py-3.5 font-bold shadow-pop">Daftarkan Properti Anda →</a>
             <a href="https://extranet.miruum.id/extranet/login" class="btn border border-white/40 text-white hover:bg-white/10 px-6 py-3.5 font-semibold">Sudah Mitra? Masuk</a>
@@ -122,41 +122,21 @@
 </template>
 
 <script setup lang="ts">
+const content = await useSiteContent()
 const openFaq = ref(0)
-const stats = [
-  { value: 'Jutaan', label: 'Tamu aktif' }, { value: '100%', label: 'Gratis mendaftar' },
-  { value: '24/7', label: 'Dukungan mitra' }, { value: 'Real-time', label: 'Kelola harga & stok' },
+const BENEFIT_ICONS = [
+  '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><circle cx=\'12\' cy=\'12\' r=\'9\'/><path d=\'M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'7\' height=\'7\' rx=\'1.5\'/><rect x=\'14\' y=\'3\' width=\'7\' height=\'7\' rx=\'1.5\'/><rect x=\'14\' y=\'14\' width=\'7\' height=\'7\' rx=\'1.5\'/><rect x=\'3\' y=\'14\' width=\'7\' height=\'7\' rx=\'1.5\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M3 17l6-6 4 4 8-8M21 7v6M21 7h-6\'/></svg>',
+  '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\'/></svg>',
 ]
-const benefits = [
-  { t: 'Jangkauan Luas', d: 'Properti Anda tampil di aplikasi & web Miruum, dilihat jutaan calon tamu.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><circle cx=\'12\' cy=\'12\' r=\'9\'/><path d=\'M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18\'/></svg>' },
-  { t: 'Extranet Lengkap', d: 'Atur kamar, rate plan, foto, promo, kalender allotment & campaign dari satu dasbor.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'7\' height=\'7\' rx=\'1.5\'/><rect x=\'14\' y=\'3\' width=\'7\' height=\'7\' rx=\'1.5\'/><rect x=\'14\' y=\'14\' width=\'7\' height=\'7\' rx=\'1.5\'/><rect x=\'3\' y=\'14\' width=\'7\' height=\'7\' rx=\'1.5\'/></svg>' },
-  { t: 'Channel Manager', d: 'Distribusikan satu inventaris ke banyak OTA host-to-host — anti overbooking.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5\'/></svg>' },
-  { t: 'Pembayaran Aman', d: 'Dana pesanan dibayarkan tepat waktu & aman langsung ke rekening Anda.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z\'/></svg>' },
-  { t: 'Analitik & Miruum Intelligent', d: 'Pantau Room Night, ADR & pendapatan; AI membandingkan harga Anda dengan OTA lain.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M3 17l6-6 4 4 8-8M21 7v6M21 7h-6\'/></svg>' },
-  { t: 'Dukungan Mitra', d: 'Tim Miruum & live chat siap membantu Anda kapan saja.', icon: '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\'/></svg>' },
-]
-const steps = [
-  { t: 'Daftarkan Properti', d: 'Isi form data properti Anda — hanya beberapa menit.' },
-  { t: 'Verifikasi', d: 'Tim Miruum meninjau & mengaktifkan akun Extranet Anda.' },
-  { t: 'Atur Kamar & Harga', d: 'Lengkapi kamar, foto, dan harga lewat Extranet.' },
-  { t: 'Terima Tamu', d: 'Pesanan masuk otomatis & dana dibayarkan aman.' },
-]
-const commission = [
-  'Gratis mendaftar & tanpa biaya langganan',
-  'Bayar komisi hanya saat mendapat pesanan',
-  'Dana dibayarkan aman via transfer bank',
-  'Bisa nonaktifkan/keluar kapan saja',
-]
-const testimonials = [
-  { name: 'Panji Wibowo', role: 'Pemilik, Hotel Panji', quote: 'Okupansi naik signifikan sejak gabung Miruum. Extranet-nya mudah dipakai.' },
-  { name: 'Sari Melati', role: 'Manajer, Villa Melati', quote: 'Dana pesanan cair tepat waktu. Tim supportnya responsif banget.' },
-  { name: 'Broto Santoso', role: 'Owner, Guest House Broto', quote: 'Channel Manager-nya bikin distribusi ke OTA jadi gampang, tanpa overbooking.' },
-]
-const faqs = [
-  { q: 'Apakah gratis mendaftar?', a: 'Ya, mendaftar dan mengelola properti di Extranet Miruum 100% gratis. Anda hanya membayar komisi saat mendapat pesanan.' },
-  { q: 'Berapa lama proses verifikasi?', a: 'Tim Miruum biasanya meninjau pengajuan dalam 1–3 hari kerja, lalu mengirim akun Extranet ke email Anda.' },
-  { q: 'Bagaimana saya menerima pembayaran?', a: 'Dana pesanan dibayarkan ke rekening bank Anda secara berkala melalui menu Pencairan / Invoice di Extranet.' },
-  { q: 'Tipe properti apa saja yang bisa didaftarkan?', a: 'Hotel, villa, apartemen, homestay, guest house, hostel, dan resort — semuanya bisa.' },
-]
+const stats = computed(() => content.value.stats || [])
+const benefits = computed(() => (content.value.benefits || []).map((b: any, i: number) => ({ ...b, icon: BENEFIT_ICONS[i % BENEFIT_ICONS.length] })))
+const steps = computed(() => content.value.steps || [])
+const commission = computed(() => content.value.commission || [])
+const testimonials = computed(() => content.value.testimonials || [])
+const faqs = computed(() => content.value.faqs || [])
 useHead({ title: 'Daftarkan Properti Anda — Miruum untuk Mitra' })
 </script>
