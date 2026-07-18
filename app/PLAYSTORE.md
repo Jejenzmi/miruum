@@ -91,6 +91,20 @@ Punya hotel atau properti? Daftarkan properti Anda di https://miruum.id/mitra da
 
 ---
 
+## 4b. App access — akun login untuk reviewer (WAJIB)
+Di Play Console → **App content → App access**, pilih **"All or some functionality is restricted"** dan tambahkan kredensial demo agar reviewer Google bisa masuk:
+
+| Kolom | Isi |
+|---|---|
+| Nama instruksi | Login Akun Demo |
+| Username / Email | `demo@miruum.id` |
+| Password | `demo123` |
+| Instruksi tambahan | "Buka aplikasi → tab Profil / Masuk → login dengan email & sandi di atas (atau tombol Login Google). Setelah masuk, semua fitur (pesan hotel, voucher, poin, pesanan) dapat diakses. Pembayaran memakai mode sandbox/simulasi." |
+
+> Browsing hotel, pencarian, dan detail bisa diakses **tanpa login**; fitur pesan/akun butuh login — karena itu wajib sertakan akun demo di atas.
+
+---
+
 ## 5. Langkah upload ringkas
 1. Buat app baru di **Google Play Console** → isi nama "Miruum", bahasa default Indonesia.
 2. Lengkapi **Store listing** (teks di atas + aset grafis).
