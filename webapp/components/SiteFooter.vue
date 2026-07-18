@@ -27,7 +27,7 @@
       <div>
         <h4 class="text-sm font-bold mb-3">Untuk Mitra</h4>
         <p class="text-sm text-ink-muted mb-2">Punya hotel/properti? Bergabung dengan Miruum.</p>
-        <a href="https://extranet.miruum.id/register" class="btn-ghost btn-sm mb-4">Daftarkan Properti</a>
+        <NuxtLink to="/mitra" class="btn-ghost btn-sm mb-4">Daftarkan Properti</NuxtLink>
         <h4 class="text-sm font-bold mb-2">Aplikasi Mobile</h4>
         <a href="/ota.apk" class="btn-brand btn-sm">Unduh APK Android</a>
       </div>

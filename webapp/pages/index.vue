@@ -106,7 +106,7 @@
         <div class="relative max-w-xl">
           <h2 class="text-2xl sm:text-3xl font-display font-bold">Punya hotel atau properti?</h2>
           <p class="mt-2 text-white/90">Daftarkan properti Anda ke Miruum — jangkau jutaan tamu di aplikasi & web, kelola harga, kamar, dan pesanan lewat Extranet. Gratis untuk memulai.</p>
-          <a href="https://extranet.miruum.id/register" class="btn bg-white text-sky-700 hover:bg-white/90 px-6 py-3 mt-5 font-bold shadow">Daftarkan Properti Anda →</a>
+          <NuxtLink to="/mitra" class="btn bg-white text-sky-700 hover:bg-white/90 px-6 py-3 mt-5 font-bold shadow">Pelajari & Daftar →</NuxtLink>
         </div>
       </div>
     </section>
