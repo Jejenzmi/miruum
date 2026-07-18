@@ -424,6 +424,7 @@ model Hotel {
   isPromo     Boolean  @default(false)
   promoLabel  String?
   propertyType String  @default("HOTEL") // HOTEL | VILLA | APARTMENT | HOMESTAY | GUESTHOUSE | HOSTEL | RESORT
+  depositBalance BigInt @default(0) // Advance Deposit Program balance (rupiah)
   ownerId     String?
   // Contracted products (a hotel on Extranet doesn't automatically contract
   // Channel Manager or PMS — those are separate paid modules).
@@ -452,6 +453,73 @@ model Hotel {
   priceAlerts PriceAlert[]
   recentlyViewed RecentlyViewed[]
   questions   HotelQuestion[]
+  campaigns   HotelCampaign[]
+  depositTxns DepositTxn[]
+  invoices    HotelInvoice[]
+}
+
+// ─── Promo & Campaign self-registration (partner registers its own promo) ───
+// A hotel-registered marketing campaign (flash sale / early bird / last minute).
+// When APPROVED and currently active, Miruum applies a hotel-wide discount to
+// all the property's rooms for the campaign window (auto-reverted on expiry).
+model HotelCampaign {
+  id          String   @id @default(cuid())
+  hotelId     String
+  type        String   @default("FLASH_SALE") // FLASH_SALE | EARLY_BIRD | LAST_MINUTE | CUSTOM
+  name        String
+  discountPct Int      @default(0)
+  startDate   DateTime
+  endDate     DateTime
+  minNights   Int      @default(1)
+  status      String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  applied     Boolean  @default(false)     // hotel-wide discount currently applied?
+  note        String?
+  createdAt   DateTime @default(now())
+  hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+  @@index([status])
+}
+
+// ─── Advance Deposit Program — a hotel's prepaid deposit ledger ───
+// Commission owed to Miruum (Pay-at-Hotel bookings) is auto-offset from the
+// deposit first, so the hotel avoids monthly cash transfers.
+model DepositTxn {
+  id          String    @id @default(cuid())
+  hotelId     String
+  kind        String    @default("TOPUP") // TOPUP | COMMISSION | REFUND | ADJUSTMENT
+  amount      BigInt     // signed: +credit (top-up/refund) / -debit (commission)
+  status      String    @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  note        String?
+  period      String?    // linked invoice period (YYYY-MM) for COMMISSION debits
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+  hotel       Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+  @@index([status])
+}
+
+// ─── Monthly invoice (perhitungan invoice) per hotel ───
+// commissionOwed = hutang (hotel owes Miruum for Pay-at-Hotel bookings).
+// payoutOwed     = piutang (Miruum owes hotel for prepaid DIRECT bookings).
+model HotelInvoice {
+  id             String    @id @default(cuid())
+  hotelId        String
+  period         String    // YYYY-MM (by check-out month)
+  commissionOwed BigInt    @default(0)
+  payoutOwed     BigInt    @default(0)
+  bookingsCount  Int       @default(0)
+  offsetFromDeposit BigInt @default(0) // commission auto-offset from deposit
+  status         String    @default("OPEN") // OPEN | OFFSET | PAID
+  dueDate        DateTime
+  paidAt         DateTime?
+  note           String?
+  createdAt      DateTime  @default(now())
+  hotel          Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelId, period])
+  @@index([hotelId])
 }
 
 // A guest's price-drop watch on a hotel — notified when priceFrom falls.

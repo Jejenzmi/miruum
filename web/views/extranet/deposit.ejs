@@ -1,0 +1,68 @@
+<%- include('../partials/top', { title:'Advance Deposit', heading:'Advance Deposit Program', section:'extranet', active:'deposit', me }) %>
+
+<% if (done) { %><div class="notice ok">Permintaan top-up terkirim. Setelah dana masuk & dikonfirmasi Miruum, saldo deposit Anda bertambah.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 16px">Setor saldo deposit di muka. Komisi yang Anda tanggung (mis. pesanan <b>Bayar di Hotel</b>) akan <b>otomatis dipotong dari deposit</b> setiap invoice terbit — tanpa perlu transfer bulanan.</p>
+
+<div class="stat-grid">
+  <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-box"/></svg></div><div class="label">Total Saldo Deposit</div><div class="value" style="font-size:21px;color:var(--primary-d)"><%= rupiah(totalBalance) %></div></div>
+  <div class="stat"><div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-hotel"/></svg></div><div class="label">Hotel</div><div class="value"><%= hotels.length %></div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Saldo per Hotel</h2>
+    <table>
+      <thead><tr><th>Hotel</th><th style="text-align:right">Saldo Deposit</th></tr></thead>
+      <tbody>
+        <% hotels.forEach(function(h){ %>
+          <tr><td><b><%= h.name %></b></td><td style="text-align:right"><b style="color:<%= Number(h.depositBalance)>0?'var(--primary-d)':'var(--faint)' %>"><%= rupiah(Number(h.depositBalance)) %></b></td></tr>
+        <% }) %>
+        <% if (!hotels.length) { %><tr><td colspan="2" class="empty">Belum ada hotel</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Top-up Deposit</h2>
+    <% if (!hotels.length) { %>
+      <p class="empty">Belum ada hotel pada akun Anda.</p>
+    <% } else { %>
+    <form method="post" action="/extranet/deposit/topup">
+      <label style="margin-top:0">Hotel</label>
+      <select name="hotelId" required><% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select>
+      <label>Nominal Top-up (Rp)</label>
+      <input name="amount" type="number" min="1" step="1000" placeholder="mis. 5000000" required>
+      <label>Catatan (opsional)</label>
+      <input name="note" placeholder="mis. transfer BCA 18 Jul">
+      <div style="margin-top:16px"><button class="btn">Ajukan Top-up</button></div>
+      <p class="muted" style="font-size:11px;margin-top:10px">Transfer ke rekening Miruum lalu ajukan di sini. Admin mengonfirmasi setelah dana diterima.</p>
+    </form>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Riwayat Deposit</h2>
+  <table>
+    <thead><tr><th>Tanggal</th><th>Hotel</th><th>Jenis</th><th>Catatan</th><th style="text-align:right">Debit</th><th style="text-align:right">Kredit</th><th>Status</th></tr></thead>
+    <tbody>
+      <% var KIND={TOPUP:'Top-up',COMMISSION:'Komisi',REFUND:'Refund',ADJUSTMENT:'Penyesuaian'}; %>
+      <% txns.forEach(function(t){ var amt=Number(t.amount); %>
+        <tr>
+          <td style="font-size:12px"><%= new Date(t.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %></td>
+          <td><%= t.hotel.name %></td>
+          <td><%= KIND[t.kind]||t.kind %></td>
+          <td class="muted" style="font-size:11.5px"><%= t.note || '—' %></td>
+          <td style="text-align:right;color:var(--danger)"><%= amt<0 ? rupiah(-amt) : '—' %></td>
+          <td style="text-align:right;color:#1E7E38"><%= amt>0 ? rupiah(amt) : '—' %></td>
+          <td><span class="pill <%= t.status==='CONFIRMED'?'PAID':t.status==='REJECTED'?'CANCELLED':'PENDING' %>"><%= t.status==='CONFIRMED'?'Masuk':t.status==='REJECTED'?'Ditolak':'Menunggu' %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!txns.length) { %><tr><td colspan="7" class="empty">Belum ada transaksi deposit</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

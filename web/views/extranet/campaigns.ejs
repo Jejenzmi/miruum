@@ -1,0 +1,70 @@
+<%- include('../partials/top', { title:'Campaign Hotel', heading:'Campaign Hotel', section:'extranet', active:'campaigns', me }) %>
+
+<% if (done) { %><div class="notice ok">Campaign terdaftar. Menunggu persetujuan Miruum — setelah disetujui & masuk periode, diskon otomatis aktif di semua kamar hotel.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 16px">Daftarkan campaign promo hotel Anda (Flash Sale, Early Bird, Last Minute, atau kustom). Saat disetujui Miruum & masuk periode, <b>diskon otomatis diterapkan ke seluruh kamar</b> dan properti tampil dengan badge promo di aplikasi — otomatis dikembalikan saat periode berakhir.</p>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Daftarkan Campaign</h2>
+    <% if (!hotels.length) { %>
+      <p class="empty">Belum ada hotel pada akun Anda.</p>
+    <% } else { %>
+    <form method="post" action="/extranet/campaigns">
+      <label style="margin-top:0">Hotel</label>
+      <select name="hotelId" required><% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select>
+      <div class="row2">
+        <div><label>Jenis Campaign</label>
+          <select name="type">
+            <option value="FLASH_SALE">Flash Sale</option>
+            <option value="EARLY_BIRD">Early Bird</option>
+            <option value="LAST_MINUTE">Last Minute</option>
+            <option value="CUSTOM">Kustom</option>
+          </select>
+        </div>
+        <div><label>Diskon (%)</label><input name="discountPct" type="number" min="1" max="90" value="15" required></div>
+      </div>
+      <label>Nama Campaign</label>
+      <input name="name" placeholder="mis. Flash Sale Akhir Pekan" required>
+      <div class="row2">
+        <div><label>Mulai</label><input name="startDate" type="date" required></div>
+        <div><label>Selesai</label><input name="endDate" type="date" required></div>
+      </div>
+      <label>Minimal Malam</label>
+      <input name="minNights" type="number" min="1" max="30" value="1">
+      <div style="margin-top:16px"><button class="btn">Daftarkan Campaign</button></div>
+    </form>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h2>Campaign Saya</h2>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <% var TYPES={FLASH_SALE:'Flash Sale',EARLY_BIRD:'Early Bird',LAST_MINUTE:'Last Minute',CUSTOM:'Kustom'}; %>
+      <% campaigns.forEach(function(c){ var st=c.status; %>
+        <div style="border:1px solid var(--line);border-radius:14px;padding:14px">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:10px">
+            <div>
+              <span class="pill PARTNER"><%= TYPES[c.type]||c.type %></span>
+              <% if (c.applied) { %><span class="pill PAID">AKTIF</span><% } %>
+              <b style="display:block;margin-top:6px;font-size:14px"><%= c.name %></b>
+              <span class="muted" style="font-size:11.5px"><%= c.hotel.name %></span>
+            </div>
+            <% if (st!=='REJECTED') { %>
+              <form method="post" action="/extranet/campaigns/<%= c.id %>/cancel" data-confirm="Batalkan campaign '<%= c.name %>'?"><button class="btn danger sm">Batalkan</button></form>
+            <% } %>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+            <span class="pill" style="background:var(--accent-s);color:#b8791a">Diskon <%= c.discountPct %>%</span>
+            <span class="pill <%= st==='APPROVED'?'PAID':st==='REJECTED'?'CANCELLED':'PENDING' %>"><%= st==='APPROVED'?'Disetujui':st==='REJECTED'?'Ditolak':'Menunggu' %></span>
+            <span class="muted" style="font-size:11px"><%= new Date(c.startDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) %> – <%= new Date(c.endDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %> · min <%= c.minNights %> malam</span>
+          </div>
+        </div>
+      <% }) %>
+      <% if (!campaigns.length) { %><p class="empty">Belum ada campaign terdaftar</p><% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

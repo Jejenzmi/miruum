@@ -1,0 +1,44 @@
+<%- include('../partials/top', { title:'Deposit Hotel', heading:'Deposit Hotel (Advance Deposit)', section:'admin', active:'deposits', me }) %>
+
+<% if (done==='confirm') { %><div class="notice ok">Top-up dikonfirmasi. Saldo deposit hotel bertambah.</div><% } %>
+<% if (done==='reject') { %><div class="notice bad">Permintaan top-up ditolak.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Konfirmasi permintaan top-up deposit dari hotel setelah dana diterima. Komisi Bayar-di-Hotel akan otomatis dipotong dari saldo ini saat invoice bulanan terbit.</p>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Permintaan Top-up</h2>
+    <table>
+      <thead><tr><th>Tanggal</th><th>Hotel</th><th style="text-align:right">Nominal</th><th style="text-align:right">Aksi</th></tr></thead>
+      <tbody>
+        <% pending.forEach(function(t){ %>
+          <tr>
+            <td style="font-size:12px"><%= new Date(t.createdAt).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %></td>
+            <td><b><%= t.hotel.name %></b><% if (t.note) { %><br><span class="muted" style="font-size:10.5px"><%= t.note %></span><% } %></td>
+            <td style="text-align:right"><b><%= rupiah(Number(t.amount)) %></b></td>
+            <td style="text-align:right">
+              <form method="post" action="/admin/deposits/<%= t.id %>/confirm" style="display:inline"><button class="btn sm">Konfirmasi</button></form>
+              <form method="post" action="/admin/deposits/<%= t.id %>/reject" style="display:inline" data-confirm="Tolak top-up ini?"><button class="btn danger sm">Tolak</button></form>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!pending.length) { %><tr><td colspan="4" class="empty">Tidak ada permintaan top-up</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Saldo Deposit Hotel</h2>
+    <table>
+      <thead><tr><th>Hotel</th><th style="text-align:right">Saldo</th></tr></thead>
+      <tbody>
+        <% hotels.forEach(function(h){ %>
+          <tr><td><%= h.name %></td><td style="text-align:right"><b style="color:var(--primary-d)"><%= rupiah(Number(h.depositBalance)) %></b></td></tr>
+        <% }) %>
+        <% if (!hotels.length) { %><tr><td colspan="2" class="empty">Belum ada hotel dengan saldo deposit</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

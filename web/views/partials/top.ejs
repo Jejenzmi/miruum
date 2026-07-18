@@ -76,11 +76,14 @@
         <a href="/admin/distribution" class="<%= active==='distribution'?'active':'' %>"><%- ni('distribution') %>Distribusi OTA</a>
         <div class="nav-label">Pemasaran</div>
         <a href="/admin/programs" class="<%= active==='programs'?'active':'' %>"><%- ni('campaign') %>Program & Campaign</a>
+        <a href="/admin/campaigns" class="<%= active==='campaigns'?'active':'' %>"><%- ni('promos') %>Campaign Hotel</a>
         <a href="/admin/promos" class="<%= active==='promos'?'active':'' %>"><%- ni('promos') %>Kode Promo</a>
         <a href="/admin/banners" class="<%= active==='banners'?'active':'' %>"><%- ni('banners') %>Banner</a>
         <div class="nav-label">Transaksi</div>
         <a href="/admin/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Pesanan</a>
         <a href="/admin/finance" class="<%= active==='finance'?'active':'' %>"><%- ni('finance') %>Keuangan</a>
+        <a href="/admin/invoices" class="<%= active==='invoices'?'active':'' %>"><%- ni('finance') %>Invoice Bulanan</a>
+        <a href="/admin/deposits" class="<%= active==='deposits'?'active':'' %>"><%- ni('box') %>Deposit Hotel</a>
         <a href="/admin/report" class="<%= active==='report'?'active':'' %>"><%- ni('report') %>Laporan</a>
         <div class="nav-label">Layanan & Sistem</div>
         <a href="/admin/reviews" class="<%= active==='reviews'?'active':'' %>"><%- ni('reviews') %>Ulasan</a>
@@ -132,10 +135,14 @@
         <a href="/extranet/reviews" class="<%= active==='reviews'?'active':'' %>"><%- ni('sparkle') %>Ulasan Tamu</a>
         <a href="/extranet/questions" class="<%= active==='questions'?'active':'' %>"><%- ni('info') %>Tanya Jawab</a>
         <a href="/extranet/messages" class="<%= active==='messages'?'active':'' %>"><%- ni('bell') %>Pesan Tamu</a>
+        <a href="/extranet/analytics" class="<%= active==='analytics'?'active':'' %>"><%- ni('report') %>Dasbor Analitik</a>
         <a href="/extranet/report" class="<%= active==='report'?'active':'' %>"><%- ni('trend') %>Laporan Performa</a>
         <div class="nav-label">Keuangan</div>
+        <a href="/extranet/invoices" class="<%= active==='invoices'?'active':'' %>"><%- ni('finance') %>Invoice Bulanan</a>
+        <a href="/extranet/deposit" class="<%= active==='deposit'?'active':'' %>"><%- ni('box') %>Advance Deposit</a>
         <a href="/extranet/payouts" class="<%= active==='payouts'?'active':'' %>"><%- ni('finance') %>Pencairan / Klaim</a>
         <div class="nav-label">Pemasaran</div>
+        <a href="/extranet/campaigns" class="<%= active==='campaigns'?'active':'' %>"><%- ni('promos') %>Campaign Hotel</a>
         <a href="/extranet/programs" class="<%= active==='programs'?'active':'' %>"><%- ni('campaign') %>Program & Campaign</a>
         <div class="nav-label">Distribusi</div>
         <a href="https://cm.gokar.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager <%= (locals.ent && locals.ent.channelManager) ? '↗' : '🔒' %></a>
@@ -185,6 +192,10 @@
         report:'Grafik & unduh laporan', reviews:'Moderasi ulasan tamu',
         chats:'Layani percakapan pelanggan',
         broadcast:'Kirim notifikasi ke pengguna', users:'Kelola akun & peran',
+        campaigns:'Daftarkan & kelola campaign promo hotel Anda',
+        deposit:'Saldo deposit — komisi otomatis dipotong dari sini',
+        deposits:'Konfirmasi permintaan top-up deposit hotel',
+        analytics:'Room Night, ADR & pendapatan 30 hari terakhir',
         corporate:'Tinjau & setujui pengajuan akun instansi',
         regions:'Data induk wilayah Indonesia (pemekaran)',
         settings:'Pajak, komisi & konfigurasi', integrations:'Email/SMTP, FCM push & WhatsApp'

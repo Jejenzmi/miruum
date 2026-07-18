@@ -1,0 +1,39 @@
+<%- include('../partials/top', { title:'Invoice Bulanan', heading:'Invoice Bulanan', section:'extranet', active:'invoices', me }) %>
+
+<p class="muted" style="margin:-4px 0 16px">Rekap tagihan per bulan (berdasarkan tanggal check-out). <b>Hutang</b> = komisi yang Anda tanggung untuk pesanan Bayar di Hotel (otomatis dipotong dari <a href="/extranet/deposit">deposit</a> bila tersedia). <b>Piutang</b> = pendapatan bersih pesanan prabayar yang Miruum bayarkan ke Anda.</p>
+
+<% function monthLabel(p){ var m=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']; var a=p.split('-'); return m[Number(a[1])-1]+' '+a[0]; } %>
+
+<div style="display:flex;flex-direction:column;gap:14px">
+  <% invoices.forEach(function(inv){ var hutang=Number(inv.commissionOwed), piutang=Number(inv.payoutOwed), offset=Number(inv.offsetFromDeposit); %>
+    <div class="card" style="margin:0">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap">
+        <div>
+          <b style="font-size:16px"><%= monthLabel(inv.period) %></b>
+          <span class="muted" style="font-size:11.5px;display:block"><%= inv.hotel.name %> · <%= inv.bookingsCount %> pesanan · jatuh tempo <%= new Date(inv.dueDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %></span>
+        </div>
+        <div style="text-align:right">
+          <% if (inv.status==='OFFSET') { %><span class="pill PAID">Lunas (auto-offset deposit)</span>
+          <% } else if (inv.status==='PAID') { %><span class="pill PAID">Lunas</span>
+          <% } else if (hutang>0) { %><span class="pill PENDING">Perlu dibayar</span>
+          <% } else { %><span class="pill COMPLETED">—</span><% } %>
+          <a href="/extranet/invoices/<%= inv.id %>/download" class="btn sm" style="margin-left:8px">Unduh Rincian</a>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:12px">
+        <div style="border:1px solid var(--line);border-radius:12px;padding:12px">
+          <div class="muted" style="font-size:11px">Hutang (komisi Bayar di Hotel)</div>
+          <div style="font-size:20px;font-weight:800;color:<%= hutang>0?'#c0392b':'var(--faint)' %>"><%= rupiah(hutang) %></div>
+          <% if (offset>0) { %><div class="muted" style="font-size:11px;margin-top:2px">Dipotong dari deposit: <%= rupiah(offset) %></div><% } %>
+        </div>
+        <div style="border:1px solid var(--line);border-radius:12px;padding:12px">
+          <div class="muted" style="font-size:11px">Piutang (dibayarkan ke hotel)</div>
+          <div style="font-size:20px;font-weight:800;color:<%= piutang>0?'#1E7E38':'var(--faint)' %>"><%= rupiah(piutang) %></div>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+  <% if (!invoices.length) { %><div class="card"><p class="empty">Belum ada invoice. Invoice terbit otomatis tiap bulan berdasarkan pesanan yang check-out.</p></div><% } %>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -1,0 +1,45 @@
+<%- include('../partials/top', { title:'Invoice Bulanan', heading:'Invoice Bulanan Hotel', section:'admin', active:'invoices', me }) %>
+
+<% if (gen==='err') { %><div class="notice bad">Gagal membuat invoice. Periksa format periode (YYYY-MM).</div>
+<% } else if (typeof gen !== 'undefined' && gen) { %><div class="notice ok">Invoice diperbarui untuk <%= gen %> hotel. Komisi Bayar-di-Hotel otomatis dipotong dari deposit bila tersedia.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Terbitkan/segarkan invoice bulanan per hotel (berdasarkan tanggal check-out). Komisi Bayar-di-Hotel otomatis dipotong dari saldo deposit hotel. Invoice bulan berjalan & sebelumnya juga disegarkan otomatis setiap hari.</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Terbitkan / Segarkan Invoice</h2>
+  <form method="post" action="/admin/invoices/generate" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+    <div><label style="margin-top:0">Periode (YYYY-MM)</label><input name="period" type="month" value="<%= period || '' %>"></div>
+    <div><button class="btn">Terbitkan Invoice</button></div>
+    <span class="muted" style="font-size:11.5px">Kosongkan periode untuk bulan berjalan.</span>
+  </form>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h2 style="margin:0">Daftar Invoice</h2>
+    <form method="get" action="/admin/invoices" style="display:flex;gap:8px;align-items:center">
+      <input name="period" type="month" value="<%= period || '' %>" style="margin:0">
+      <button class="btn sm">Filter</button>
+    </form>
+  </div>
+  <% function monthLabel(p){ var m=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']; var a=p.split('-'); return m[Number(a[1])-1]+' '+a[0]; } %>
+  <table style="margin-top:12px">
+    <thead><tr><th>Periode</th><th>Hotel</th><th style="text-align:right">Pesanan</th><th style="text-align:right">Hutang (komisi)</th><th style="text-align:right">Piutang (payout)</th><th style="text-align:right">Offset Deposit</th><th>Status</th></tr></thead>
+    <tbody>
+      <% invoices.forEach(function(inv){ %>
+        <tr>
+          <td><b><%= monthLabel(inv.period) %></b></td>
+          <td><%= inv.hotel.name %></td>
+          <td style="text-align:right"><%= inv.bookingsCount %></td>
+          <td style="text-align:right;color:<%= Number(inv.commissionOwed)>0?'#c0392b':'var(--faint)' %>"><%= rupiah(Number(inv.commissionOwed)) %></td>
+          <td style="text-align:right;color:<%= Number(inv.payoutOwed)>0?'#1E7E38':'var(--faint)' %>"><%= rupiah(Number(inv.payoutOwed)) %></td>
+          <td style="text-align:right"><%= rupiah(Number(inv.offsetFromDeposit)) %></td>
+          <td><span class="pill <%= inv.status==='OFFSET'||inv.status==='PAID'?'PAID':'PENDING' %>"><%= inv.status==='OFFSET'?'Lunas (deposit)':inv.status==='PAID'?'Lunas':'Terbuka' %></span></td>
+        </tr>
+      <% }) %>
+      <% if (!invoices.length) { %><tr><td colspan="7" class="empty">Belum ada invoice. Klik "Terbitkan Invoice".</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

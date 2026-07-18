@@ -380,6 +380,39 @@ app.post("/admin/programs/:id/delete", adminGuard, async (req, res) => {
   res.redirect("/admin/programs");
 });
 
+// ── Campaign Hotel (approval of partner-registered campaigns) ──
+app.get("/admin/campaigns", adminGuard, async (req, res) => {
+  const { campaigns } = await api("/admin/campaigns", { token: res.locals.token });
+  res.render("admin/campaigns", { campaigns, active: "campaigns", done: req.query.done });
+});
+app.post("/admin/campaigns/:id/:action", adminGuard, async (req, res) => {
+  const act = req.params.action === "approve" ? "approve" : "reject";
+  try { await api(`/admin/campaigns/${req.params.id}/${act}`, { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/campaigns?done=" + act);
+});
+
+// ── Advance Deposit (top-up confirmation) ──
+app.get("/admin/deposits", adminGuard, async (req, res) => {
+  const { pending, hotels } = await api("/admin/deposits", { token: res.locals.token });
+  res.render("admin/deposits", { pending, hotels, active: "deposits", done: req.query.done });
+});
+app.post("/admin/deposits/:id/:action", adminGuard, async (req, res) => {
+  const act = req.params.action === "confirm" ? "confirm" : "reject";
+  try { await api(`/admin/deposits/${req.params.id}/${act}`, { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/admin/deposits?done=" + act);
+});
+
+// ── Invoice Bulanan (generate + list) ──
+app.get("/admin/invoices", adminGuard, async (req, res) => {
+  const period = req.query.period || "";
+  const { invoices } = await api("/admin/invoices" + (period ? "?period=" + encodeURIComponent(period) : ""), { token: res.locals.token });
+  res.render("admin/invoices", { invoices, period, active: "invoices", gen: req.query.gen });
+});
+app.post("/admin/invoices/generate", adminGuard, async (req, res) => {
+  try { const r = await api("/admin/invoices/generate", { method: "POST", token: res.locals.token, body: { period: req.body.period } }); res.redirect("/admin/invoices?gen=" + (r.hotels || 0) + (req.body.period ? "&period=" + req.body.period : "")); }
+  catch (e) { res.redirect("/admin/invoices?gen=err"); }
+});
+
 // ── Moderasi Ulasan ──
 app.get("/admin/reviews", adminGuard, async (req, res) => {
   const { reviews, stats } = await api("/admin/reviews", { token: res.locals.token });
@@ -745,6 +778,47 @@ app.get("/extranet/payouts", partnerGuard, async (req, res) => {
 app.post("/extranet/payouts/claim", partnerGuard, async (req, res) => {
   try { await api("/partner/claims", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/extranet/payouts?done=1"); }
   catch (e) { res.redirect("/extranet/payouts?err=" + encodeURIComponent(e.message)); }
+});
+
+// ── Promo & Campaign self-registration (partner registers its own campaign) ──
+app.get("/extranet/campaigns", partnerGuard, async (req, res) => {
+  const { campaigns, hotels } = await api("/partner/campaigns", { token: res.locals.token });
+  res.render("extranet/campaigns", { campaigns, hotels, active: "campaigns", done: req.query.done, err: req.query.err });
+});
+app.post("/extranet/campaigns", partnerGuard, async (req, res) => {
+  try { await api("/partner/campaigns", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/extranet/campaigns?done=1"); }
+  catch (e) { res.redirect("/extranet/campaigns?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/extranet/campaigns/:id/cancel", partnerGuard, async (req, res) => {
+  try { await api(`/partner/campaigns/${req.params.id}/cancel`, { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/extranet/campaigns");
+});
+
+// ── Advance Deposit Program ──
+app.get("/extranet/deposit", partnerGuard, async (req, res) => {
+  const data = await api("/partner/deposit", { token: res.locals.token });
+  res.render("extranet/deposit", { ...data, active: "deposit", done: req.query.done, err: req.query.err });
+});
+app.post("/extranet/deposit/topup", partnerGuard, async (req, res) => {
+  try { await api("/partner/deposit/topup", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/extranet/deposit?done=1"); }
+  catch (e) { res.redirect("/extranet/deposit?err=" + encodeURIComponent(e.message)); }
+});
+
+// ── Invoice Bulanan ──
+app.get("/extranet/invoices", partnerGuard, async (req, res) => {
+  const { invoices, hotels } = await api("/partner/invoices", { token: res.locals.token });
+  res.render("extranet/invoices", { invoices, hotels, active: "invoices" });
+});
+app.get("/extranet/invoices/:id/download", partnerGuard, async (req, res) => {
+  const r = await fetch(API + `/partner/invoices/${req.params.id}/detail`, { headers: { Authorization: `Bearer ${res.locals.token}` } });
+  const csv = await r.text();
+  res.set("Content-Type", "text/csv").set("Content-Disposition", 'attachment; filename="miruum-invoice.csv"').send(csv);
+});
+
+// ── Analytics (Dasbor Analitik) ──
+app.get("/extranet/analytics", partnerGuard, async (req, res) => {
+  const a = await api("/partner/analytics", { token: res.locals.token });
+  res.render("extranet/analytics", { a, active: "analytics" });
 });
 
 // ── PMS — Property Management System (pms.gokar.id) ──

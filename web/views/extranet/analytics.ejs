@@ -1,0 +1,48 @@
+<%- include('../partials/top', { title:'Dasbor Analitik', heading:'Dasbor Analitik', section:'extranet', active:'analytics', me }) %>
+
+<% var k=a.kpi||{}, d=a.delta||{}; var days=a.days||[]; %>
+<% var maxRN=Math.max.apply(null, days.map(function(x){return x.roomNights}).concat([1])); %>
+<% function deltaHtml(v){ if(!v) return '<span class="muted" style="font-size:12px">±0% vs 30 hari sebelumnya</span>'; var up=v>0; return '<span style="font-size:12px;font-weight:700;color:'+(up?'#1E7E38':'#c0392b')+'">'+(up?'▲ ':'▼ ')+Math.abs(v)+'% <span style="font-weight:400;color:var(--muted)">vs 30 hari sebelumnya</span></span>'; } %>
+
+<p class="muted" style="margin:-4px 0 16px">Ringkasan performa <b>30 hari terakhir</b> berdasarkan tanggal menginap (check-in) · <%= a.hotels||0 %> properti.</p>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="icon" style="background:var(--blue-s);color:#2563EB"><svg class="ci"><use href="#i-bookings"/></svg></div>
+    <div class="label">Room Night</div>
+    <div class="value"><%= (k.roomNights||0).toLocaleString('id-ID') %></div>
+    <div style="margin-top:4px"><%- deltaHtml(d.roomNights) %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-trend"/></svg></div>
+    <div class="label">Average Daily Rate (ADR)</div>
+    <div class="value" style="font-size:20px"><%= rupiah(k.adr||0) %></div>
+    <div style="margin-top:4px"><%- deltaHtml(d.adr) %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-finance"/></svg></div>
+    <div class="label">Pendapatan Hotel</div>
+    <div class="value" style="font-size:20px;color:var(--primary-d)"><%= rupiah(k.revenue||0) %></div>
+    <div style="margin-top:4px"><%- deltaHtml(d.revenue) %></div>
+  </div>
+  <div class="stat">
+    <div class="icon" style="background:var(--success-s);color:#1E7E38"><svg class="ci"><use href="#i-report"/></svg></div>
+    <div class="label">Pesanan (30 hari)</div>
+    <div class="value"><%= (k.bookings||0).toLocaleString('id-ID') %></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">Room Night Harian</h2>
+  <div style="display:flex;gap:3px;align-items:end;height:200px;padding:10px 0;overflow-x:auto">
+    <% days.forEach(function(x){ var h=Math.round((x.roomNights/maxRN)*160); var dd=new Date(x.date); %>
+      <div style="flex:1;min-width:14px;display:flex;flex-direction:column;align-items:center;gap:5px" title="<%= dd.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) %>: <%= x.roomNights %> room night · <%= rupiah(x.revenue) %>">
+        <div style="width:100%;max-width:20px;height:<%= Math.max(h,2) %>px;background:linear-gradient(180deg,#F59331,#E07C17);border-radius:5px 5px 0 0"></div>
+        <% if (dd.getDate()===1 || dd.getDate()%7===0) { %><div class="muted" style="font-size:9px"><%= dd.getDate() %>/<%= dd.getMonth()+1 %></div><% } else { %><div style="height:11px"></div><% } %>
+      </div>
+    <% }) %>
+  </div>
+  <div class="muted" style="font-size:11px;text-align:center;margin-top:6px">Arahkan kursor ke batang untuk melihat room night & pendapatan per hari.</div>
+</div>
+
+<%- include('../partials/bottom') %>

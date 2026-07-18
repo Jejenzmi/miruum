@@ -1,0 +1,36 @@
+<%- include('../partials/top', { title:'Campaign Hotel', heading:'Campaign Hotel', section:'admin', active:'campaigns', me }) %>
+
+<% if (done==='approve') { %><div class="notice ok">Campaign disetujui. Diskon aktif otomatis jika sudah masuk periode.</div><% } %>
+<% if (done==='reject') { %><div class="notice bad">Campaign ditolak.</div><% } %>
+
+<p class="muted" style="margin:-4px 0 18px">Campaign yang <b>didaftarkan hotel</b> lewat Extranet. Setujui untuk mengaktifkan diskon hotel-wide otomatis pada periode yang ditentukan; diskon dikembalikan otomatis saat periode berakhir.</p>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Hotel</th><th>Campaign</th><th>Jenis</th><th style="text-align:right">Diskon</th><th>Periode</th><th>Status</th><th style="text-align:right">Aksi</th></tr></thead>
+    <tbody>
+      <% var TYPES={FLASH_SALE:'Flash Sale',EARLY_BIRD:'Early Bird',LAST_MINUTE:'Last Minute',CUSTOM:'Kustom'}; %>
+      <% campaigns.forEach(function(c){ var st=c.status; %>
+        <tr>
+          <td><b><%= c.hotel.name %></b><% if (c.hotel.owner) { %><br><span class="muted" style="font-size:10.5px"><%= c.hotel.owner.name %></span><% } %></td>
+          <td><%= c.name %><% if (c.applied) { %> <span class="pill PAID">AKTIF</span><% } %></td>
+          <td><span class="pill PARTNER"><%= TYPES[c.type]||c.type %></span></td>
+          <td style="text-align:right"><b><%= c.discountPct %>%</b></td>
+          <td style="font-size:11.5px"><%= new Date(c.startDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) %> – <%= new Date(c.endDate).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) %><br><span class="muted">min <%= c.minNights %> malam</span></td>
+          <td><span class="pill <%= st==='APPROVED'?'PAID':st==='REJECTED'?'CANCELLED':'PENDING' %>"><%= st==='APPROVED'?'Disetujui':st==='REJECTED'?'Ditolak':'Menunggu' %></span></td>
+          <td style="text-align:right">
+            <% if (st==='PENDING') { %>
+              <form method="post" action="/admin/campaigns/<%= c.id %>/approve" style="display:inline"><button class="btn sm">Setujui</button></form>
+              <form method="post" action="/admin/campaigns/<%= c.id %>/reject" style="display:inline" data-confirm="Tolak campaign '<%= c.name %>'?"><button class="btn danger sm">Tolak</button></form>
+            <% } else if (st==='APPROVED') { %>
+              <form method="post" action="/admin/campaigns/<%= c.id %>/reject" style="display:inline" data-confirm="Hentikan campaign '<%= c.name %>'?"><button class="btn danger sm">Hentikan</button></form>
+            <% } else { %><span class="muted">—</span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!campaigns.length) { %><tr><td colspan="7" class="empty">Belum ada campaign terdaftar</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

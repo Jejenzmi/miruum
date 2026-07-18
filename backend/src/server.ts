@@ -4107,6 +4107,273 @@ app.use(errorHandler);
 process.on("unhandledRejection", (reason) => { logger.error({ reason }, "unhandledRejection"); if (process.env.SENTRY_DSN) Sentry.captureException(reason); });
 process.on("uncaughtException", (err) => { logger.error({ err }, "uncaughtException"); if (process.env.SENTRY_DSN) Sentry.captureException(err); });
 
+// ═══════════════════════ EXTRANET FINANCE SUITE ═══════════════════════
+// 1) Promo & Campaign self-registration  2) Advance Deposit Program
+// 3) Perhitungan Invoice (monthly)       4) (analytics upgrade below)
+
+const periodKey = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+function periodBounds(period: string) {
+  const [y, m] = period.split("-").map(Number);
+  return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) };
+}
+
+// Apply a hotel-wide campaign discount across every room (reuses the deal
+// mechanism: originalPrice = baseline, price = discounted).
+async function applyCampaignDiscount(hotelId: string, pct: number) {
+  const rooms = await prisma.room.findMany({ where: { hotelId }, select: { id: true, price: true, originalPrice: true } });
+  for (const r of rooms) {
+    const baseline = r.originalPrice ?? r.price;
+    await prisma.room.update({ where: { id: r.id }, data: { originalPrice: baseline, price: Math.round(baseline * (1 - pct / 100)) } });
+  }
+  await refreshPriceFrom(hotelId);
+  await invalidate("miruum:");
+}
+async function revertCampaignDiscount(hotelId: string) {
+  const rooms = await prisma.room.findMany({ where: { hotelId, originalPrice: { not: null } }, select: { id: true, originalPrice: true } });
+  for (const r of rooms) await prisma.room.update({ where: { id: r.id }, data: { price: r.originalPrice!, originalPrice: null } });
+  await refreshPriceFrom(hotelId);
+  await invalidate("miruum:");
+}
+
+// Activate due campaigns / revert expired ones (called on approve + hourly).
+async function sweepCampaigns() {
+  const now = new Date();
+  const toApply = await prisma.hotelCampaign.findMany({ where: { status: "APPROVED", applied: false, startDate: { lte: now }, endDate: { gte: now } } });
+  for (const c of toApply) {
+    await applyCampaignDiscount(c.hotelId, c.discountPct);
+    await prisma.hotel.update({ where: { id: c.hotelId }, data: { isPromo: true, promoLabel: c.name } });
+    await prisma.hotelCampaign.update({ where: { id: c.id }, data: { applied: true } });
+  }
+  const toRevert = await prisma.hotelCampaign.findMany({ where: { applied: true, OR: [{ endDate: { lt: now } }, { status: { not: "APPROVED" } }] } });
+  for (const c of toRevert) {
+    await revertCampaignDiscount(c.hotelId);
+    await prisma.hotel.update({ where: { id: c.hotelId }, data: { isPromo: false, promoLabel: null } });
+    await prisma.hotelCampaign.update({ where: { id: c.id }, data: { applied: false } });
+  }
+  return { applied: toApply.length, reverted: toRevert.length };
+}
+
+// ── Advance Deposit ledger helpers ──
+async function creditDeposit(hotelId: string, amount: number, kind: string, note?: string) {
+  const amt = BigInt(Math.round(amount));
+  await prisma.$transaction([
+    prisma.depositTxn.create({ data: { hotelId, kind, amount: amt, status: "CONFIRMED", note, confirmedAt: new Date() } }),
+    prisma.hotel.update({ where: { id: hotelId }, data: { depositBalance: { increment: amt } } }),
+  ]);
+}
+async function debitDeposit(hotelId: string, amount: number, kind: string, note?: string, period?: string): Promise<number> {
+  const h = await prisma.hotel.findUnique({ where: { id: hotelId }, select: { depositBalance: true } });
+  const bal = Number(h?.depositBalance ?? 0);
+  const deb = Math.min(bal, Math.round(amount));
+  if (deb <= 0) return 0;
+  await prisma.$transaction([
+    prisma.depositTxn.create({ data: { hotelId, kind, amount: BigInt(-deb), status: "CONFIRMED", note, period, confirmedAt: new Date() } }),
+    prisma.hotel.update({ where: { id: hotelId }, data: { depositBalance: { decrement: BigInt(deb) } } }),
+  ]);
+  return deb;
+}
+
+// Generate/refresh monthly invoices for every hotel, by check-out month.
+async function generateInvoicesForPeriod(period: string) {
+  const { start, end } = periodBounds(period);
+  const DIRECT_PCT = await getNum("directCommissionPct");
+  const bookings = await prisma.booking.findMany({
+    where: { status: { in: ["PAID", "COMPLETED"] }, checkOut: { gte: start, lt: end } },
+    select: { hotelId: true, roomPrice: true, payAtHotel: true, channel: { select: { type: true } } },
+  });
+  const agg: Record<string, { commission: number; payout: number; count: number }> = {};
+  for (const b of bookings) {
+    const isDirect = !b.channel || b.channel.type === "DIRECT";
+    if (!isDirect) continue; // OTA sub-agent settlements are handled by the OTA, not invoiced here
+    const gross = Number(b.roomPrice);
+    const commission = Math.round((gross * DIRECT_PCT) / 100);
+    const a = (agg[b.hotelId] ??= { commission: 0, payout: 0, count: 0 });
+    a.count++;
+    if (b.payAtHotel) a.commission += commission;      // hotel collected cash → owes Miruum (hutang)
+    else a.payout += gross - commission;               // Miruum collected → owes hotel net (piutang)
+  }
+  const dueDate = new Date(end); dueDate.setDate(dueDate.getDate() + 15);
+  let n = 0;
+  for (const [hotelId, a] of Object.entries(agg)) {
+    const existing = await prisma.hotelInvoice.findUnique({ where: { hotelId_period: { hotelId, period } } });
+    let offset = existing ? Number(existing.offsetFromDeposit) : 0;
+    if (!existing && a.commission > 0) offset = await debitDeposit(hotelId, a.commission, "COMMISSION", `Auto-offset invoice ${period}`, period);
+    const status = a.commission > 0 && offset >= a.commission ? "OFFSET" : "OPEN";
+    await prisma.hotelInvoice.upsert({
+      where: { hotelId_period: { hotelId, period } },
+      create: { hotelId, period, commissionOwed: BigInt(a.commission), payoutOwed: BigInt(a.payout), bookingsCount: a.count, offsetFromDeposit: BigInt(offset), status, dueDate, paidAt: status === "OFFSET" ? new Date() : null },
+      update: { commissionOwed: BigInt(a.commission), payoutOwed: BigInt(a.payout), bookingsCount: a.count, status, dueDate },
+    });
+    n++;
+  }
+  return { period, hotels: n, bookings: bookings.length };
+}
+
+// ── Partner: Promo & Campaign registration ──
+app.get("/api/partner/campaigns", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true, name: true } });
+  const campaigns = await prisma.hotelCampaign.findMany({ where: { hotelId: { in: hotels.map((h) => h.id) } }, orderBy: { createdAt: "desc" }, take: 100, include: { hotel: { select: { name: true } } } });
+  res.json({ campaigns, hotels });
+});
+app.post("/api/partner/campaigns", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ hotelId: z.string(), type: z.enum(["FLASH_SALE", "EARLY_BIRD", "LAST_MINUTE", "CUSTOM"]).default("FLASH_SALE"), name: z.string().min(2), discountPct: z.coerce.number().int().min(1).max(90), startDate: z.string(), endDate: z.string(), minNights: z.coerce.number().int().min(1).max(30).default(1) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data campaign tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const start = new Date(p.data.startDate), endD = new Date(p.data.endDate);
+  if (isNaN(+start) || isNaN(+endD) || endD <= start) return res.status(400).json({ error: "Periode campaign tidak valid" });
+  const c = await prisma.hotelCampaign.create({ data: { hotelId: p.data.hotelId, type: p.data.type, name: p.data.name.slice(0, 80), discountPct: p.data.discountPct, startDate: start, endDate: endD, minNights: p.data.minNights } });
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+  const hotel = await prisma.hotel.findUnique({ where: { id: c.hotelId }, select: { name: true } });
+  for (const a of admins) await dispatch(prisma, { userId: a.id, title: "Pendaftaran Campaign Baru", body: `${hotel?.name} mendaftarkan "${c.name}" (${c.discountPct}%). Tinjau di Pemasaran → Campaign Hotel.`, type: "info" });
+  res.json({ campaign: c });
+});
+app.post("/api/partner/campaigns/:id/cancel", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const c = await prisma.hotelCampaign.findFirst({ where: { id: req.params.id, ...(admin ? {} : { hotel: { ownerId: req.userId } }) } });
+  if (!c) return res.status(404).json({ error: "Campaign tidak ditemukan" });
+  await prisma.hotelCampaign.update({ where: { id: c.id }, data: { status: "REJECTED" } });
+  await sweepCampaigns();
+  res.json({ ok: true });
+});
+
+// ── Admin: campaign approval ──
+app.get("/api/admin/campaigns", requireRole("ADMIN"), async (_req, res) => {
+  const campaigns = await prisma.hotelCampaign.findMany({ orderBy: [{ status: "asc" }, { createdAt: "desc" }], take: 200, include: { hotel: { select: { name: true, owner: { select: { name: true } } } } } });
+  res.json({ campaigns });
+});
+app.post("/api/admin/campaigns/:id/approve", requireRole("ADMIN"), async (req, res) => {
+  const c = await prisma.hotelCampaign.findUnique({ where: { id: req.params.id }, include: { hotel: { select: { name: true, ownerId: true } } } });
+  if (!c) return res.status(404).json({ error: "Campaign tidak ditemukan" });
+  await prisma.hotelCampaign.update({ where: { id: c.id }, data: { status: "APPROVED" } });
+  const sw = await sweepCampaigns();
+  if (c.hotel.ownerId) await dispatch(prisma, { userId: c.hotel.ownerId, title: "Campaign Disetujui", body: `Campaign "${c.name}" (${c.discountPct}%) untuk ${c.hotel.name} telah disetujui${sw.applied ? " & aktif sekarang" : ""}.`, type: "success" });
+  audit(req, "campaign.approve", "HotelCampaign", c.id);
+  res.json({ ok: true, ...sw });
+});
+app.post("/api/admin/campaigns/:id/reject", requireRole("ADMIN"), async (req, res) => {
+  const c = await prisma.hotelCampaign.findUnique({ where: { id: req.params.id }, include: { hotel: { select: { name: true, ownerId: true } } } });
+  if (!c) return res.status(404).json({ error: "Campaign tidak ditemukan" });
+  await prisma.hotelCampaign.update({ where: { id: c.id }, data: { status: "REJECTED" } });
+  await sweepCampaigns();
+  if (c.hotel.ownerId) await dispatch(prisma, { userId: c.hotel.ownerId, title: "Campaign Ditolak", body: `Campaign "${c.name}" untuk ${c.hotel.name} ditolak.`, type: "cancel" });
+  audit(req, "campaign.reject", "HotelCampaign", c.id);
+  res.json({ ok: true });
+});
+
+// ── Partner: Advance Deposit Program ──
+app.get("/api/partner/deposit", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true, name: true, depositBalance: true } });
+  const ids = hotels.map((h) => h.id);
+  const txns = await prisma.depositTxn.findMany({ where: { hotelId: { in: ids } }, orderBy: { createdAt: "desc" }, take: 100, include: { hotel: { select: { name: true } } } });
+  const totalBalance = hotels.reduce((s, h) => s + Number(h.depositBalance), 0);
+  res.json({ hotels, txns, totalBalance });
+});
+app.post("/api/partner/deposit/topup", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ hotelId: z.string(), amount: z.coerce.number().int().positive(), note: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Nominal top-up tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const t = await prisma.depositTxn.create({ data: { hotelId: p.data.hotelId, kind: "TOPUP", amount: BigInt(p.data.amount), status: "PENDING", note: (p.data.note ?? "").slice(0, 200) } });
+  const hotel = await prisma.hotel.findUnique({ where: { id: p.data.hotelId }, select: { name: true } });
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+  for (const a of admins) await dispatch(prisma, { userId: a.id, title: "Permintaan Top-up Deposit", body: `${hotel?.name} mengajukan top-up deposit ${rupiah(p.data.amount)}. Konfirmasi di Keuangan → Deposit.`, type: "info" });
+  res.json({ txn: t });
+});
+
+// ── Admin: deposit top-up confirmation ──
+app.get("/api/admin/deposits", requireRole("ADMIN"), async (_req, res) => {
+  const [pending, hotels] = await Promise.all([
+    prisma.depositTxn.findMany({ where: { status: "PENDING", kind: "TOPUP" }, orderBy: { createdAt: "asc" }, include: { hotel: { select: { name: true } } } }),
+    prisma.hotel.findMany({ where: { depositBalance: { gt: 0 } }, select: { id: true, name: true, depositBalance: true }, orderBy: { name: "asc" } }),
+  ]);
+  res.json({ pending, hotels });
+});
+app.post("/api/admin/deposits/:id/confirm", requireRole("ADMIN"), async (req, res) => {
+  const t = await prisma.depositTxn.findUnique({ where: { id: req.params.id }, include: { hotel: { select: { name: true, ownerId: true } } } });
+  if (!t || t.status !== "PENDING") return res.status(400).json({ error: "Transaksi tidak valid" });
+  await prisma.$transaction([
+    prisma.depositTxn.update({ where: { id: t.id }, data: { status: "CONFIRMED", confirmedAt: new Date() } }),
+    prisma.hotel.update({ where: { id: t.hotelId }, data: { depositBalance: { increment: t.amount } } }),
+  ]);
+  if (t.hotel.ownerId) await dispatch(prisma, { userId: t.hotel.ownerId, title: "Top-up Deposit Dikonfirmasi", body: `Deposit ${rupiah(Number(t.amount))} untuk ${t.hotel.name} telah masuk.`, type: "success" });
+  audit(req, "deposit.confirm", "DepositTxn", t.id, { amount: t.amount });
+  res.json({ ok: true });
+});
+app.post("/api/admin/deposits/:id/reject", requireRole("ADMIN"), async (req, res) => {
+  await prisma.depositTxn.update({ where: { id: req.params.id }, data: { status: "REJECTED" } });
+  audit(req, "deposit.reject", "DepositTxn", req.params.id);
+  res.json({ ok: true });
+});
+
+// ── Invoices (monthly) ──
+app.get("/api/partner/invoices", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true, name: true, depositBalance: true } });
+  const invoices = await prisma.hotelInvoice.findMany({ where: { hotelId: { in: hotels.map((h) => h.id) } }, orderBy: { period: "desc" }, take: 60, include: { hotel: { select: { name: true } } } });
+  res.json({ invoices, hotels });
+});
+app.get("/api/partner/invoices/:id/detail", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const inv = await prisma.hotelInvoice.findFirst({ where: { id: req.params.id, ...(admin ? {} : { hotel: { ownerId: req.userId } }) }, include: { hotel: { select: { name: true } } } });
+  if (!inv) return res.status(404).send("Invoice tidak ditemukan");
+  const { start, end } = periodBounds(inv.period);
+  const DIRECT_PCT = await getNum("directCommissionPct");
+  const bookings = await prisma.booking.findMany({ where: { hotelId: inv.hotelId, status: { in: ["PAID", "COMPLETED"] }, checkOut: { gte: start, lt: end }, OR: [{ channelId: null }, { channel: { type: "DIRECT" } }] }, orderBy: { checkOut: "asc" }, select: { code: true, bookerName: true, checkIn: true, checkOut: true, roomPrice: true, payAtHotel: true } });
+  const rows = [["Kode", "Tamu", "Check-in", "Check-out", "Harga Kamar", "Tipe", "Komisi", "Net ke Hotel"]];
+  for (const b of bookings) {
+    const gross = Number(b.roomPrice); const com = Math.round((gross * DIRECT_PCT) / 100);
+    rows.push([b.code, b.bookerName, b.checkIn.toISOString().slice(0, 10), b.checkOut.toISOString().slice(0, 10), String(gross), b.payAtHotel ? "Bayar di Hotel" : "Prabayar", String(com), b.payAtHotel ? "0" : String(gross - com)]);
+  }
+  const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+  res.set("Content-Type", "text/csv").set("Content-Disposition", `attachment; filename="invoice-${inv.hotel.name}-${inv.period}.csv"`).send(csv);
+});
+app.get("/api/admin/invoices", requireRole("ADMIN"), async (req, res) => {
+  const period = String(req.query.period || "");
+  const invoices = await prisma.hotelInvoice.findMany({ where: period ? { period } : {}, orderBy: [{ period: "desc" }], take: 200, include: { hotel: { select: { name: true } } } });
+  res.json({ invoices });
+});
+app.post("/api/admin/invoices/generate", requireRole("ADMIN"), async (req, res) => {
+  const period = String(req.body?.period || periodKey(new Date()));
+  if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: "Periode harus format YYYY-MM" });
+  const r = await generateInvoicesForPeriod(period);
+  audit(req, "invoice.generate", "HotelInvoice", period, r);
+  res.json({ ok: true, ...r });
+});
+
+// ── Partner: Analytics upgrade (Room Night / ADR / Revenue, daily + delta) ──
+app.get("/api/partner/analytics", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true } });
+  const ids = hotels.map((h) => h.id);
+  const empty = { days: [], kpi: { roomNights: 0, revenue: 0, adr: 0, bookings: 0 }, delta: { roomNights: 0, revenue: 0, adr: 0 }, hotels: hotels.length };
+  if (!ids.length) return res.json(empty);
+  const now = new Date();
+  const startCur = new Date(now); startCur.setDate(startCur.getDate() - 29); startCur.setHours(0, 0, 0, 0);
+  const startPrev = new Date(startCur); startPrev.setDate(startPrev.getDate() - 30);
+  const bookings = await prisma.booking.findMany({ where: { hotelId: { in: ids }, status: { in: ["PAID", "COMPLETED"] }, checkIn: { gte: startPrev } }, select: { checkIn: true, nights: true, rooms: true, totalPrice: true } });
+  const dayKey = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.toISOString().slice(0, 10); };
+  const days: { date: string; roomNights: number; revenue: number; bookings: number }[] = [];
+  const dmap: Record<string, any> = {};
+  for (let i = 29; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); const k = dayKey(d); const o = { date: k, roomNights: 0, revenue: 0, bookings: 0 }; days.push(o); dmap[k] = o; }
+  let curRN = 0, curRev = 0, curBk = 0, prevRN = 0, prevRev = 0;
+  for (const b of bookings) {
+    const rn = b.nights * b.rooms; const rev = Number(b.totalPrice); const k = dayKey(b.checkIn);
+    if (b.checkIn >= startCur) { curRN += rn; curRev += rev; curBk++; if (dmap[k]) { dmap[k].roomNights += rn; dmap[k].revenue += rev; dmap[k].bookings++; } }
+    else { prevRN += rn; prevRev += rev; }
+  }
+  const adr = (rev: number, rn: number) => (rn > 0 ? Math.round(rev / rn) : 0);
+  const pct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : (cur > 0 ? 100 : 0));
+  res.json({
+    days,
+    kpi: { roomNights: curRN, revenue: curRev, adr: adr(curRev, curRN), bookings: curBk },
+    delta: { roomNights: pct(curRN, prevRN), revenue: pct(curRev, prevRev), adr: pct(adr(curRev, curRN), adr(prevRev, prevRN)) },
+    hotels: hotels.length,
+  });
+});
+
 export { app };
 
 // Only bind the port when run directly (tests import `app` without listening).
@@ -4128,6 +4395,13 @@ if (process.env.NODE_ENV !== "test") {
     // Post-stay review requests: now + every 12h.
     runReviewRequests();
     setInterval(() => runReviewRequests().catch(() => {}), 12 * 3600_000).unref();
+    // Campaign activation/expiry sweep: now + hourly.
+    sweepCampaigns().catch(() => {});
+    setInterval(() => sweepCampaigns().catch(() => {}), 3600_000).unref();
+    // Monthly invoice refresh (current + previous month, auto-offset deposit): daily.
+    const genInvoices = () => { const n = new Date(); const prev = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() - 1, 1)); generateInvoicesForPeriod(periodKey(n)).catch(() => {}); generateInvoicesForPeriod(periodKey(prev)).catch(() => {}); };
+    genInvoices();
+    setInterval(genInvoices, 24 * 3600_000).unref();
   });
   // Graceful shutdown — stop accepting connections, then exit.
   for (const sig of ["SIGTERM", "SIGINT"] as const) {
