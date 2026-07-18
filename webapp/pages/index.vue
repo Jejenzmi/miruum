@@ -1,15 +1,8 @@
 <template>
   <div>
-    <!-- Hero (Traveloka-style) -->
-    <section class="relative">
-      <div class="absolute inset-0 bg-gradient-to-b from-sky to-sky-600"></div>
-      <div class="absolute inset-0 opacity-25 bg-[url('https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=60')] bg-cover bg-center"></div>
-      <div class="relative container-site pt-10 sm:pt-14 pb-36 text-white text-center">
-        <h1 class="text-2xl sm:text-4xl font-display font-bold max-w-2xl mx-auto leading-tight">Dari hotel mewah sampai budget, semua ada di Miruum</h1>
-        <p class="mt-2.5 text-white/90 text-base sm:text-lg">Harga terbaik dijamin — pesan mudah, bayar aman.</p>
-      </div>
-    </section>
-    <div class="container-site -mt-28 relative z-10">
+    <!-- Hero slider -->
+    <HeroSlider :banners="banners" />
+    <div class="container-site -mt-24 relative z-10">
       <SearchWidget />
     </div>
 
@@ -99,14 +92,25 @@
       </div>
     </section>
 
-    <!-- Property registration CTA -->
-    <section class="container-site mt-14">
-      <div class="rounded-xl2 overflow-hidden relative bg-gradient-to-r from-sky-700 to-sky text-white p-8 sm:p-12">
-        <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1400&q=60')] bg-cover bg-center"></div>
-        <div class="relative max-w-xl">
-          <h2 class="text-2xl sm:text-3xl font-display font-bold">Punya hotel atau properti?</h2>
-          <p class="mt-2 text-white/90">Daftarkan properti Anda ke Miruum — jangkau jutaan tamu di aplikasi & web, kelola harga, kamar, dan pesanan lewat Extranet. Gratis untuk memulai.</p>
-          <NuxtLink to="/mitra" class="btn bg-white text-sky-700 hover:bg-white/90 px-6 py-3 mt-5 font-bold shadow">Pelajari & Daftar →</NuxtLink>
+    <!-- Business CTAs: property partners + corporate/government -->
+    <section class="container-site mt-14 grid gap-5 lg:grid-cols-2">
+      <div class="rounded-xl2 overflow-hidden relative bg-gradient-to-br from-brand-700 to-brand text-white p-8 min-h-[220px] flex flex-col">
+        <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
+        <div class="relative flex flex-col flex-1">
+          <span class="pill bg-white/20 text-white w-fit mb-2">Untuk Mitra Properti</span>
+          <h2 class="text-2xl font-display font-bold">Punya hotel atau properti?</h2>
+          <p class="mt-2 text-white/90 text-[15px] flex-1">Daftarkan properti Anda — jangkau jutaan tamu, kelola harga & pesanan lewat Extranet. Gratis mulai.</p>
+          <NuxtLink to="/mitra" class="btn bg-white text-brand-700 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">Pelajari & Daftar →</NuxtLink>
+        </div>
+      </div>
+
+      <div class="rounded-xl2 overflow-hidden relative bg-gradient-to-br from-slate-800 to-slate-600 text-white p-8 min-h-[220px] flex flex-col">
+        <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
+        <div class="relative flex flex-col flex-1">
+          <span class="pill bg-white/20 text-white w-fit mb-2">Corporate & Government</span>
+          <h2 class="text-2xl font-display font-bold">Perusahaan atau instansi?</h2>
+          <p class="mt-2 text-white/90 text-[15px] flex-1">Kelola perjalanan dinas karyawan/pegawai dengan tagihan & laporan terpusat. Ajukan akun Corporate/Government.</p>
+          <a href="https://corporate.miruum.id/corporate/register" class="btn bg-white text-slate-800 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">Ajukan Akun →</a>
         </div>
       </div>
     </section>

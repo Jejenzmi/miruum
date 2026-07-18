@@ -19,8 +19,8 @@ export default {
         leaf: { DEFAULT: '#2FA84F', dark: '#1E7E38', soft: '#E8F6ED' },
         // Traveloka-style hero blue (used for hero/product tabs)
         sky: { DEFAULT: '#0770E3', 600: '#0555C4', 700: '#0442A0', 50: '#EAF3FE', 100: '#D3E6FD' },
-        paper: '#F5F7FA',
-        line: '#E7EAF0',
+        paper: '#F7F5F2',
+        line: '#ECE8E2',
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],

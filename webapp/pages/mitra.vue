@@ -2,7 +2,7 @@
   <div>
     <!-- Hero -->
     <section class="relative">
-      <div class="absolute inset-0 bg-gradient-to-br from-sky-700 to-sky"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-brand-700 to-brand"></div>
       <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1600&q=60')] bg-cover bg-center"></div>
       <div class="relative container-site py-16 sm:py-24 text-white">
         <div class="max-w-2xl">
@@ -10,7 +10,7 @@
           <h1 class="text-3xl sm:text-5xl font-display font-bold leading-tight">Kembangkan bisnis properti Anda bersama Miruum</h1>
           <p class="mt-4 text-white/90 text-lg">Jangkau jutaan tamu di aplikasi & web Miruum. Kelola kamar, harga, dan pesanan dari satu Extranet — gratis untuk memulai.</p>
           <div class="flex flex-wrap gap-3 mt-6">
-            <a href="https://extranet.miruum.id/register" class="btn bg-white text-sky-700 hover:bg-white/90 px-6 py-3.5 font-bold shadow-pop">Daftarkan Properti Anda →</a>
+            <a href="https://extranet.miruum.id/register" class="btn bg-white text-brand-700 hover:bg-white/90 px-6 py-3.5 font-bold shadow-pop">Daftarkan Properti Anda →</a>
             <a href="https://extranet.miruum.id/extranet/login" class="btn border border-white/40 text-white hover:bg-white/10 px-6 py-3.5 font-semibold">Sudah Mitra? Masuk</a>
           </div>
         </div>
@@ -21,7 +21,7 @@
     <section class="container-site -mt-10 relative z-10">
       <div class="card p-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
         <div v-for="s in stats" :key="s.label">
-          <div class="text-2xl sm:text-3xl font-extrabold text-sky">{{ s.value }}</div>
+          <div class="text-2xl sm:text-3xl font-extrabold text-brand">{{ s.value }}</div>
           <div class="text-[13px] text-ink-muted">{{ s.label }}</div>
         </div>
       </div>
@@ -33,7 +33,7 @@
       <p class="text-ink-muted text-center mt-2 max-w-xl mx-auto">Semua yang Anda butuhkan untuk mengelola & menumbuhkan okupansi, dalam satu platform.</p>
       <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mt-8">
         <div v-for="b in benefits" :key="b.t" class="card p-6">
-          <div class="w-12 h-12 rounded-xl bg-sky-50 text-sky grid place-items-center mb-3" v-html="b.icon"></div>
+          <div class="w-12 h-12 rounded-xl bg-brand-50 text-brand grid place-items-center mb-3" v-html="b.icon"></div>
           <h3 class="font-bold text-[16px]">{{ b.t }}</h3>
           <p class="text-[14px] text-ink-muted mt-1 leading-relaxed">{{ b.d }}</p>
         </div>
@@ -67,9 +67,9 @@
           </ul>
           <a href="https://extranet.miruum.id/register" class="btn-brand mt-6">Mulai Sekarang — Gratis</a>
         </div>
-        <div class="card p-8 bg-gradient-to-br from-sky-50 to-white">
+        <div class="card p-8 bg-gradient-to-br from-brand-50 to-white">
           <div class="text-sm text-ink-muted">Contoh perhitungan</div>
-          <div class="text-4xl font-extrabold text-sky mt-1">Rp 500.000<span class="text-base font-normal text-ink-faint">/malam</span></div>
+          <div class="text-4xl font-extrabold text-brand mt-1">Rp 500.000<span class="text-base font-normal text-ink-faint">/malam</span></div>
           <div class="mt-4 space-y-2 text-[15px]">
             <div class="flex justify-between"><span class="text-ink-muted">Harga kamar Anda</span><b>Rp 500.000</b></div>
             <div class="flex justify-between"><span class="text-ink-muted">Komisi Miruum</span><b class="text-red-500">− Rp 60.000</b></div>

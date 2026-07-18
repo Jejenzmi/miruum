@@ -25,9 +25,11 @@
         </ul>
       </div>
       <div>
-        <h4 class="text-sm font-bold mb-3">Untuk Mitra</h4>
-        <p class="text-sm text-ink-muted mb-2">Punya hotel/properti? Bergabung dengan Miruum.</p>
-        <NuxtLink to="/mitra" class="btn-ghost btn-sm mb-4">Daftarkan Properti</NuxtLink>
+        <h4 class="text-sm font-bold mb-3">Untuk Bisnis</h4>
+        <ul class="space-y-2 text-sm text-ink-muted mb-4">
+          <li><NuxtLink to="/mitra" class="hover:text-brand-600">Daftarkan Properti (Mitra)</NuxtLink></li>
+          <li><a href="https://corporate.miruum.id/corporate/register" class="hover:text-brand-600">Corporate & Government</a></li>
+        </ul>
         <h4 class="text-sm font-bold mb-2">Aplikasi Mobile</h4>
         <a href="/ota.apk" class="btn-brand btn-sm">Unduh APK Android</a>
       </div>
