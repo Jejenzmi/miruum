@@ -116,7 +116,22 @@ services:
       APK_URL: ${APK_URL:-}
       PORT: "4101"
     ports:
-      - "127.0.0.1:8101:4101"   # nginx host → /
+      - "127.0.0.1:8101:4101"   # nginx host → subdomain portals (admin/extranet/cm/pms/corporate)
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Customer web = Nuxt 3 SSR of the mobile app's flows (miruum.id). Consumes /api.
+  webapp:
+    build: ../webapp
+    environment:
+      API_INTERNAL: http://backend:5013/api
+      API_PUBLIC: /api
+      SITE_URL: https://miruum.id
+      PORT: "3000"
+      HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8110:3000"   # nginx host → miruum.id (+www)
     depends_on:
       - backend
     restart: unless-stopped
