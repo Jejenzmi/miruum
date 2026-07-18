@@ -141,29 +141,46 @@ class _UpdateCard extends StatelessWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            // Animated gradient header with a bouncing rocket.
-            Container(
-              height: 128,
+            // Animated gradient header: pulsing glow, floating sparkles, bouncing rocket.
+            SizedBox(
+              height: 150,
               width: double.infinity,
-              decoration: const BoxDecoration(gradient: LinearGradient(colors: [MC.primary, MC.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight)),
-              child: Center(
-                child: const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 56)
+              child: Stack(alignment: Alignment.center, children: [
+                // Gradient base
+                Container(
+                  decoration: const BoxDecoration(gradient: LinearGradient(colors: [MC.primary, MC.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+                ),
+                // Soft pulsing glow behind the icon
+                Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.16)))
                     .animate(onPlay: (c) => c.repeat(reverse: true))
-                    .moveY(begin: 6, end: -6, duration: 900.ms, curve: Curves.easeInOut),
-              ),
+                    .scaleXY(begin: 0.8, end: 1.15, duration: 1400.ms, curve: Curves.easeInOut),
+                // Floating sparkles
+                Positioned(left: 54, top: 34, child: const Icon(Icons.auto_awesome, color: Colors.white70, size: 16)
+                    .animate(onPlay: (c) => c.repeat(reverse: true)).fadeIn(duration: 600.ms).moveY(begin: 0, end: -8, duration: 1200.ms, curve: Curves.easeInOut)),
+                Positioned(right: 60, top: 46, child: const Icon(Icons.star_rounded, color: Colors.white70, size: 13)
+                    .animate(onPlay: (c) => c.repeat(reverse: true)).moveY(begin: 4, end: -6, duration: 1500.ms, curve: Curves.easeInOut)),
+                Positioned(right: 78, bottom: 34, child: const Icon(Icons.auto_awesome, color: Colors.white54, size: 12)
+                    .animate(onPlay: (c) => c.repeat(reverse: true)).scaleXY(begin: 0.7, end: 1.2, duration: 1100.ms, curve: Curves.easeInOut)),
+                // Rocket: bounce + gentle tilt
+                const Icon(Icons.rocket_launch_rounded, color: Colors.white, size: 60)
+                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                    .moveY(begin: 7, end: -7, duration: 900.ms, curve: Curves.easeInOut)
+                    .rotate(begin: -0.02, end: 0.02, duration: 900.ms, curve: Curves.easeInOut),
+              ]),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Text(forced ? 'Pembaruan Wajib' : 'Pembaruan Tersedia',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18))
+                      .animate().fadeIn(duration: 300.ms).moveX(begin: -10, end: 0, curve: Curves.easeOut),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                     decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(20)),
                     child: Text('v$version', style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700, fontSize: 11.5)),
-                  ),
+                  ).animate().scale(delay: 220.ms, duration: 360.ms, curve: Curves.easeOutBack),
                 ]),
                 const SizedBox(height: 8),
                 Text(
@@ -171,26 +188,28 @@ class _UpdateCard extends StatelessWidget {
                       ? 'Versi baru wajib dipasang untuk terus menggunakan Miruum.'
                       : 'Tersedia versi terbaru Miruum dengan peningkatan & fitur baru.',
                   style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5),
-                ),
+                ).animate().fadeIn(delay: 150.ms),
                 if (lines.isNotEmpty) ...[
                   const SizedBox(height: 14),
-                  ...lines.take(5).map((l) => Padding(
+                  ...lines.take(5).toList().asMap().entries.map((e) => Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           const Icon(Icons.check_circle_rounded, color: MC.primary, size: 16),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(l.replaceFirst(RegExp(r'^[•\-]\s*'), ''), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500))),
+                          Expanded(child: Text(e.value.replaceFirst(RegExp(r'^[•\-]\s*'), ''), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500))),
                         ]),
-                      )),
+                      ).animate().fadeIn(delay: (280 + e.key * 90).ms).moveX(begin: 14, end: 0, curve: Curves.easeOut)),
                 ],
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton(
+                  child: FilledButton.icon(
                     style: FilledButton.styleFrom(backgroundColor: MC.primary, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
                     onPressed: () => AppGate._launch(url),
-                    child: const Text('Perbarui Sekarang', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-                  ),
+                    icon: const Icon(Icons.download_rounded, size: 18),
+                    label: const Text('Perbarui Sekarang', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                  ).animate(onPlay: (c) => c.repeat())
+                      .shimmer(delay: 1200.ms, duration: 1600.ms, color: Colors.white.withOpacity(0.35)),
                 ),
                 if (!forced) ...[
                   const SizedBox(height: 6),
