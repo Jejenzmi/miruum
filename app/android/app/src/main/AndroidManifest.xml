@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Internet (API + gambar) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -10,8 +11,11 @@
     <!-- Kamera (ambil foto profil / bukti) -->
     <uses-permission android:name="android.permission.CAMERA"/>
 
-    <!-- Media / galeri -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <!-- Media / galeri: pemilihan foto memakai Android Photo Picker (tanpa izin
+         media luas). READ_MEDIA_IMAGES/VIDEO sengaja DIHAPUS dari manifest akhir
+         (termasuk yang mungkin disuntik plugin) demi kepatuhan Play Photo Policy. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
 
