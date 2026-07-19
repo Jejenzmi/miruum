@@ -67,7 +67,33 @@
     </div>
 
     <div class="card">
+      <h2>Payment Gateway</h2>
+      <label style="margin-top:0">Provider Pembayaran</label>
+      <select name="payment_provider">
+        <% var pp = i.payment_provider || 'MOCK'; %>
+        <option value="MOCK" <%= pp==='MOCK'?'selected':'' %>>MOCK (simulasi — tanpa uang nyata)</option>
+        <option value="LINKQU" <%= pp==='LINKQU'?'selected':'' %>>LinkQu (VA + QRIS nyata)</option>
+        <option value="FLIP" <%= pp==='FLIP'?'selected':'' %>>Flip</option>
+      </select>
+      <p class="muted" style="font-size:11px;margin:6px 0 12px">Pilih <b>LinkQu</b> lalu isi kredensial di bawah. Jika kredensial kosong, otomatis kembali ke MOCK (aman).</p>
+      <div class="row2">
+        <div><label style="margin-top:0">Base URL</label><input name="linkqu_base" value="<%= i.linkqu_base %>" placeholder="https://api.linkqu.id (prod) / https://gateway-dev.linkqu.id (dev)"></div>
+        <div><label style="margin-top:0">Client ID</label><input name="linkqu_client_id" value="<%= i.linkqu_client_id %>" placeholder="client-id"></div>
+      </div>
+      <div class="row2">
+        <div><label>Client Secret</label><input name="linkqu_client_secret" type="password" value="<%= i.linkqu_client_secret %>" placeholder="••••••••"></div>
+        <div><label>Username</label><input name="linkqu_username" value="<%= i.linkqu_username %>" placeholder="LIxxxxxxx"></div>
+      </div>
+      <div class="row2">
+        <div><label>PIN</label><input name="linkqu_pin" type="password" value="<%= i.linkqu_pin %>" placeholder="••••••••"></div>
+        <div><label>Server Key (secret signature)</label><input name="linkqu_server_key" type="password" value="<%= i.linkqu_server_key %>" placeholder="••••••••"></div>
+      </div>
+      <p class="muted" style="font-size:11px;margin-top:8px">⚠️ LinkQu memblokir per-IP: <b>whitelist IP server 76.13.197.249</b> di dashboard LinkQu, atau semua request ditolak (error 1010). Callback URL: <code>https://api.miruum.id/api/payments/webhook/linkqu</code></p>
+    </div>
+
+    <div class="card">
       <h2>Status Kanal</h2>
+      <div class="pms-row"><div><b>Payment</b></div><span class="pill <%= (i.payment_provider==='LINKQU'&&i.linkqu_client_id)||(i.payment_provider==='FLIP')?'PAID':'CANCELLED' %>"><%= i.payment_provider && i.payment_provider!=='MOCK' ? (i.payment_provider+' aktif') : 'MOCK (simulasi)' %></span></div>
       <div class="pms-row"><div><b>Email (SMTP)</b></div><span class="pill <%= i.mail_enabled==='1'&&i.smtp_host?'PAID':'CANCELLED' %>"><%= i.mail_enabled==='1'&&i.smtp_host?'Aktif':'Nonaktif' %></span></div>
       <div class="pms-row"><div><b>Push (FCM)</b></div><span class="pill <%= i.fcm_enabled==='1'&&i.fcm_service_account?'PAID':'CANCELLED' %>"><%= i.fcm_enabled==='1'&&i.fcm_service_account?'Aktif':'Nonaktif' %></span></div>
       <div class="pms-row"><div><b>WhatsApp</b></div><span class="pill <%= i.wa_enabled==='1'&&i.wa_api_url?'PAID':'CANCELLED' %>"><%= i.wa_enabled==='1'&&i.wa_api_url?'Aktif':'Nonaktif' %></span></div>

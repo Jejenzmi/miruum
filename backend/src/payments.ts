@@ -132,12 +132,95 @@ const flipProvider: PaymentProvider = {
   },
 };
 
-const PROVIDERS: Record<string, PaymentProvider> = { MOCK: mockProvider, FLIP: flipProvider };
+// ── LinkQu (linkqu.id) adapter — QRIS + Virtual Account. Credentials are
+// admin-managed (Back Office → Integrasi), never hardcoded. Docs:
+// prod https://api.linkqu.id  · dev https://gateway-dev.linkqu.id
+// Headers: client-id, client-secret. Signature: HMAC-SHA256(signString, serverKey)
+// where signString = normalize(path + METHOD + params + client-id), normalize =
+// lowercase + strip non-alphanumeric. NOTE: LinkQu also gatekeeps by IP — your
+// server's public IP must be whitelisted in the LinkQu dashboard, else HTTP 403
+// "error 1010" on every call.
+import { getSettings } from "./settings.js";
+import { createHmac } from "crypto";
 
-export function activeProvider(): PaymentProvider {
-  const want = (process.env.PAYMENT_PROVIDER || "MOCK").toUpperCase();
-  const p = PROVIDERS[want];
-  // Fall back to MOCK if the selected provider lacks credentials.
+const LINKQU_BANK: Record<string, string> = {
+  VA_BCA: "014", VA_BNI: "009", VA_MANDIRI: "008", VA_BRI: "002", VA_PERMATA: "013",
+};
+async function linkquCfg() {
+  const s = await getSettings();
+  return {
+    base: (s.linkqu_base || "https://gateway-dev.linkqu.id").replace(/\/+$/, ""),
+    clientId: s.linkqu_client_id || "",
+    clientSecret: s.linkqu_client_secret || "",
+    username: s.linkqu_username || "",
+    pin: s.linkqu_pin || "",
+    serverKey: s.linkqu_server_key || "",
+  };
+}
+const lqNorm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const lqSign = (raw: string, key: string) => createHmac("sha256", key).update(raw).digest("hex");
+function lqExpired(hours: number): string {
+  const d = new Date(Date.now() + hours * 3600_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+const linkquProvider: PaymentProvider = {
+  code: "LINKQU",
+  async create(input) {
+    const c = await linkquCfg();
+    if (!c.clientId || !c.username || !c.pin || !c.serverKey) throw new Error("Kredensial LinkQu belum diatur");
+    const isVA = input.method.type === "VA";
+    const path = isVA ? "/linkqu-partner/transaction/create/va" : "/linkqu-partner/transaction/create/qris";
+    const partnerReff = (input.bookingCode.replace(/[^0-9]/g, "") + digits(input.bookingCode + Date.now(), 8)).slice(0, 20);
+    const bankCode = LINKQU_BANK[input.method.code] || "008";
+    const amount = String(input.amount);
+    // signString per LinkQu docs; isolated so it's easy to confirm via the LinkQu
+    // signature simulator once the merchant account/IP is active.
+    const signRaw = lqNorm(path + "POST" + amount + partnerReff + input.bookerPhone + (isVA ? bankCode : "") + c.clientId);
+    const signature = lqSign(signRaw, c.serverKey);
+    const callback = (process.env.PUBLIC_ORIGIN || "https://api.miruum.id") + "/api/payments/webhook/linkqu";
+    const body: any = {
+      amount: input.amount, partner_reff: partnerReff, customer_id: input.bookerPhone,
+      customer_name: input.bookerName, customer_email: input.bookerEmail, customer_phone: input.bookerPhone,
+      expired: lqExpired(1), username: c.username, pin: c.pin, signature, url_callback: callback,
+    };
+    if (isVA) body.bank_code = bankCode;
+    const resp = await fetch(c.base + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "client-id": c.clientId, "client-secret": c.clientSecret },
+      body: JSON.stringify(body),
+    });
+    const text = await resp.text();
+    let j: any = {}; try { j = JSON.parse(text); } catch { /* keep text */ }
+    if (!resp.ok) throw new Error(`LinkQu HTTP ${resp.status}: ${text.slice(0, 160)}`);
+    const d = j.data || j;
+    return {
+      provider: "LINKQU",
+      externalId: partnerReff,
+      vaNumber: isVA ? (d.va_number || d.virtual_account || d.vanumber) : undefined,
+      qrString: !isVA ? (d.qris_content || d.qris || d.qr_string || d.qrstring) : undefined,
+      expiresAt: new Date(Date.now() + 3600_000),
+      raw: j,
+    };
+  },
+  parseWebhook(body) {
+    // LinkQu posts partner_reff, va_number, status ("SUCCESS"), signature.
+    if (!body?.partner_reff) return null;
+    return { externalId: String(body.partner_reff), paid: String(body.status || "").toUpperCase() === "SUCCESS" };
+  },
+};
+
+const PROVIDERS: Record<string, PaymentProvider> = { MOCK: mockProvider, FLIP: flipProvider, LINKQU: linkquProvider };
+
+// Provider selection is admin-managed (Setting `payment_provider`), falling back
+// to env then MOCK. Falls back to MOCK when the selected provider isn't configured.
+export async function activeProvider(): Promise<PaymentProvider> {
+  const s = await getSettings();
+  const want = (s.payment_provider || process.env.PAYMENT_PROVIDER || "MOCK").toUpperCase();
   if (want === "FLIP" && !process.env.FLIP_SECRET_KEY) return mockProvider;
-  return p ?? mockProvider;
+  if (want === "LINKQU") {
+    const c = await linkquCfg();
+    if (!c.clientId || !c.username || !c.pin || !c.serverKey) return mockProvider;
+  }
+  return PROVIDERS[want] ?? mockProvider;
 }

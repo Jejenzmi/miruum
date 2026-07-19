@@ -1439,7 +1439,7 @@ app.post("/api/bookings/:id/pay", requireAuth, async (req: AuthRequest, res) => 
   if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
   if (booking.status === "PAID") return res.status(400).json({ error: "Pesanan sudah dibayar" });
 
-  const provider = activeProvider();
+  const provider = await activeProvider();
   let ins;
   try {
     ins = await provider.create({
@@ -1522,13 +1522,27 @@ app.post("/api/payments/:id/settle", requireAuth, async (req: AuthRequest, res) 
 
 // Provider webhook (Flip/etc.) — public, verified inside parseWebhook.
 app.post("/api/payments/webhook", async (req, res) => {
-  const provider = activeProvider();
+  const provider = await activeProvider();
   const parsed = provider.parseWebhook(req.body, req.headers as any);
   if (!parsed) return res.status(400).json({ error: "Webhook tidak valid" });
   const payment = await prisma.payment.findFirst({ where: { externalId: parsed.externalId } });
   if (!payment) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
   if (parsed.paid) await markPaymentPaid(payment.id);
   res.json({ ok: true });
+});
+
+// LinkQu callback — LinkQu POSTs here (url_callback) and expects {"response":"OK"}.
+app.post("/api/payments/webhook/linkqu", async (req, res) => {
+  try {
+    const reff = String(req.body?.partner_reff || "");
+    const paid = String(req.body?.status || "").toUpperCase() === "SUCCESS";
+    if (reff && paid) {
+      const payment = await prisma.payment.findFirst({ where: { externalId: reff, provider: "LINKQU" } });
+      if (payment) await markPaymentPaid(payment.id);
+    }
+    audit(req as any, "payment.linkqu.callback", "Payment", reff, { status: req.body?.status });
+  } catch (e) { logger.error({ err: e }, "linkqu callback failed"); }
+  res.json({ response: "OK" }); // LinkQu requires this exact acknowledgement
 });
 
 // Single source of truth for the cancellation refund quote (policy is fully
@@ -2993,7 +3007,7 @@ app.put("/api/admin/settings", requireRole("ADMIN"), async (req, res) => {
 });
 
 // ─────────────── Integrasi (Email/SMTP, FCM, WhatsApp) — configurable in Back Office ───────────────
-const INTEGRATION_KEYS = ["mail_enabled", "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from", "fcm_enabled", "fcm_service_account", "wa_enabled", "wa_api_url", "wa_api_token", "google_client_id", "ai_enabled", "ai_api_key", "ai_model", "ai_auto"];
+const INTEGRATION_KEYS = ["mail_enabled", "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from", "fcm_enabled", "fcm_service_account", "wa_enabled", "wa_api_url", "wa_api_token", "google_client_id", "ai_enabled", "ai_api_key", "ai_model", "ai_auto", "payment_provider", "linkqu_base", "linkqu_client_id", "linkqu_client_secret", "linkqu_username", "linkqu_pin", "linkqu_server_key"];
 app.get("/api/admin/integrations", requireRole("ADMIN"), async (_req, res) => {
   const s = await getSettings();
   const out: Record<string, string> = {};
