@@ -578,7 +578,7 @@ class _HotelLocationMapState extends State<HotelLocationMap> {
       final perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
         final pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium, timeLimit: const Duration(seconds: 10));
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 10)));
         final d = Geolocator.distanceBetween(pos.latitude, pos.longitude, widget.hotel.lat!, widget.hotel.lng!) / 1000;
         if (mounted) setState(() => _distanceKm = d);
       }

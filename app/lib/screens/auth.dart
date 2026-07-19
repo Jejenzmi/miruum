@@ -27,11 +27,11 @@ Future<void> signInWithGoogle(BuildContext context) async {
     return;
   }
   try {
-    final gsi = GoogleSignIn(serverClientId: _googleServerClientId, scopes: const ['email', 'profile']);
-    await gsi.signOut();
-    final acct = await gsi.signIn();
-    if (acct == null) return; // cancelled
-    final idToken = (await acct.authentication).idToken;
+    // google_sign_in 7.x: singleton + initialize() + interactive authenticate().
+    final gsi = GoogleSignIn.instance;
+    await gsi.initialize(serverClientId: _googleServerClientId);
+    final acct = await gsi.authenticate(scopeHint: const ['email', 'profile']);
+    final idToken = acct.authentication.idToken;
     if (idToken == null || idToken.isEmpty) {
       if (context.mounted) showSnack(context, 'Gagal memperoleh token Google.', kind: SnackKind.error);
       return;
@@ -41,6 +41,9 @@ Future<void> signInWithGoogle(BuildContext context) async {
       context.read<AuthBloc>().add(AuthSessionGranted(token, user));
       Navigator.pop(context);
     }
+  } on GoogleSignInException catch (e) {
+    if (e.code == GoogleSignInExceptionCode.canceled) return; // user dismissed the picker
+    if (context.mounted) showSnack(context, 'Login Google gagal. Coba lagi.', kind: SnackKind.error);
   } catch (e) {
     if (context.mounted) showSnack(context, 'Login Google gagal. Coba lagi.', kind: SnackKind.error);
   }

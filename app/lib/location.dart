@@ -26,8 +26,10 @@ Future<Position?> getMyLocation(BuildContext context) async {
       return null;
     }
     return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 12),
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 12),
+      ),
     );
   } catch (_) {
     if (context.mounted) {
