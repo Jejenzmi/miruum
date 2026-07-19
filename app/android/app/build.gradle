@@ -75,6 +75,11 @@ android {
             // Use the stable release keystore when key.properties exists (server
             // builds); otherwise fall back to debug so local `flutter run` works.
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            // Bundle native debug symbols in the AAB so Play Console can symbolicate
+            // native crashes/ANRs (stripped from the device download).
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
         }
     }
 }
