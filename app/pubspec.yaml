@@ -1,7 +1,7 @@
 name: miruum
 description: "Miruum — Aplikasi Booking Hotel (OTA)."
 publish_to: 'none'
-version: 1.1.1+102
+version: 1.1.1+103
 
 environment:
   sdk: ^3.3.0
