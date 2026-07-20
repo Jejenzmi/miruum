@@ -90,7 +90,7 @@ Future<String?> pickAndUploadDoc(BuildContext context) async {
           const Align(alignment: Alignment.centerLeft,
               child: Text('Unggah Dokumen', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
           const SizedBox(height: 4),
-          const Align(alignment: Alignment.centerLeft,
+          Align(alignment: Alignment.centerLeft,
               child: Text('Foto / pindai dokumen legalitas dengan jelas & terbaca.',
                   style: TextStyle(color: MC.inkMuted, fontSize: 12.5))),
           const SizedBox(height: 10),
