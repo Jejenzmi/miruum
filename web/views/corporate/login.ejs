@@ -14,12 +14,12 @@
     <div class="auth-card">
       <img src="/static/logo.png" alt="Miruum" class="auth-logo">
       <span class="eyebrow">Corporate &amp; Government</span>
-      <h2>Portal Pemesanan Instansi</h2>
+      <h2>Portal Pemesanan Corporate</h2>
       <p class="lead">Masuk untuk memesan hotel bagi karyawan/pegawai, dengan tagihan &amp; laporan terpusat.</p>
       <% if (error) { %><div class="error"><%= error %></div><% } %>
       <form method="post" action="/corporate/login">
         <div class="ffield">
-          <input id="email" name="email" type="email" placeholder="email instansi" value="corp@nusantara.id" required>
+          <input id="email" name="email" type="email" placeholder="email corporate" value="corp@nusantara.id" required>
           <label for="email">Email</label>
         </div>
         <div class="ffield">
@@ -29,7 +29,7 @@
         <button class="btn" style="width:100%;justify-content:center;margin-top:8px">Masuk Portal Korporat</button>
       </form>
       <div class="hint">Demo: corp@nusantara.id / corp123 · gov@disparprov.id / gov123</div>
-      <p style="text-align:center;margin-top:16px;font-size:13px">Belum punya akun instansi? <a href="/corporate/register"><b>Ajukan Layanan Corporate</b></a></p>
+      <p style="text-align:center;margin-top:16px;font-size:13px">Belum punya akun corporate? <a href="/corporate/register"><b>Ajukan Layanan Corporate</b></a></p>
       <div class="auth-foot">© 2026 Miruum · Corporate. All rights reserved.</div>
     </div>
   </div>

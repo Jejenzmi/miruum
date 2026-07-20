@@ -15,7 +15,7 @@
       <img src="/static/logo.png" alt="Miruum" class="auth-logo">
       <span class="eyebrow">Corporate &amp; Government</span>
       <h2>Ajukan Layanan Corporate</h2>
-      <p class="lead">Lengkapi data instansi &amp; unggah dokumen legalitas. Tim Miruum akan meninjau &amp; mengaktifkan akun (kredensial dikirim ke email PIC).</p>
+      <p class="lead">Lengkapi data corporate &amp; unggah dokumen legalitas. Tim Miruum akan meninjau &amp; mengaktifkan akun (kredensial dikirim ke email PIC).</p>
 
       <% if (done) { %>
         <div class="notice ok" style="margin-bottom:16px">Pengajuan terkirim! Tim Miruum akan menghubungi PIC via email. <a href="/corporate/login">Kembali ke login</a></div>
@@ -23,21 +23,21 @@
       <% if (error) { %><div class="error"><%= error %></div><% } %>
 
       <form id="corpForm" method="post" action="/corporate/register" enctype="multipart/form-data">
-        <label>Jenis Instansi</label>
+        <label>Jenis Corporate</label>
         <select id="entityType" name="entityType">
           <% (cfg.entityTypes || []).forEach(function(t){ %>
             <option value="<%= t %>"><%= (cfg.labels && cfg.labels[t]) || t %></option>
           <% }) %>
         </select>
 
-        <label>Nama Instansi / Perusahaan</label>
+        <label>Nama Corporate / Perusahaan</label>
         <input name="companyName" placeholder="mis. PT Nusantara Jaya" required>
         <div class="row2">
           <div><label>Nama PIC</label><input name="picName" placeholder="Penanggung jawab" required></div>
           <div><label>Jabatan PIC</label><input name="picPosition" placeholder="mis. Manajer GA"></div>
         </div>
         <div class="row2">
-          <div><label>Email PIC</label><input name="email" type="email" placeholder="email@instansi.id" required></div>
+          <div><label>Email PIC</label><input name="email" type="email" placeholder="email@perusahaan.co.id" required></div>
           <div><label>No. Telepon</label><input name="phone" placeholder="08xx / 021xxx" required></div>
         </div>
         <%- include('../partials/region_picker') %>

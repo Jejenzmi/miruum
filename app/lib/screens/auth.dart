@@ -195,7 +195,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateLoginScreen())),
                   icon: const Icon(Icons.business_center_rounded, size: 20, color: MC.primary),
-                  label: const Text('Login Corporate / Instansi', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                  label: const Text('Login Corporate', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
                     alignment: Alignment.center,
                     side: const BorderSide(color: MC.primary),

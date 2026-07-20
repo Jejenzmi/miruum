@@ -81,7 +81,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             const Text('Portal Korporat', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
                 .animate().fadeIn(delay: 120.ms).scale(begin: const Offset(0.9, 0.9)),
             const SizedBox(height: 4),
-            const Text('Kelola pemesanan dinas & tagihan instansi Anda',
+            const Text('Kelola pemesanan dinas & tagihan corporate Anda',
                     textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 13))
                 .animate().fadeIn(delay: 220.ms),
           ]),
@@ -90,7 +90,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField('Email PIC / instansi', Icons.business_center_outlined, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField('Email Corporate', Icons.business_center_outlined, _email, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 14),
               AuthTextField('Kata Sandi', Icons.lock_outline_rounded, _pass, obscure: _obscure,
                   suffix: IconButton(
@@ -106,7 +106,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 child: Row(children: [
                   const Icon(Icons.info_outline_rounded, color: MC.primaryDark, size: 20),
                   const SizedBox(width: 10),
-                  Expanded(child: Text('Belum punya akun instansi? Ajukan pendaftaran & unggah dokumen legalitas — tim Miruum akan meninjau.',
+                  Expanded(child: Text('Belum punya akun corporate? Ajukan pendaftaran & unggah dokumen legalitas — tim Miruum akan meninjau.',
                       style: TextStyle(color: MC.ink, fontSize: 12.5, height: 1.35))),
                 ]),
               ),
@@ -116,7 +116,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateRegisterScreen())),
                   icon: const Icon(Icons.apartment_rounded, size: 20, color: MC.primary),
-                  label: const Text('Daftarkan Instansi / Perusahaan', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                  label: const Text('Daftarkan Corporate', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(side: const BorderSide(color: MC.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
                 ),
               ),
@@ -142,7 +142,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
   // Entity types + document catalog (fetched from backend so it stays in sync).
   List<String> _entityTypes = const ['SWASTA', 'BUMN', 'BUMD', 'PEMERINTAH'];
   Map<String, String> _labels = const {
-    'SWASTA': 'Perusahaan Swasta', 'BUMN': 'BUMN', 'BUMD': 'BUMD', 'PEMERINTAH': 'Instansi Pemerintahan',
+    'SWASTA': 'Perusahaan Swasta', 'BUMN': 'BUMN', 'BUMD': 'BUMD', 'PEMERINTAH': 'Pemerintahan',
   };
   Map<String, List<Map<String, dynamic>>> _catalog = const {};
 
@@ -326,9 +326,9 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
       children: [
-        const Text('Jenis Instansi', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        const Text('Jenis Corporate', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Pilih jenis badan usaha / instansi Anda. Dokumen yang diminta menyesuaikan pilihan ini.',
+        Text('Pilih jenis badan usaha corporate Anda. Dokumen yang diminta menyesuaikan pilihan ini.',
             style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.4)),
         const SizedBox(height: 18),
         ..._entityTypes.map((t) {
@@ -378,9 +378,9 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
       children: [
-        Text('Data ${_labels[_entityType] ?? 'Instansi'}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        Text('Data ${_labels[_entityType] ?? 'Corporate'}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        TextField(controller: _company, decoration: dec('Nama Instansi / Perusahaan *', hint: 'mis. PT Nusantara Jaya'), onChanged: (_) => setState(() {})),
+        TextField(controller: _company, decoration: dec('Nama Corporate / Perusahaan *', hint: 'mis. PT Nusantara Jaya'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(child: TextField(controller: _picName, decoration: dec('Nama PIC *'), onChanged: (_) => setState(() {}))),
@@ -388,7 +388,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
           Expanded(child: TextField(controller: _picPos, decoration: dec('Jabatan PIC'))),
         ]),
         const SizedBox(height: 12),
-        TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: dec('Email PIC *', hint: 'email@instansi.id'), onChanged: (_) => setState(() {})),
+        TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: dec('Email PIC *', hint: 'email@perusahaan.co.id'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
         TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: dec('No. Telepon *', hint: '08xx / 021xxx'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
@@ -414,7 +414,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
       children: [
         const Text('Dokumen Legalitas', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Unggah dokumen berikut untuk ${_labels[_entityType] ?? 'instansi Anda'}. Format foto/scan JPG/PNG, jelas & terbaca.',
+        Text('Unggah dokumen berikut untuk ${_labels[_entityType] ?? 'corporate Anda'}. Format foto/scan JPG/PNG, jelas & terbaca.',
             style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.4)),
         const SizedBox(height: 16),
         ..._docList.map((d) {

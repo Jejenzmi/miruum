@@ -1880,7 +1880,7 @@ app.get("/api/corporate-invoices/:id", async (req, res) => {
 // with the Flutter app (screens/corporate.dart) and Back Office review view.
 const CORP_ENTITY_TYPES = ["SWASTA", "BUMN", "BUMD", "PEMERINTAH"] as const;
 const CORP_ENTITY_LABELS: Record<string, string> = {
-  SWASTA: "Perusahaan Swasta", BUMN: "BUMN", BUMD: "BUMD", PEMERINTAH: "Instansi Pemerintahan",
+  SWASTA: "Perusahaan Swasta", BUMN: "BUMN", BUMD: "BUMD", PEMERINTAH: "Pemerintahan",
 };
 const CORP_DOC_CATALOG: Record<string, { key: string; label: string; required: boolean }[]> = {
   SWASTA: [
@@ -1906,8 +1906,8 @@ const CORP_DOC_CATALOG: Record<string, { key: string; label: string; required: b
     { key: "ktp_pic", label: "KTP Penanggung Jawab (PIC)", required: true },
   ],
   PEMERINTAH: [
-    { key: "sk_instansi", label: "SK / Surat Tugas Instansi", required: true },
-    { key: "npwp", label: "NPWP Instansi / Bendahara", required: true },
+    { key: "sk_instansi", label: "SK / Surat Tugas", required: true },
+    { key: "npwp", label: "NPWP Bendahara", required: true },
     { key: "surat_penunjukan", label: "Surat Penunjukan Bendahara / PIC", required: true },
     { key: "ktp_pic", label: "KTP Bendahara / PIC", required: true },
     { key: "dipa", label: "DIPA / Dokumen Anggaran", required: false },
