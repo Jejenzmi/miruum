@@ -79,6 +79,22 @@ async function uploadFile(token, file, folder) {
   return url;
 }
 
+// Larger limit + public endpoint for corporate legality documents (PDF/JPG/PNG).
+const docUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+async function uploadDocPublic(file) {
+  const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  const { url } = await api("/corporate/upload-doc", { method: "POST", body: { dataUrl } });
+  return url;
+}
+const CORP_ENTITY_FALLBACK = {
+  entityTypes: ["SWASTA", "BUMN", "BUMD", "PEMERINTAH"],
+  labels: { SWASTA: "Perusahaan Swasta", BUMN: "BUMN", BUMD: "BUMD", PEMERINTAH: "Instansi Pemerintahan" },
+  catalog: {},
+};
+async function corporateDocConfig() {
+  try { return await api("/corporate/doc-requirements"); } catch (_) { return CORP_ENTITY_FALLBACK; }
+}
+
 const rupiah = (v) => "Rp " + (v || 0).toLocaleString("id-ID");
 app.locals.rupiah = rupiah;
 app.locals.APK_URL = APK_URL;
@@ -784,10 +800,33 @@ app.post("/corporate/login", loginLimiter, async (req, res) => {
 app.get("/corporate/logout", (req, res) => { delete req.session.corporate; res.redirect("/corporate/login"); });
 
 // Public: apply for a corporate account (pengajuan layanan).
-app.get("/corporate/register", (req, res) => res.render("corporate/register", { done: req.query.done, error: null }));
-app.post("/corporate/register", async (req, res) => {
-  try { await api("/corporate/apply", { method: "POST", body: req.body }); res.redirect("/corporate/register?done=1"); }
-  catch (e) { res.render("corporate/register", { done: null, error: e.message }); }
+app.get("/corporate/register", async (req, res) => {
+  const cfg = await corporateDocConfig();
+  res.render("corporate/register", { done: req.query.done, error: null, cfg });
+});
+app.post("/corporate/register", docUpload.any(), async (req, res) => {
+  const cfg = await corporateDocConfig();
+  try {
+    const entityType = req.body.entityType || "SWASTA";
+    const docsSpec = (cfg.catalog && cfg.catalog[entityType]) || [];
+    // Upload each attached document that belongs to the chosen entity type.
+    const documents = [];
+    for (const f of (req.files || [])) {
+      const key = f.fieldname.replace(/^doc_/, "");
+      const spec = docsSpec.find((d) => d.key === key);
+      if (!spec) continue;
+      const url = await uploadDocPublic(f);
+      documents.push({ key, label: spec.label, url });
+    }
+    // Enforce required documents before submitting.
+    const missing = docsSpec.filter((d) => d.required && !documents.some((x) => x.key === d.key));
+    if (missing.length) throw new Error("Dokumen wajib belum lengkap: " + missing.map((d) => d.label).join(", "));
+    const { documents: _omit, ...fields } = req.body;
+    await api("/corporate/apply", { method: "POST", body: { ...fields, entityType, documents } });
+    res.redirect("/corporate/register?done=1");
+  } catch (e) {
+    res.render("corporate/register", { done: null, error: e.message, cfg });
+  }
 });
 
 app.get("/corporate", corporateGuard, async (req, res) => {

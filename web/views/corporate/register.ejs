@@ -11,20 +11,25 @@
 <body>
 <div class="auth">
   <div class="auth-form-wrap" style="align-items:start">
-    <div class="auth-card" style="max-width:440px;padding-top:40px;padding-bottom:40px">
+    <div class="auth-card" style="max-width:460px;padding-top:40px;padding-bottom:40px">
       <img src="/static/logo.png" alt="Miruum" class="auth-logo">
       <span class="eyebrow">Corporate &amp; Government</span>
       <h2>Ajukan Layanan Corporate</h2>
-      <p class="lead">Lengkapi data instansi Anda. Tim Miruum akan meninjau &amp; mengaktifkan akun (kredensial dikirim ke email PIC).</p>
+      <p class="lead">Lengkapi data instansi &amp; unggah dokumen legalitas. Tim Miruum akan meninjau &amp; mengaktifkan akun (kredensial dikirim ke email PIC).</p>
 
       <% if (done) { %>
         <div class="notice ok" style="margin-bottom:16px">Pengajuan terkirim! Tim Miruum akan menghubungi PIC via email. <a href="/corporate/login">Kembali ke login</a></div>
       <% } %>
       <% if (error) { %><div class="error"><%= error %></div><% } %>
 
-      <form method="post" action="/corporate/register">
+      <form id="corpForm" method="post" action="/corporate/register" enctype="multipart/form-data">
         <label>Jenis Instansi</label>
-        <select name="type"><option value="CORPORATE">Perusahaan / Korporat</option><option value="GOVERNMENT">Instansi Pemerintah</option></select>
+        <select id="entityType" name="entityType">
+          <% (cfg.entityTypes || []).forEach(function(t){ %>
+            <option value="<%= t %>"><%= (cfg.labels && cfg.labels[t]) || t %></option>
+          <% }) %>
+        </select>
+
         <label>Nama Instansi / Perusahaan</label>
         <input name="companyName" placeholder="mis. PT Nusantara Jaya" required>
         <div class="row2">
@@ -42,6 +47,25 @@
         </div>
         <label>Kebutuhan / Catatan</label>
         <textarea name="note" rows="2" placeholder="mis. rata-rata 30 pemesanan/bulan untuk perjalanan dinas"></textarea>
+
+        <!-- Legality documents — the required set adapts to the chosen entity type -->
+        <div style="margin-top:18px;padding-top:6px;border-top:1px solid var(--line)">
+          <% (cfg.entityTypes || []).forEach(function(t){ %>
+            <div class="doc-block" data-type="<%= t %>" style="display:none">
+              <label style="margin-top:12px">Dokumen Legalitas — <%= (cfg.labels && cfg.labels[t]) || t %></label>
+              <% ((cfg.catalog && cfg.catalog[t]) || []).forEach(function(d){ %>
+                <div class="doc-row" style="display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+                  <div style="min-width:0">
+                    <div style="font-weight:600;font-size:13px"><%= d.label %><% if (d.required) { %> <span style="color:#e5484d">*</span><% } %></div>
+                    <div class="muted" style="font-size:11px"><%= d.required ? 'Wajib' : 'Opsional' %> · PDF / JPG / PNG · maks 8MB</div>
+                  </div>
+                  <input type="file" class="doc-input" name="doc_<%= d.key %>" accept=".pdf,image/png,image/jpeg,image/webp" data-req="<%= d.required ? 1 : 0 %>" style="max-width:170px;font-size:12px" disabled>
+                </div>
+              <% }) %>
+            </div>
+          <% }) %>
+        </div>
+
         <div style="margin-top:18px"><button class="btn" style="width:100%;justify-content:center">Kirim Pengajuan</button></div>
       </form>
       <p style="text-align:center;margin-top:16px;font-size:13px">Sudah punya akun? <a href="/corporate/login">Masuk di sini</a></p>
@@ -49,5 +73,30 @@
   </div>
   <%- include('../partials/auth_brand', { variant: 'corp' }) %>
 </div>
+
+<script>
+(function () {
+  var sel = document.getElementById('entityType');
+  var blocks = Array.prototype.slice.call(document.querySelectorAll('.doc-block'));
+  if (!sel) return;
+  function sync() {
+    var v = sel.value;
+    blocks.forEach(function (b) {
+      var on = b.getAttribute('data-type') === v;
+      b.style.display = on ? 'block' : 'none';
+      Array.prototype.slice.call(b.querySelectorAll('.doc-input')).forEach(function (i) { i.disabled = !on; });
+    });
+  }
+  sel.addEventListener('change', sync);
+  sync();
+  document.getElementById('corpForm').addEventListener('submit', function (e) {
+    var block = document.querySelector('.doc-block[data-type="' + sel.value + '"]');
+    if (!block) return;
+    var missing = Array.prototype.slice.call(block.querySelectorAll('.doc-input[data-req="1"]'))
+      .filter(function (i) { return !i.files.length; });
+    if (missing.length) { e.preventDefault(); alert('Lengkapi semua dokumen wajib (bertanda *) terlebih dahulu.'); }
+  });
+})();
+</script>
 </body>
 </html>
