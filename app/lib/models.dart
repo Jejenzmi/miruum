@@ -3,15 +3,17 @@ import 'package:equatable/equatable.dart';
 
 class AppUser extends Equatable {
   final String id, name, email;
+  final String role; // USER | ADMIN | PARTNER | CORPORATE
   final String? phone, gender, birthDate, avatarUrl;
   final String? title, nationality, idType, idNumber, address, city;
   const AppUser({
-    required this.id, required this.name, required this.email,
+    required this.id, required this.name, required this.email, this.role = 'USER',
     this.phone, this.gender, this.birthDate, this.avatarUrl,
     this.title, this.nationality, this.idType, this.idNumber, this.address, this.city,
   });
+  bool get isCorporate => role == 'CORPORATE';
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
-        id: j['id'], name: j['name'] ?? '', email: j['email'] ?? '',
+        id: j['id'], name: j['name'] ?? '', email: j['email'] ?? '', role: j['role'] ?? 'USER',
         phone: j['phone'], gender: j['gender'], birthDate: j['birthDate'], avatarUrl: j['avatarUrl'],
         title: j['title'], nationality: j['nationality'], idType: j['idType'],
         idNumber: j['idNumber'], address: j['address'], city: j['city'],
@@ -21,7 +23,7 @@ class AppUser extends Equatable {
   // by the AuthBloc and triggers a rebuild.
   @override
   List<Object?> get props =>
-      [id, name, email, phone, gender, birthDate, avatarUrl, title, nationality, idType, idNumber, address, city];
+      [id, name, email, role, phone, gender, birthDate, avatarUrl, title, nationality, idType, idNumber, address, city];
 }
 
 class Facility {

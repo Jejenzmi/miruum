@@ -11,15 +11,25 @@
   <h2>Daftar Pengajuan</h2>
   <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Instansi</th><th>Jenis</th><th>PIC</th><th>Kontak</th><th>Skala</th><th>Status</th><th>Aksi</th></tr></thead>
+      <thead><tr><th>Instansi</th><th>Jenis</th><th>PIC</th><th>Kontak</th><th>Dokumen Legalitas</th><th>Status</th><th>Aksi</th></tr></thead>
       <tbody>
+        <%
+          var ENTITY_LABELS = { SWASTA:'Perusahaan Swasta', BUMN:'BUMN', BUMD:'BUMD', PEMERINTAH:'Instansi Pemerintahan' };
+        %>
         <% applications.forEach(function(a){ %>
           <tr>
             <td><b><%= a.companyName %></b><% if (a.taxId) { %><br><span class="muted" style="font-size:11px">NPWP <%= a.taxId %></span><% } %><% if (a.note) { %><br><span class="muted" style="font-size:11px"><%= a.note.slice(0,60) %></span><% } %></td>
-            <td><span class="pill <%= a.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= a.type==='GOVERNMENT'?'Pemerintah':'Korporat' %></span></td>
+            <td><span class="pill <%= a.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= ENTITY_LABELS[a.entityType] || (a.type==='GOVERNMENT'?'Pemerintah':'Korporat') %></span></td>
             <td><%= a.picName %><% if (a.picPosition) { %><br><span class="muted" style="font-size:11px"><%= a.picPosition %></span><% } %></td>
             <td style="font-size:12px"><%= a.email %><br><span class="muted"><%= a.phone %></span></td>
-            <td><%= a.employees ? a.employees + ' org' : '—' %></td>
+            <td style="font-size:12px;max-width:220px">
+              <% var docs = Array.isArray(a.documents) ? a.documents : []; %>
+              <% if (docs.length) { %>
+                <% docs.forEach(function(d){ %>
+                  <div style="margin:2px 0"><a href="<%= d.url %>" target="_blank" rel="noopener">📎 <%= d.label || d.key %></a></div>
+                <% }) %>
+              <% } else { %><span class="muted">—</span><% } %>
+            </td>
             <td>
               <% if (a.status==='PENDING') { %><span class="pill PENDING">Menunggu</span>
               <% } else if (a.status==='APPROVED') { %><span class="pill PAID">Disetujui</span>

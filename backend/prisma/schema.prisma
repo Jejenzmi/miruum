@@ -24,6 +24,7 @@ enum CorporateType {
 model Corporate {
   id          String        @id @default(cuid())
   type        CorporateType @default(CORPORATE)
+  entityType  String?       // SWASTA | BUMN | BUMD | PEMERINTAH (detailed classification)
   name        String
   email       String?
   phone       String?
@@ -95,6 +96,7 @@ model Region {
 model CorporateApplication {
   id          String            @id @default(cuid())
   type        CorporateType     @default(CORPORATE)
+  entityType  String?           // SWASTA | BUMN | BUMD | PEMERINTAH
   companyName String
   picName     String
   picPosition String?
@@ -105,6 +107,7 @@ model CorporateApplication {
   regionId    String?
   employees   Int               @default(0)
   note        String?
+  documents   Json?             // [{ key, label, url }] uploaded legality documents
   status      ApplicationStatus @default(PENDING)
   createdAt   DateTime          @default(now())
 }

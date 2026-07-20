@@ -146,6 +146,30 @@ class Api {
   Future<String> uploadImage(String dataUrl, {String folder = 'avatars'}) async =>
       (await _post('/uploads', {'dataUrl': dataUrl, 'folder': folder}))['url'] as String;
 
+  // ── Corporate / Government (login uses the shared /auth/login) ──
+  /// Entity types + the legality-document checklist required per type.
+  Future<Map<String, dynamic>> corporateDocRequirements() async =>
+      (await _get('/corporate/doc-requirements')) as Map<String, dynamic>;
+
+  /// Upload a single legality document (PDF/JPG/PNG data URL). Public — no auth.
+  Future<String> uploadCorporateDoc(String dataUrl) async =>
+      (await _post('/corporate/upload-doc', {'dataUrl': dataUrl}))['url'] as String;
+
+  /// Submit a corporate/government account application.
+  Future<void> corporateApply(Map<String, dynamic> data) async => _post('/corporate/apply', data);
+
+  /// Corporate portal: account + stats + recent bookings.
+  Future<Map<String, dynamic>> corporateOverview() async =>
+      (await _get('/corporate/overview')) as Map<String, dynamic>;
+
+  /// Corporate portal: billing statements (tagihan) issued by Miruum.
+  Future<List<dynamic>> corporateInvoices() async =>
+      (await _get('/corporate/invoices'))['invoices'] as List;
+
+  /// Corporate portal: all bookings made on the corporate account.
+  Future<List<dynamic>> corporateBookings() async =>
+      (await _get('/corporate/bookings'))['bookings'] as List;
+
   /// Request an OTP. Returns a dev code string only when the server has no
   /// email/WA channel configured (so the flow still works in demo); else null.
   Future<String?> requestOtp() async {

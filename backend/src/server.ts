@@ -1874,23 +1874,112 @@ app.get("/api/corporate-invoices/:id", async (req, res) => {
 </body></html>`);
 });
 
-// Public: apply for a corporate/government account (pengajuan layanan).
-app.post("/api/corporate/apply", async (req, res) => {
+// ─────────── Corporate entity types & required legality documents ───────────
+// Detailed classification (below the coarse CORPORATE/GOVERNMENT billing type)
+// and the checklist of legality documents each type must upload. Kept in sync
+// with the Flutter app (screens/corporate.dart) and Back Office review view.
+const CORP_ENTITY_TYPES = ["SWASTA", "BUMN", "BUMD", "PEMERINTAH"] as const;
+const CORP_ENTITY_LABELS: Record<string, string> = {
+  SWASTA: "Perusahaan Swasta", BUMN: "BUMN", BUMD: "BUMD", PEMERINTAH: "Instansi Pemerintahan",
+};
+const CORP_DOC_CATALOG: Record<string, { key: string; label: string; required: boolean }[]> = {
+  SWASTA: [
+    { key: "akta", label: "Akta Pendirian & Perubahan Terakhir", required: true },
+    { key: "sk_kemenkumham", label: "SK Pengesahan Kemenkumham", required: true },
+    { key: "npwp", label: "NPWP Perusahaan", required: true },
+    { key: "nib", label: "NIB / Izin Usaha (OSS)", required: true },
+    { key: "ktp_pic", label: "KTP Penanggung Jawab (PIC)", required: true },
+    { key: "surat_kuasa", label: "Surat Kuasa / Penunjukan PIC", required: false },
+  ],
+  BUMN: [
+    { key: "dasar_hukum", label: "Dasar Hukum Pendirian (PP / UU / Akta Persero)", required: true },
+    { key: "npwp", label: "NPWP Perusahaan", required: true },
+    { key: "nib", label: "NIB / Izin Usaha (OSS)", required: true },
+    { key: "surat_penunjukan", label: "Surat Penunjukan PIC", required: true },
+    { key: "ktp_pic", label: "KTP Penanggung Jawab (PIC)", required: true },
+  ],
+  BUMD: [
+    { key: "perda", label: "Perda / Perkada Pendirian", required: true },
+    { key: "npwp", label: "NPWP Perusahaan", required: true },
+    { key: "nib", label: "NIB / Izin Usaha (OSS)", required: true },
+    { key: "surat_penunjukan", label: "Surat Penunjukan PIC", required: true },
+    { key: "ktp_pic", label: "KTP Penanggung Jawab (PIC)", required: true },
+  ],
+  PEMERINTAH: [
+    { key: "sk_instansi", label: "SK / Surat Tugas Instansi", required: true },
+    { key: "npwp", label: "NPWP Instansi / Bendahara", required: true },
+    { key: "surat_penunjukan", label: "Surat Penunjukan Bendahara / PIC", required: true },
+    { key: "ktp_pic", label: "KTP Bendahara / PIC", required: true },
+    { key: "dipa", label: "DIPA / Dokumen Anggaran", required: false },
+  ],
+};
+const entityToType = (e: string) => (e === "PEMERINTAH" ? "GOVERNMENT" : "CORPORATE");
+
+// Public: the document checklist so the mobile app can render fields dynamically.
+app.get("/api/corporate/doc-requirements", (_req, res) => {
+  res.json({ entityTypes: CORP_ENTITY_TYPES, labels: CORP_ENTITY_LABELS, catalog: CORP_DOC_CATALOG });
+});
+
+// Public: upload one legality document (PDF/JPG/PNG) for an application.
+app.post("/api/corporate/upload-doc", authLimiter, async (req, res) => {
   const schema = z.object({
-    type: z.enum(["CORPORATE", "GOVERNMENT"]).default("CORPORATE"),
+    dataUrl: z.string().regex(/^data:(image\/(png|jpe?g|webp)|application\/pdf);base64,/, "Format tidak didukung (PDF / JPG / PNG)"),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Data tidak valid" });
+  if (!storageReady()) return res.status(503).json({ error: "Penyimpanan belum siap" });
+  const m = parsed.data.dataUrl.match(/^data:([a-z/+.-]+);base64,(.*)$/s);
+  if (!m) return res.status(400).json({ error: "Data dokumen tidak valid" });
+  const [, contentType, b64] = m;
+  const buf = Buffer.from(b64, "base64");
+  if (buf.length > 8 * 1024 * 1024) return res.status(413).json({ error: "Ukuran file maksimal 8MB" });
+  const ext = contentType === "application/pdf" ? "pdf" : contentType.split("/")[1].replace("jpeg", "jpg");
+  const key = `legality/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  try {
+    const url = await putObject(key, buf, contentType);
+    res.json({ url });
+  } catch (e: any) {
+    res.status(500).json({ error: "Gagal mengunggah dokumen" });
+  }
+});
+
+// Public: apply for a corporate/government account (pengajuan layanan).
+app.post("/api/corporate/apply", authLimiter, async (req, res) => {
+  const docSchema = z.object({ key: z.string(), label: z.string().optional(), url: z.string().url() });
+  const schema = z.object({
+    entityType: z.enum(CORP_ENTITY_TYPES).optional(),
+    type: z.enum(["CORPORATE", "GOVERNMENT"]).optional(), // legacy web form (no entityType)
     companyName: z.string().min(2), picName: z.string().min(2), picPosition: z.string().optional(),
     email: z.string().email(), phone: z.string().min(5), address: z.string().optional(),
     taxId: z.string().optional(), regionId: z.string().optional(), employees: z.coerce.number().int().min(0).default(0), note: z.string().optional(),
+    documents: z.array(docSchema).optional().default([]),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Lengkapi data pengajuan dengan benar" });
-  const app = await prisma.corporateApplication.create({ data: p.data });
+  const entityType = p.data.entityType ?? (p.data.type === "GOVERNMENT" ? "PEMERINTAH" : "SWASTA");
+  const type = entityToType(entityType);
+  // When the app sends an entityType, enforce that all required documents are present.
+  if (p.data.entityType) {
+    const need = CORP_DOC_CATALOG[entityType].filter((d) => d.required).map((d) => d.key);
+    const have = new Set((p.data.documents ?? []).map((d) => d.key));
+    const missing = need.filter((k) => !have.has(k));
+    if (missing.length) return res.status(400).json({ error: "Dokumen wajib belum lengkap" });
+  }
+  const created = await prisma.corporateApplication.create({
+    data: {
+      type, entityType,
+      companyName: p.data.companyName, picName: p.data.picName, picPosition: p.data.picPosition,
+      email: p.data.email, phone: p.data.phone, address: p.data.address, taxId: p.data.taxId,
+      regionId: p.data.regionId, employees: p.data.employees, note: p.data.note,
+      documents: (p.data.documents ?? []) as any,
+    },
+  });
   // Notify Miruum admins.
   const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
   for (const a of admins) {
-    await dispatch(prisma, { userId: a.id, title: "Pengajuan Akun Korporat Baru", body: `${app.companyName} (${app.type === "GOVERNMENT" ? "Pemerintah" : "Korporat"}) mengajukan layanan. PIC: ${app.picName}. Tinjau di Back Office.`, type: "info" });
+    await dispatch(prisma, { userId: a.id, title: "Pengajuan Akun Korporat Baru", body: `${created.companyName} (${CORP_ENTITY_LABELS[entityType] ?? entityType}) mengajukan layanan. PIC: ${created.picName}. ${(p.data.documents ?? []).length} dokumen legalitas dilampirkan. Tinjau di Back Office.`, type: "info" });
   }
-  res.json({ ok: true, application: { id: app.id } });
+  res.json({ ok: true, application: { id: created.id } });
 });
 
 // Admin: review corporate applications.
@@ -1906,7 +1995,7 @@ app.post("/api/admin/corporate-applications/:id/approve", requireRole("ADMIN"), 
   const existingUser = await prisma.user.findUnique({ where: { email: app.email } });
   if (existingUser) return res.status(409).json({ error: "Email sudah terpakai akun lain" });
   const corp = await prisma.corporate.create({
-    data: { type: app.type, name: app.companyName, email: app.email, phone: app.phone, address: app.address, taxId: app.taxId, regionId: app.regionId, picName: app.picName, picPosition: app.picPosition },
+    data: { type: app.type, entityType: (app as any).entityType, name: app.companyName, email: app.email, phone: app.phone, address: app.address, taxId: app.taxId, regionId: app.regionId, picName: app.picName, picPosition: app.picPosition },
   });
   const tempPass = "MRM" + Math.random().toString(36).slice(2, 8);
   await prisma.user.create({

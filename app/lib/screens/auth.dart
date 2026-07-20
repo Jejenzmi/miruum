@@ -9,6 +9,7 @@ import '../feedback.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
+import 'corporate.dart';
 
 void _toast(BuildContext c, String m, {bool err = true}) =>
     showSnack(c, m, kind: err ? SnackKind.error : SnackKind.success);
@@ -182,6 +183,22 @@ class _SignInScreenState extends State<SignInScreen> {
                   style: OutlinedButton.styleFrom(
                     alignment: Alignment.center,
                     side: BorderSide(color: MC.line),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Corporate / Government login — for company & agency accounts.
+              SizedBox(
+                height: 50,
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateLoginScreen())),
+                  icon: const Icon(Icons.business_center_rounded, size: 20, color: MC.primary),
+                  label: const Text('Login Corporate / Instansi', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                  style: OutlinedButton.styleFrom(
+                    alignment: Alignment.center,
+                    side: const BorderSide(color: MC.primary),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                   ),
                 ),

@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
 import 'auth.dart';
+import 'corporate.dart';
 import 'chat_screen.dart';
 import 'loyalty.dart';
 import 'wallet_screen.dart';
@@ -69,6 +70,9 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
             children: [
               ...stagger([
+                if (session.user!.isCorporate)
+                  _menuTile(context, Icons.business_center_rounded, 'Portal Korporat', MC.primaryDark,
+                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporatePortalScreen()))),
                 _menuTile(context, Icons.person_outline_rounded, 'Data Pribadi', MC.blue,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDataScreen()))),
                 _menuTile(context, Icons.stars_rounded, 'Poin & Membership', MC.primary,
