@@ -7,11 +7,11 @@ control** (the DNS record); everything else is scripted.
 ## Option A — Staging on the SAME VPS (cheapest, recommended to start)
 
 Runs an isolated second stack (own DB/redis/minio/containers) under the compose
-project `ota-staging`, on different host ports, behind `staging.gokar.id`.
+project `ota-staging`, on different host ports, behind `staging.miruum.id`.
 
 **1. Add the DNS record (only step you must do):**
 ```
-A   staging.gokar.id   →   76.13.197.249
+A   staging.miruum.id   →   76.13.197.249
 ```
 
 **2. On the VPS, create the staging stack:**
@@ -25,15 +25,15 @@ docker compose -p ota-staging up -d --build
 Use distinct host ports in the staging compose (e.g. web→8201, backend→5119) so
 they don't clash with production (web→8101, backend→5019).
 
-**3. nginx for `staging.gokar.id`** — copy `ota.gokar.id.conf`, swap the
+**3. nginx for `staging.miruum.id`** — copy `api.miruum.id.conf`, swap the
 `server_name` and the proxy ports to the staging ones, then:
 ```bash
-certbot --nginx -d staging.gokar.id && nginx -s reload
+certbot --nginx -d staging.miruum.id && nginx -s reload
 ```
 
 **4. Deploy to staging** with the pipeline:
 ```bash
-MIRUUM_REMOTE=/root/ota-staging MIRUUM_HEALTH=https://staging.gokar.id/api/health \
+MIRUUM_REMOTE=/root/ota-staging MIRUUM_HEALTH=https://staging.miruum.id/api/health \
   ./scripts/deploy.sh all
 ```
 

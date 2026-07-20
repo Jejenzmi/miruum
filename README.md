@@ -5,11 +5,11 @@ Implementasi penuh dari desain Figma **"Mockup OTA Miruum"**. Arsitektur tiga si
 | Komponen | Untuk | Stack |
 |---|---|---|
 | **Mobile app** | User (pemesan) | **Flutter + Bloc** (Android/iOS) |
-| **Back Office** | Admin internal | **Node.js** (Express + EJS) — `miruum.gokar.id/admin` |
-| **Extranet** | Mitra hotel | **Node.js** (Express + EJS) — `miruum.gokar.id/extranet` |
+| **Back Office** | Admin internal | **Node.js** (Express + EJS) — `miruum.id/admin` |
+| **Extranet** | Mitra hotel | **Node.js** (Express + EJS) — `miruum.id/extranet` |
 | Core API + DB | dipakai semua | Node/TypeScript/Prisma/PostgreSQL |
 
-**Live:** https://miruum.gokar.id
+**Live:** https://miruum.id
 
 ## Struktur
 ```
@@ -37,7 +37,7 @@ Primary hijau `#2FA84F` · Accent oranye `#F5A623` · Text `#04021D` · Cover `#
 | Mitra (Extranet) | `partner@panji.id` / `partner123` |
 
 ## Menjalankan
-**Deploy (VPS):** `cd deploy && cp .env.example .env && docker compose up -d --build`, lalu pasang nginx site + `certbot --nginx -d miruum.gokar.id`.
+**Deploy (VPS):** `cd deploy && cp .env.example .env && docker compose up -d --build`, lalu pasang nginx site + `certbot --nginx -d miruum.id`.
 
-**Mobile:** `cd app && flutter build apk --release --dart-define=API_BASE=https://miruum.gokar.id/api`
+**Mobile:** `cd app && flutter build apk --release --dart-define=API_BASE=https://miruum.id/api`
 Dev: `flutter run --dart-define=API_BASE=http://<host>:5013/api`

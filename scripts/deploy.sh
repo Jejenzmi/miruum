@@ -10,7 +10,7 @@ set -euo pipefail
 VPS="${MIRUUM_VPS:-root@76.13.197.249}"
 KEY="${MIRUUM_KEY:-$HOME/.ssh/gokar_prod}"
 REMOTE="${MIRUUM_REMOTE:-/root/ota}"
-HEALTH_URL="${MIRUUM_HEALTH:-https://ota.gokar.id/api/health}"
+HEALTH_URL="${MIRUUM_HEALTH:-https://api.miruum.id/api/health}"
 SSH=(ssh -i "$KEY" -o StrictHostKeyChecking=no)
 TARGET="${1:-all}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

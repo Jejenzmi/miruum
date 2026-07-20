@@ -20,7 +20,7 @@ enum CorporateType {
   GOVERNMENT
 }
 
-// A company / government agency with a booking account (corporate.gokar.id).
+// A company / government agency with a booking account (corporate.miruum.id).
 model Corporate {
   id          String        @id @default(cuid())
   type        CorporateType @default(CORPORATE)
