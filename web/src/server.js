@@ -88,7 +88,7 @@ async function uploadDocPublic(file) {
 }
 const CORP_ENTITY_FALLBACK = {
   entityTypes: ["SWASTA", "BUMN", "BUMD", "PEMERINTAH"],
-  labels: { SWASTA: "Perusahaan Swasta", BUMN: "BUMN", BUMD: "BUMD", PEMERINTAH: "Instansi Pemerintahan" },
+  labels: { SWASTA: "Perusahaan Swasta", BUMN: "BUMN", BUMD: "BUMD", PEMERINTAH: "Pemerintahan" },
   catalog: {},
 };
 async function corporateDocConfig() {
@@ -323,7 +323,7 @@ app.get("/admin/users", adminGuard, async (req, res) => {
   res.render("admin/users", { users, active: "users" });
 });
 
-// ── Penagihan Korporat (Miruum → tagihan ke instansi) ──
+// ── Penagihan Korporat (Miruum → tagihan ke corporate) ──
 app.get("/admin/corporate-billing", adminGuard, async (req, res) => {
   const { corporates } = await api("/admin/corporate-billing", { token: res.locals.token });
   res.render("admin/corporate_billing", { corporates, active: "billing", done: req.query.done, err: req.query.err });
@@ -792,7 +792,7 @@ app.get("/corporate/login", (req, res) => res.render("corporate/login", { error:
 app.post("/corporate/login", loginLimiter, async (req, res) => {
   try {
     const { token, user } = await api("/auth/login", { method: "POST", body: { email: req.body.email, password: req.body.password } });
-    if (user.role !== "CORPORATE") throw new Error("Akun ini bukan akun korporat/instansi");
+    if (user.role !== "CORPORATE") throw new Error("Akun ini bukan akun corporate");
     req.session.corporate = { token, user };
     res.redirect("/corporate");
   } catch (e) { res.render("corporate/login", { error: e.message }); }

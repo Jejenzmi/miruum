@@ -1790,7 +1790,7 @@ app.get("/api/corporate/bookings", requireRole("CORPORATE"), async (req: AuthReq
   res.json({ bookings });
 });
 
-// ── Corporate billing (Miruum → tagihan ke instansi) ──
+// ── Corporate billing (Miruum → tagihan ke corporate) ──
 app.get("/api/corporate/invoices", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
   const c = await corporateOf(req);
   if (!c) return res.status(404).json({ error: "Akun korporat tidak ditemukan" });
@@ -1815,7 +1815,7 @@ app.post("/api/admin/corporate-invoices", requireRole("ADMIN"), async (req, res)
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
   const corp = await prisma.corporate.findUnique({ where: { id: p.data.corporateId } });
-  if (!corp) return res.status(404).json({ error: "Instansi tidak ditemukan" });
+  if (!corp) return res.status(404).json({ error: "Corporate tidak ditemukan" });
   const bookings = await prisma.booking.findMany({ where: { corporateId: corp.id, corporateInvoiceId: null }, select: { id: true, totalPrice: true } });
   if (!bookings.length) return res.status(400).json({ error: "Tidak ada pemesanan yang belum ditagih" });
   const amount = bookings.reduce((s, b) => s + Number(b.totalPrice), 0);
@@ -4564,7 +4564,7 @@ const DEFAULT_SITE_CONTENT: any = {
   homeSub: "Harga terbaik dijamin — pesan mudah, bayar aman.",
   ctaPropertyTitle: "Punya hotel atau properti?",
   ctaPropertyText: "Daftarkan properti Anda — jangkau jutaan tamu, kelola harga & pesanan lewat Extranet. Gratis mulai.",
-  ctaCorpTitle: "Perusahaan atau instansi?",
+  ctaCorpTitle: "Perusahaan atau Corporate?",
   ctaCorpText: "Kelola perjalanan dinas karyawan/pegawai dengan tagihan & laporan terpusat. Ajukan akun Corporate/Government.",
   mitraHeadline: "Kembangkan bisnis properti Anda bersama Miruum",
   mitraSub: "Jangkau jutaan tamu di aplikasi & web Miruum. Kelola kamar, harga, dan pesanan dari satu Extranet — gratis untuk memulai.",

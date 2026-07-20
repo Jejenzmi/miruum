@@ -1,9 +1,9 @@
 <%- include('../partials/top', { title:'Penagihan', heading:'Penagihan Korporat & Government', section:'admin', active:'billing', me }) %>
 
-<% if (done) { %><div class="notice ok">Tagihan <b><%= done %></b> diterbitkan & dikirim ke instansi.</div><% } %>
+<% if (done) { %><div class="notice ok">Tagihan <b><%= done %></b> diterbitkan & dikirim ke corporate.</div><% } %>
 <% if (err) { %><div class="notice bad"><%= err %></div><% } %>
 
-<p class="muted" style="margin:-4px 0 18px">Terbitkan tagihan (invoice) untuk pemesanan kredit instansi. Setiap tagihan mencakup pesanan yang belum ditagih; instansi membayar sebelum jatuh tempo.</p>
+<p class="muted" style="margin:-4px 0 18px">Terbitkan tagihan (invoice) untuk pemesanan kredit corporate. Setiap tagihan mencakup pesanan yang belum ditagih; corporate membayar sebelum jatuh tempo.</p>
 
 <% corporates.forEach(function(c){ %>
   <div class="card">

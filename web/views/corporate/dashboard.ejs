@@ -5,7 +5,7 @@
   <div class="wh-txt">
     <div class="eyebrow" style="color:rgba(255,255,255,.85)"><%= corporate.type==='GOVERNMENT' ? 'Government' : 'Corporate' %></div>
     <h2><%= corporate.name %></h2>
-    <p>Pesan hotel untuk karyawan/pegawai Anda dengan tagihan &amp; laporan terpusat. Semua transaksi ditagihkan ke instansi.</p>
+    <p>Pesan hotel untuk karyawan/pegawai Anda dengan tagihan &amp; laporan terpusat. Semua transaksi ditagihkan ke corporate.</p>
   </div>
   <div class="wh-actions">
     <a href="/corporate/book" class="wh-chip">+ Pesan Hotel</a>
@@ -21,9 +21,9 @@
 
 <div class="grid-2">
   <div class="card">
-    <h2>Profil Instansi</h2>
+    <h2>Profil Corporate</h2>
     <div class="row"><span class="k" style="color:var(--muted)">Nama</span><span style="font-weight:600"><%= corporate.name %></span></div>
-    <div class="row" style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Jenis</span><span class="pill <%= corporate.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= corporate.type==='GOVERNMENT'?'Instansi Pemerintah':'Korporat' %></span></div>
+    <div class="row" style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Jenis</span><span class="pill <%= corporate.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= corporate.type==='GOVERNMENT'?'Pemerintahan':'Korporat' %></span></div>
     <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Email</span><span style="font-weight:600"><%= corporate.email || '—' %></span></div>
     <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">Telepon</span><span style="font-weight:600"><%= corporate.phone || '—' %></span></div>
     <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)"><span style="color:var(--muted)">NPWP</span><span style="font-weight:600"><%= corporate.taxId || '—' %></span></div>

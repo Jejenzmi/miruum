@@ -1,11 +1,11 @@
 <%- include('../partials/top', { title:'Pesan Hotel', heading:'Pesan Hotel', section:'corporate', active:'book', me }) %>
 
-<% if (booked) { %><div class="notice ok">Pemesanan berhasil — kode <b><%= booked %></b> ditagihkan ke instansi. <a href="/api/invoices/<%= booked %>" target="_blank">Lihat Invoice</a> · <a href="/api/vouchers/<%= booked %>" target="_blank">E-Voucher</a></div><% } %>
+<% if (booked) { %><div class="notice ok">Pemesanan berhasil — kode <b><%= booked %></b> ditagihkan ke corporate. <a href="/api/invoices/<%= booked %>" target="_blank">Lihat Invoice</a> · <a href="/api/vouchers/<%= booked %>" target="_blank">E-Voucher</a></div><% } %>
 <% if (err) { %><div class="notice bad">Pemesanan gagal. Periksa isian Anda.</div><% } %>
 
 <div class="card" style="max-width:640px">
   <h2>Pesanan Baru untuk Karyawan/Pegawai</h2>
-  <p class="muted" style="margin-top:-8px">Pilih hotel &amp; kamar, tanggal menginap, dan nama tamu. Tagihan otomatis atas nama instansi.</p>
+  <p class="muted" style="margin-top:-8px">Pilih hotel &amp; kamar, tanggal menginap, dan nama tamu. Tagihan otomatis atas nama corporate.</p>
   <form method="post" action="/corporate/book">
     <label>Hotel &amp; Tipe Kamar</label>
     <select name="roomId" required>
@@ -30,7 +30,7 @@
     </div>
     <label>Catatan / No. SPD (opsional)</label>
     <input name="note" placeholder="mis. Perjalanan Dinas No. 123/2026">
-    <div style="margin-top:18px"><button class="btn">Pesan &amp; Tagih ke Instansi</button></div>
+    <div style="margin-top:18px"><button class="btn">Pesan &amp; Tagih ke Corporate</button></div>
   </form>
 </div>
 

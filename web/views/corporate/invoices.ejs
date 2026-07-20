@@ -1,6 +1,6 @@
 <%- include('../partials/top', { title:'Tagihan', heading:'Tagihan & Pembayaran', section:'corporate', active:'invoices', me }) %>
 
-<p class="muted" style="margin:-4px 0 16px">Tagihan yang diterbitkan Miruum atas pemesanan instansi Anda. Unduh untuk keperluan pembayaran & pembukuan.</p>
+<p class="muted" style="margin:-4px 0 16px">Tagihan yang diterbitkan Miruum atas pemesanan corporate Anda. Unduh untuk keperluan pembayaran & pembukuan.</p>
 
 <%
   var unpaid = invoices.filter(function(i){return i.status==='UNPAID'});
