@@ -20,8 +20,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
 
-  final _tabs = const [HomeScreen(), PesananScreen(), JelajahScreen(), FavoritScreen(), ProfileScreen()];
-
   @override
   void initState() {
     super.initState();
@@ -36,7 +34,17 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _tabs),
+      // Rebuild the tab stack when the language changes so every cached tab
+      // (Home/Orders/Explore/Saved/Profile) re-evaluates tr() live. Non-const
+      // instances are required — const widgets are canonicalized and would not
+      // rebuild. State (scroll, loaded data) is preserved (same type, no key).
+      body: ValueListenableBuilder<Locale>(
+        valueListenable: AppSettings.locale,
+        builder: (context, _, __) => IndexedStack(
+          index: _index,
+          children: [HomeScreen(), PesananScreen(), JelajahScreen(), FavoritScreen(), ProfileScreen()],
+        ),
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: MC.surface,
