@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
@@ -18,13 +19,13 @@ class BookingDetailScreen extends StatelessWidget {
   const BookingDetailScreen(this.booking, {super.key});
 
   ({Color color, String label}) get _status => booking.payAtHotel && booking.status == 'PENDING'
-      ? (color: MC.success, label: 'Terkonfirmasi · Bayar di Hotel')
+      ? (color: MC.success, label: tr('Terkonfirmasi · Bayar di Hotel', 'Confirmed · Pay at Hotel'))
       : switch (booking.status) {
-        'PENDING' => (color: MC.accent, label: 'Menunggu dibayar'),
-        'PAID' => (color: MC.success, label: 'Sudah dibayar'),
-        'COMPLETED' => (color: MC.primaryDark, label: 'Selesai'),
-        'CANCELLED' => (color: MC.danger, label: 'Dibatalkan'),
-        'REFUNDED' => (color: MC.inkMuted, label: 'Refund diproses'),
+        'PENDING' => (color: MC.accent, label: tr('Menunggu dibayar', 'Awaiting payment')),
+        'PAID' => (color: MC.success, label: tr('Sudah dibayar', 'Paid')),
+        'COMPLETED' => (color: MC.primaryDark, label: tr('Selesai', 'Completed')),
+        'CANCELLED' => (color: MC.danger, label: tr('Dibatalkan', 'Cancelled')),
+        'REFUNDED' => (color: MC.inkMuted, label: tr('Refund diproses', 'Refund processed')),
         _ => (color: MC.inkMuted, label: booking.status),
       };
 
@@ -35,7 +36,7 @@ class BookingDetailScreen extends StatelessWidget {
     final fmt = DateFormat('EEE, d MMM yyyy', 'id_ID');
     final ci = DateTime.tryParse(b.checkIn), co = DateTime.tryParse(b.checkOut);
     return Scaffold(
-      appBar: AppBar(title: const Text('Detail Pesanan')),
+      appBar: AppBar(title: Text(tr('Detail Pesanan', 'Order Details'))),
       body: SafeArea(
         child: ListView(padding: const EdgeInsets.all(20), children: [
           Center(child: Container(
@@ -53,61 +54,61 @@ class BookingDetailScreen extends StatelessWidget {
               Text(b.hotel?.city ?? '', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
               if (b.packageTitle != null) ...[
                 const SizedBox(height: 4),
-                Text('Paket: ${b.packageTitle}', style: const TextStyle(color: MC.primaryDark, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                Text(tr('Paket: ${b.packageTitle}', 'Package: ${b.packageTitle}'), style: const TextStyle(color: MC.primaryDark, fontSize: 11.5, fontWeight: FontWeight.w600)),
               ],
             ])),
           ])),
           const SizedBox(height: 14),
           cardBox(child: Column(children: [
-            _row('No. Pesanan', b.code),
-            _row('Kamar', '${b.rooms}× ${b.room?.name ?? '-'}'),
-            _row('Tamu', '${b.guests} dewasa'),
-            _row('Check-in', ci != null ? fmt.format(ci) : b.checkIn),
-            _row('Check-out', co != null ? fmt.format(co) : b.checkOut),
-            _row('Durasi', '${b.nights} malam'),
-            if (b.paymentMethod != null) _row('Pembayaran', b.paymentMethod!),
+            _row(tr('No. Pesanan', 'Order No.'), b.code),
+            _row(tr('Kamar', 'Room'), '${b.rooms}× ${b.room?.name ?? '-'}'),
+            _row(tr('Tamu', 'Guests'), tr('${b.guests} dewasa', '${b.guests} adults')),
+            _row(tr('Check-in', 'Check-in'), ci != null ? fmt.format(ci) : b.checkIn),
+            _row(tr('Check-out', 'Check-out'), co != null ? fmt.format(co) : b.checkOut),
+            _row(tr('Durasi', 'Duration'), tr('${b.nights} malam', '${b.nights} nights')),
+            if (b.paymentMethod != null) _row(tr('Pembayaran', 'Payment'), b.paymentMethod!),
           ])),
           const SizedBox(height: 14),
           cardBox(child: Column(children: [
-            _row('Harga Kamar', rupiah(b.roomPrice)),
-            _row('Pajak & Layanan', rupiah(b.taxFee)),
-            if (b.discount > 0) _row('Diskon${b.promoCode != null ? ' (${b.promoCode})' : ''}', '- ${rupiah(b.discount)}', color: MC.success),
+            _row(tr('Harga Kamar', 'Room Price'), rupiah(b.roomPrice)),
+            _row(tr('Pajak & Layanan', 'Tax & Service'), rupiah(b.taxFee)),
+            if (b.discount > 0) _row(tr('Diskon${b.promoCode != null ? ' (${b.promoCode})' : ''}', 'Discount${b.promoCode != null ? ' (${b.promoCode})' : ''}'), '- ${rupiah(b.discount)}', color: MC.success),
             Divider(height: 20, color: MC.line),
-            _row('Total', rupiah(b.totalPrice), bold: true),
+            _row(tr('Total', 'Total'), rupiah(b.totalPrice), bold: true),
           ])),
           const SizedBox(height: 18),
           if (b.status == 'PENDING' && !b.payAtHotel)
-            PrimaryButton('Lanjutkan Pembayaran', icon: Icons.payment_rounded,
+            PrimaryButton(tr('Lanjutkan Pembayaran', 'Continue Payment'), icon: Icons.payment_rounded,
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id))))
           else if (b.status == 'PAID' || b.status == 'COMPLETED' || b.payAtHotel) ...[
-            PrimaryButton('Lihat E-Voucher (PDF)', icon: Icons.picture_as_pdf_rounded, onPressed: () async {
+            PrimaryButton(tr('Lihat E-Voucher (PDF)', 'View E-Voucher (PDF)'), icon: Icons.picture_as_pdf_rounded, onPressed: () async {
               try {
                 final bytes = await buildGuestVoucherPdf(b);
                 await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'Voucher-${b.code}.pdf');
               } catch (_) {
-                if (context.mounted) showSnack(context, 'Gagal membuka voucher PDF.', kind: SnackKind.error);
+                if (context.mounted) showSnack(context, tr('Gagal membuka voucher PDF.', 'Failed to open PDF voucher.'), kind: SnackKind.error);
               }
             }),
             const SizedBox(height: 10),
-            OutlineButtonX('Bagikan Voucher (PDF)', icon: Icons.ios_share_rounded, onPressed: () async {
+            OutlineButtonX(tr('Bagikan Voucher (PDF)', 'Share Voucher (PDF)'), icon: Icons.ios_share_rounded, onPressed: () async {
               try {
                 final bytes = await buildGuestVoucherPdf(b);
                 await Printing.sharePdf(bytes: bytes, filename: 'Voucher-${b.code}.pdf');
               } catch (_) {
-                if (context.mounted) showSnack(context, 'Gagal membagikan voucher.', kind: SnackKind.error);
+                if (context.mounted) showSnack(context, tr('Gagal membagikan voucher.', 'Failed to share voucher.'), kind: SnackKind.error);
               }
             }),
             const SizedBox(height: 10),
-            OutlineButtonX('Lihat Invoice', icon: Icons.description_rounded, onPressed: () async {
+            OutlineButtonX(tr('Lihat Invoice', 'View Invoice'), icon: Icons.description_rounded, onPressed: () async {
               final ok = await openUrl(context.read<Api>().invoiceUrl(b.code));
-              if (!ok && context.mounted) showSnack(context, 'Tidak dapat membuka invoice.', kind: SnackKind.error);
+              if (!ok && context.mounted) showSnack(context, tr('Tidak dapat membuka invoice.', 'Could not open invoice.'), kind: SnackKind.error);
             }),
             if (b.status == 'PAID') ...[
               const SizedBox(height: 10),
               if (b.onlineCheckedIn && (b.keyCode ?? '').isNotEmpty)
-                PrimaryButton('Kunci Digital Kamar', icon: Icons.vpn_key_rounded, onPressed: () => _showKey(context, b.keyCode!))
+                PrimaryButton(tr('Kunci Digital Kamar', 'Digital Room Key'), icon: Icons.vpn_key_rounded, onPressed: () => _showKey(context, b.keyCode!))
               else
-                OutlineButtonX('Check-in Online', icon: Icons.login_rounded, onPressed: () => _doCheckin(context)),
+                OutlineButtonX(tr('Check-in Online', 'Online Check-in'), icon: Icons.login_rounded, onPressed: () => _doCheckin(context)),
             ],
           ],
         ]),
@@ -132,16 +133,16 @@ class BookingDetailScreen extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.vpn_key_rounded, color: MC.primary, size: 30),
           const SizedBox(height: 8),
-          Text(justChecked ? 'Check-in Online Berhasil!' : 'Kunci Digital Kamar', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17), textAlign: TextAlign.center),
+          Text(justChecked ? tr('Check-in Online Berhasil!', 'Online Check-in Successful!') : tr('Kunci Digital Kamar', 'Digital Room Key'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17), textAlign: TextAlign.center),
           const SizedBox(height: 4),
-          Text('Tunjukkan kode ini di resepsionis / gerbang kamar.', textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 12.5)),
+          Text(tr('Tunjukkan kode ini di resepsionis / gerbang kamar.', 'Show this code at the reception / room gate.'), textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 12.5)),
           const SizedBox(height: 16),
           Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: MC.line)),
               child: QrImageView(data: code, size: 170, version: QrVersions.auto)),
           const SizedBox(height: 12),
           Text(code, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, letterSpacing: 2, color: MC.primaryDark)),
           const SizedBox(height: 16),
-          SizedBox(width: double.infinity, child: PrimaryButton('Tutup', onPressed: () => Navigator.pop(context))),
+          SizedBox(width: double.infinity, child: PrimaryButton(tr('Tutup', 'Close'), onPressed: () => Navigator.pop(context))),
         ]),
       ),
     ));

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../l10n.dart';
 import 'hotel_detail.dart';
 
 /// Side-by-side comparison of 2–3 properties.
@@ -17,7 +18,7 @@ class CompareScreen extends StatelessWidget {
     final maxRating = list.map((h) => h.rating).reduce((a, b) => a > b ? a : b);
     return Scaffold(
       backgroundColor: MC.bg,
-      appBar: AppBar(title: const Text('Bandingkan Properti')),
+      appBar: AppBar(title: Text(tr('Bandingkan Properti', 'Compare Properties'))),
       body: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Padding(
@@ -53,17 +54,17 @@ class CompareScreen extends StatelessWidget {
           Text(h.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, height: 1.2)),
           Text(PropertyType.label(h.propertyType), style: TextStyle(color: MC.inkMuted, fontSize: 11)),
           const Divider(height: 16),
-          row(Icons.sell_rounded, 'Harga/malam', rupiah(h.priceFrom), color: MC.primaryDark, best: isCheapest),
-          row(Icons.star_rounded, 'Rating tamu', '${h.rating.toStringAsFixed(1)} / 10', best: isTopRated),
-          row(Icons.grade_rounded, 'Bintang', '${h.starRating} ★'),
-          row(Icons.location_on_rounded, 'Kota', h.city),
-          row(Icons.reviews_rounded, 'Ulasan', '${h.reviewCount}'),
+          row(Icons.sell_rounded, tr('Harga/malam', 'Price/night'), rupiah(h.priceFrom), color: MC.primaryDark, best: isCheapest),
+          row(Icons.star_rounded, tr('Rating tamu', 'Guest rating'), '${h.rating.toStringAsFixed(1)} / 10', best: isTopRated),
+          row(Icons.grade_rounded, tr('Bintang', 'Stars'), '${h.starRating} ★'),
+          row(Icons.location_on_rounded, tr('Kota', 'City'), h.city),
+          row(Icons.reviews_rounded, tr('Ulasan', 'Reviews'), '${h.reviewCount}'),
           const SizedBox(height: 10),
           SizedBox(width: double.infinity, height: 34, child: ElevatedButton(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(h.id))),
             style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)), textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-            child: const Text('Lihat'))),
+            child: Text(tr('Lihat', 'View')))),
         ])),
       ]),
     );

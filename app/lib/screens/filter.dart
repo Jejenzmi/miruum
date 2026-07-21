@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -81,18 +82,18 @@ class _FilterScreenState extends State<FilterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const sorts = {'': 'Rekomendasi', 'price_asc': 'Termurah', 'price_desc': 'Termahal', 'rating': 'Rating Tertinggi', 'popular': 'Terpopuler'};
+    final sorts = {'': tr('Rekomendasi', 'Recommended'), 'price_asc': tr('Termurah', 'Lowest Price'), 'price_desc': tr('Termahal', 'Highest Price'), 'rating': tr('Rating Tertinggi', 'Top Rated'), 'popular': tr('Terpopuler', 'Most Popular')};
     return Scaffold(
-      appBar: AppBar(title: const Text('Filter & Urutkan'), actions: [
-        TextButton(onPressed: () => Navigator.pop(context, const FilterResult()), child: const Text('Reset', style: TextStyle(color: MC.primary))),
+      appBar: AppBar(title: Text(tr('Filter & Urutkan', 'Filter & Sort')), actions: [
+        TextButton(onPressed: () => Navigator.pop(context, const FilterResult()), child: Text(tr('Reset', 'Reset'), style: const TextStyle(color: MC.primary))),
       ]),
       body: SafeArea(
         child: Column(children: [
           Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 20), children: [
-            _section('Urutkan'),
+            _section(tr('Urutkan', 'Sort by')),
             Wrap(spacing: 8, runSpacing: 8, children: sorts.entries.map((e) => _chip(e.value, _sort == e.key, () => setState(() => _sort = e.key))).toList()),
 
-            _section('Rentang harga per malam'),
+            _section(tr('Rentang harga per malam', 'Price range per night')),
             RangeSlider(
               values: _price, min: 0, max: 5000000, divisions: 50, activeColor: MC.primary,
               labels: RangeLabels(rupiah(_price.start.round()), rupiah(_price.end.round())),
@@ -103,30 +104,30 @@ class _FilterScreenState extends State<FilterScreen> {
               Text(rupiah(_price.end.round()), style: const TextStyle(fontWeight: FontWeight.w600)),
             ]),
 
-            _section('Jenis properti'),
+            _section(tr('Jenis properti', 'Property type')),
             Wrap(spacing: 8, runSpacing: 8, children: PropertyType.all.map((t) {
               final sel = _propertyTypes.contains(t);
               return _chip(PropertyType.label(t), sel, () => setState(() => sel ? _propertyTypes.remove(t) : _propertyTypes.add(t)));
             }).toList()),
 
-            _section('Bintang hotel'),
+            _section(tr('Bintang hotel', 'Hotel star rating')),
             Wrap(spacing: 8, children: List.generate(5, (i) {
               final v = i + 1;
               return _chip('$v', _star == v, () => setState(() => _star = _star == v ? 0 : v), icon: Icons.star_rounded);
             })),
 
-            _section('Rating tamu'),
-            Wrap(spacing: 8, children: [7, 8, 9].map((v) => _chip('$v+ Bagus', _rating == v, () => setState(() => _rating = _rating == v ? 0 : v))).toList()),
+            _section(tr('Rating tamu', 'Guest rating')),
+            Wrap(spacing: 8, children: [7, 8, 9].map((v) => _chip('$v+ ${tr('Bagus', 'Good')}', _rating == v, () => setState(() => _rating = _rating == v ? 0 : v))).toList()),
 
-            _section('Kebijakan & fasilitas kamar'),
+            _section(tr('Kebijakan & fasilitas kamar', 'Room policies & amenities')),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              _chip('Gratis Pembatalan', _freeCancel, () => setState(() => _freeCancel = !_freeCancel), icon: Icons.event_available_rounded),
-              _chip('Bisa Refund', _refundable, () => setState(() => _refundable = !_refundable), icon: Icons.replay_rounded),
-              _chip('Termasuk Sarapan', _breakfast, () => setState(() => _breakfast = !_breakfast), icon: Icons.free_breakfast_rounded),
+              _chip(tr('Gratis Pembatalan', 'Free Cancellation'), _freeCancel, () => setState(() => _freeCancel = !_freeCancel), icon: Icons.event_available_rounded),
+              _chip(tr('Bisa Refund', 'Refundable'), _refundable, () => setState(() => _refundable = !_refundable), icon: Icons.replay_rounded),
+              _chip(tr('Termasuk Sarapan', 'Breakfast Included'), _breakfast, () => setState(() => _breakfast = !_breakfast), icon: Icons.free_breakfast_rounded),
             ]),
 
             if (_facilities.isNotEmpty) ...[
-              _section('Fasilitas hotel'),
+              _section(tr('Fasilitas hotel', 'Hotel facilities')),
               Wrap(spacing: 8, runSpacing: 8, children: _facilities.map((f) {
                 final sel = _facilityIds.contains(f.id);
                 return _chip(f.name, sel, () => setState(() => sel ? _facilityIds.remove(f.id) : _facilityIds.add(f.id)));
@@ -134,7 +135,7 @@ class _FilterScreenState extends State<FilterScreen> {
             ],
             const SizedBox(height: 20),
           ])),
-          Padding(padding: const EdgeInsets.all(20), child: PrimaryButton('Terapkan Filter', onPressed: () {
+          Padding(padding: const EdgeInsets.all(20), child: PrimaryButton(tr('Terapkan Filter', 'Apply Filter'), onPressed: () {
             Navigator.pop(context, FilterResult(
               minPrice: _price.start.round(), maxPrice: _price.end.round(), star: _star, minRating: _rating,
               freeCancellation: _freeCancel, refundable: _refundable, breakfast: _breakfast,

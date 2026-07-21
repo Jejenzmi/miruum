@@ -74,18 +74,18 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
     final ctl = TextEditingController();
     final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Ajukan Pertanyaan'),
-      content: TextField(controller: ctl, maxLines: 3, decoration: const InputDecoration(hintText: 'Contoh: apakah ada antar-jemput bandara?')),
+      title: Text(tr('Ajukan Pertanyaan', 'Ask a Question')),
+      content: TextField(controller: ctl, maxLines: 3, decoration: InputDecoration(hintText: tr('Contoh: apakah ada antar-jemput bandara?', 'e.g. is there an airport shuttle?'))),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Batal')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Kirim')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Batal', 'Cancel'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: Text(tr('Kirim', 'Send'))),
       ],
     ));
     if (ok != true || ctl.text.trim().length < 3) return;
     try {
       await context.read<Api>().askQuestion(hotelId, ctl.text.trim());
       final q = await context.read<Api>().hotelQuestions(hotelId);
-      if (mounted) { setState(() => _questions = q); showSnack(context, 'Pertanyaan terkirim. Hotel akan menjawab.', kind: SnackKind.success); }
+      if (mounted) { setState(() => _questions = q); showSnack(context, tr('Pertanyaan terkirim. Hotel akan menjawab.', 'Question sent. The hotel will reply.'), kind: SnackKind.success); }
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.message, kind: SnackKind.error);
     }
@@ -121,7 +121,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
           if (state.isLoading) {
             return const Center(child: CircularProgressIndicator(color: MC.primary));
           }
-          if (!state.isSuccess) return const Center(child: Text('Hotel tidak ditemukan'));
+          if (!state.isSuccess) return Center(child: Text(tr('Hotel tidak ditemukan', 'Hotel not found')));
           final h = state.data!;
           final fav = auth.isFavorite(h.id);
           final photos = h.photos.isNotEmpty ? h.photos : [h.imageUrl];
@@ -142,7 +142,8 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                       }),
                       const SizedBox(width: 8),
                       _circleBtn(Icons.share_rounded, () => Share.share(
-                          'Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://api.miruum.id')),
+                          tr('Cek ${h.name} di Miruum — hotel di ${h.city} mulai ${rupiah(h.priceFrom)}/malam!\nUnduh aplikasinya: https://api.miruum.id',
+                             'Check out ${h.name} on Miruum — a hotel in ${h.city} from ${rupiah(h.priceFrom)}/night!\nDownload the app: https://api.miruum.id'))),
                       const SizedBox(width: 8),
                       _circleBtn(Icons.bookmark_add_outlined, () {
                         if (!ensureLoggedIn(context, reason: tr('Masuk untuk menyimpan ke Trip.', 'Log in to save to a Trip.'))) return;
@@ -178,7 +179,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                             child: Row(mainAxisSize: MainAxisSize.min, children: [
                               const Icon(Icons.photo_library_rounded, color: Colors.white, size: 14),
                               const SizedBox(width: 5),
-                              Text('${photos.length} foto', style: const TextStyle(color: Colors.white, fontSize: 11.5)),
+                              Text('${photos.length} ${tr('foto', 'photos')}', style: const TextStyle(color: Colors.white, fontSize: 11.5)),
                             ]),
                           ),
                         ),
@@ -215,7 +216,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                               ]),
                             ),
                             const SizedBox(width: 10),
-                            Expanded(child: Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ulasan)',
+                            Expanded(child: Text('${rupiah(h.priceFrom)} · (${h.reviewCount} ${tr('ulasan', 'reviews')})',
                                 style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700))),
                           ]),
                           if (h.priceBefore != null && h.priceBefore! > h.priceFrom) ...[
@@ -227,7 +228,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                                   const Icon(Icons.trending_down_rounded, size: 13, color: MC.success),
                                   const SizedBox(width: 3),
-                                  Text('Harga turun ${(100 - h.priceFrom / h.priceBefore! * 100).round()}%',
+                                  Text('${tr('Harga turun', 'Price down')} ${(100 - h.priceFrom / h.priceBefore! * 100).round()}%',
                                       style: const TextStyle(color: MC.success, fontSize: 11, fontWeight: FontWeight.w700)),
                                 ]),
                               ),
@@ -239,23 +240,23 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                           Row(children: [
                             const Icon(Icons.visibility_rounded, size: 13, color: MC.accent),
                             const SizedBox(width: 4),
-                            Text('${3 + h.id.hashCode.abs() % 12} orang sedang melihat',
+                            Text('${3 + h.id.hashCode.abs() % 12} ${tr('orang sedang melihat', 'people viewing now')}',
                                 style: TextStyle(color: MC.inkMuted, fontSize: 11.5, fontWeight: FontWeight.w500)),
                             if (_lowestStock(h) != null && _lowestStock(h)! <= 5) ...[
                               const SizedBox(width: 12),
                               const Icon(Icons.local_fire_department_rounded, size: 13, color: MC.danger),
                               const SizedBox(width: 3),
-                              Text('Tinggal ${_lowestStock(h)} kamar', style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                              Text(tr('Tinggal ${_lowestStock(h)} kamar', 'Only ${_lowestStock(h)} rooms left'), style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w700)),
                             ],
                           ]),
                           const SizedBox(height: 20),
-                          const Text('Fasilitas', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          Text(tr('Fasilitas', 'Facilities'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),
                           Wrap(spacing: 10, runSpacing: 10, children: [
                             for (final f in h.facilities) _facility(f),
                           ]),
                           const SizedBox(height: 22),
-                          const Text('Deskripsi', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          Text(tr('Deskripsi', 'Description'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 8),
                           Text(h.description ?? '',
                               maxLines: _descExpanded ? null : 3,
@@ -265,24 +266,24 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                             onTap: () => setState(() => _descExpanded = !_descExpanded),
                             child: Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(_descExpanded ? 'Tutup' : 'Baca selengkapnya',
+                              child: Text(_descExpanded ? tr('Tutup', 'Show less') : tr('Baca selengkapnya', 'Read more'),
                                   style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13)),
                             ),
                           ),
                           if (h.lat != null && h.lng != null) ...[
                             const SizedBox(height: 22),
-                            const Text('Lokasi', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(tr('Lokasi', 'Location'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                             const SizedBox(height: 12),
                             HotelLocationMap(hotel: h),
                           ],
                           if (h.nearby.isNotEmpty) ...[
                             const SizedBox(height: 22),
-                            const Text('Yang ada di sekitar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(tr('Yang ada di sekitar', 'What\'s nearby'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                             const SizedBox(height: 12),
                             for (final n in h.nearby) _nearbyRow(n),
                           ],
                           const SizedBox(height: 22),
-                          SectionHeader('Ulasan Tamu', action: 'Tampilkan semua',
+                          SectionHeader(tr('Ulasan Tamu', 'Guest Reviews'), action: tr('Tampilkan semua', 'Show all'),
                               onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewsScreen(hotel: h)))),
                           const SizedBox(height: 12),
                           if (_hasScores(h)) ...[
@@ -292,25 +293,25 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                           for (final r in h.reviews.take(2)) _reviewTile(r),
                           const SizedBox(height: 22),
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            const Text('Tanya Jawab', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(tr('Tanya Jawab', 'Q&A'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                             GestureDetector(onTap: () => _askQuestion(h.id),
-                                child: const Text('Ajukan Pertanyaan', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13))),
+                                child: Text(tr('Ajukan Pertanyaan', 'Ask a Question'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13))),
                           ]),
                           const SizedBox(height: 12),
                           if (_questions.isEmpty)
-                            Text('Belum ada pertanyaan. Jadilah yang pertama bertanya!', style: TextStyle(color: MC.inkMuted, fontSize: 13))
+                            Text(tr('Belum ada pertanyaan. Jadilah yang pertama bertanya!', 'No questions yet. Be the first to ask!'), style: TextStyle(color: MC.inkMuted, fontSize: 13))
                           else
                             for (final q in _questions.take(4)) _qaTile(q),
                           if (_similar.isNotEmpty) ...[
                             const SizedBox(height: 22),
                             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                              const Text('Properti Serupa', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                              Text(tr('Properti Serupa', 'Similar Properties'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                               GestureDetector(
                                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CompareScreen(hotels: [h, ..._similar.take(2)]))),
-                                child: Row(children: const [
-                                  Icon(Icons.compare_arrows_rounded, size: 16, color: MC.primary),
-                                  SizedBox(width: 4),
-                                  Text('Bandingkan', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13)),
+                                child: Row(children: [
+                                  const Icon(Icons.compare_arrows_rounded, size: 16, color: MC.primary),
+                                  const SizedBox(width: 4),
+                                  Text(tr('Bandingkan', 'Compare'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 13)),
                                 ]),
                               ),
                             ]),
@@ -332,19 +333,19 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                                       const SizedBox(width: 2),
                                       Text(s.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                     ]),
-                                    Text('${rupiah(s.priceFrom)}/mlm', style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 12.5)),
+                                    Text('${rupiah(s.priceFrom)}${tr('/mlm', '/night')}', style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 12.5)),
                                   ])),
                                 );
                               },
                             )),
                           ],
                           const SizedBox(height: 14),
-                          const Text('Waktu Check-in & Check-out', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          Text(tr('Waktu Check-in & Check-out', 'Check-in & Check-out Times'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                           const SizedBox(height: 12),
                           Row(children: [
-                            Expanded(child: _checkTime('Check-in', h.checkInInfo ?? 'Dari jam 14.00', Icons.login_rounded)),
+                            Expanded(child: _checkTime(tr('Check-in', 'Check-in'), h.checkInInfo ?? tr('Dari jam 14.00', 'From 2:00 PM'), Icons.login_rounded)),
                             const SizedBox(width: 12),
-                            Expanded(child: _checkTime('Check-out', h.checkOutInfo ?? 'Sebelum 12.00', Icons.logout_rounded)),
+                            Expanded(child: _checkTime(tr('Check-out', 'Check-out'), h.checkOutInfo ?? tr('Sebelum 12.00', 'Before 12:00 PM'), Icons.logout_rounded)),
                           ]),
                         ],
                       ),
@@ -363,11 +364,11 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                     top: false,
                     child: Row(children: [
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Mulai dari', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                        Text(tr('Mulai dari', 'Starting from'), style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                         Text(rupiah(h.priceFrom), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
                       ]),
                       const SizedBox(width: 16),
-                      Expanded(child: PrimaryButton('Pilih Kamar', onPressed: () {
+                      Expanded(child: PrimaryButton(tr('Pilih Kamar', 'Select Room'), onPressed: () {
                           if (!ensureLoggedIn(context, reason: tr('Masuk dulu untuk memesan kamar.', 'Log in to book a room.'))) return;
                           Navigator.push(context, MaterialPageRoute(builder: (_) => PilihKamarScreen(
                                 hotel: h,
@@ -419,7 +420,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
               if (r.verified) Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.verified_rounded, size: 12, color: MC.success),
                 const SizedBox(width: 3),
-                Text('Menginap terverifikasi', style: TextStyle(fontSize: 10.5, color: MC.success, fontWeight: FontWeight.w600)),
+                Text(tr('Menginap terverifikasi', 'Verified stay'), style: TextStyle(fontSize: 10.5, color: MC.success, fontWeight: FontWeight.w600)),
               ]),
             ])),
             RatingPill(r.rating, small: true),
@@ -443,7 +444,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
                 Row(children: [
                   const Icon(Icons.storefront_rounded, size: 13, color: MC.primaryDark),
                   const SizedBox(width: 5),
-                  Text('Balasan Hotel', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MC.primaryDark)),
+                  Text(tr('Balasan Hotel', 'Hotel Reply'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MC.primaryDark)),
                 ]),
                 const SizedBox(height: 5),
                 Text(r.reply!, style: const TextStyle(fontSize: 12.5, height: 1.5, fontWeight: FontWeight.w500)),
@@ -453,9 +454,9 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
         ]),
       );
 
-  static const _scoreLabels = {
-    'cleanliness': 'Kebersihan', 'location': 'Lokasi', 'staff': 'Staf',
-    'facilities': 'Fasilitas', 'comfort': 'Kenyamanan', 'value': 'Nilai',
+  Map<String, String> get _scoreLabels => {
+    'cleanliness': tr('Kebersihan', 'Cleanliness'), 'location': tr('Lokasi', 'Location'), 'staff': tr('Staf', 'Staff'),
+    'facilities': tr('Fasilitas', 'Facilities'), 'comfort': tr('Kenyamanan', 'Comfort'), 'value': tr('Nilai', 'Value'),
   };
   bool _hasScores(Hotel h) => h.reviewScores.values.any((v) => v != null);
   int? _lowestStock(Hotel h) {
@@ -467,7 +468,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(14), boxShadow: [softShadow]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Skor per kategori', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          Text(tr('Skor per kategori', 'Scores by category'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
           const SizedBox(height: 10),
           Wrap(spacing: 18, runSpacing: 12, children: [
             for (final e in _scoreLabels.entries)
@@ -490,7 +491,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
         decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(12), boxShadow: [softShadow]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('T: ', style: TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark, fontSize: 13.5)),
+            Text(tr('T: ', 'Q: '), style: const TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark, fontSize: 13.5)),
             Expanded(child: Text((q['body'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
           ]),
           if ((q['answer'] ?? '').toString().isNotEmpty) ...[
@@ -505,7 +506,7 @@ class _HotelDetailViewState extends State<_HotelDetailView> {
               ]),
             ),
           ] else
-            Padding(padding: const EdgeInsets.only(top: 4), child: Text('Menunggu jawaban hotel…', style: TextStyle(color: MC.inkFaint, fontSize: 11.5, fontStyle: FontStyle.italic))),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text(tr('Menunggu jawaban hotel…', 'Awaiting the hotel\'s reply…'), style: TextStyle(color: MC.inkFaint, fontSize: 11.5, fontStyle: FontStyle.italic))),
         ]),
       );
 
@@ -591,7 +592,8 @@ class _HotelLocationMapState extends State<HotelLocationMap> {
     if (pos == null || !mounted) return;
     final d = Geolocator.distanceBetween(pos.latitude, pos.longitude, widget.hotel.lat!, widget.hotel.lng!) / 1000;
     setState(() => _distanceKm = d);
-    showSnack(context, 'Sekitar ${d < 1 ? '${(d * 1000).round()} m' : '${d.toStringAsFixed(1)} km'} dari lokasimu.', kind: SnackKind.info);
+    final dist = d < 1 ? '${(d * 1000).round()} m' : '${d.toStringAsFixed(1)} km';
+    showSnack(context, tr('Sekitar $dist dari lokasimu.', 'About $dist from your location.'), kind: SnackKind.info);
   }
 
   @override
@@ -633,7 +635,7 @@ class _HotelLocationMapState extends State<HotelLocationMap> {
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
                         const Icon(Icons.map_rounded, size: 14, color: MC.primary),
                         const SizedBox(width: 6),
-                        Text('Buka peta', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MC.ink)),
+                        Text(tr('Buka peta', 'Open map'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MC.ink)),
                       ]),
                     ),
                   ),
@@ -676,10 +678,10 @@ class _HotelLocationMapState extends State<HotelLocationMap> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
               decoration: BoxDecoration(border: Border.all(color: MC.primary), borderRadius: BorderRadius.circular(20)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: const [
-                Icon(Icons.my_location_rounded, size: 13, color: MC.primary),
-                SizedBox(width: 5),
-                Text('Cek jarak', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700, fontSize: 12.5)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.my_location_rounded, size: 13, color: MC.primary),
+                const SizedBox(width: 5),
+                Text(tr('Cek jarak', 'Check distance'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w700, fontSize: 12.5)),
               ]),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -39,9 +40,21 @@ class _ReviewFormState extends State<_ReviewForm> {
   };
   final Map<String, double> _scores = {for (final k in _cats.keys) k: 8};
 
+  String _catLabel(String key) {
+    switch (key) {
+      case 'cleanliness': return tr('Kebersihan', 'Cleanliness');
+      case 'location': return tr('Lokasi', 'Location');
+      case 'staff': return tr('Staf', 'Staff');
+      case 'facilities': return tr('Fasilitas', 'Facilities');
+      case 'comfort': return tr('Kenyamanan', 'Comfort');
+      case 'value': return tr('Nilai', 'Value');
+      default: return key;
+    }
+  }
+
   Future<void> _submit() async {
     if (_text.text.trim().length < 3) {
-      showSnack(context, 'Tulis ulasan minimal 3 karakter', kind: SnackKind.error);
+      showSnack(context, tr('Tulis ulasan minimal 3 karakter', 'Write a review of at least 3 characters'), kind: SnackKind.error);
       return;
     }
     setState(() => _loading = true);
@@ -62,10 +75,10 @@ class _ReviewFormState extends State<_ReviewForm> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 16),
-        Text(widget.hotelName != null ? 'Ulasan untuk ${widget.hotelName}' : 'Beri Ulasan',
+        Text(widget.hotelName != null ? tr('Ulasan untuk ${widget.hotelName}', 'Review for ${widget.hotelName}') : tr('Beri Ulasan', 'Write a Review'),
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         const SizedBox(height: 4),
-        Text('Bagaimana pengalaman menginapmu?', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+        Text(tr('Bagaimana pengalaman menginapmu?', 'How was your stay?'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
         const SizedBox(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) {
           final v = i + 1;
@@ -78,13 +91,13 @@ class _ReviewFormState extends State<_ReviewForm> {
         TextField(
           controller: _text,
           maxLines: 4,
-          decoration: const InputDecoration(hintText: 'Ceritakan pengalamanmu...'),
+          decoration: InputDecoration(hintText: tr('Ceritakan pengalamanmu...', 'Tell us about your experience...')),
         ),
         const SizedBox(height: 16),
-        Text('Skor per kategori', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+        Text(tr('Skor per kategori', 'Score by category'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
         const SizedBox(height: 4),
         ..._cats.entries.map((e) => Row(children: [
-          SizedBox(width: 88, child: Text(e.value, style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
+          SizedBox(width: 88, child: Text(_catLabel(e.key), style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
           Expanded(child: Slider(
             value: _scores[e.key]!, min: 1, max: 10, divisions: 9, activeColor: MC.primary,
             label: _scores[e.key]!.toStringAsFixed(0),
@@ -93,7 +106,7 @@ class _ReviewFormState extends State<_ReviewForm> {
             style: const TextStyle(fontWeight: FontWeight.w800, color: MC.primaryDark))),
         ])),
         const SizedBox(height: 10),
-        PrimaryButton('Kirim Ulasan', loading: _loading, onPressed: _submit),
+        PrimaryButton(tr('Kirim Ulasan', 'Submit Review'), loading: _loading, onPressed: _submit),
       ]),
     );
   }

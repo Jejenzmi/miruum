@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'shell.dart';
@@ -27,13 +28,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pc = PageController();
   int _i = 0;
 
-  static const _slides = [
-    _Slide(Icons.hotel_rounded, MC.primary, 'Ribuan Hotel & Paket',
-        'Temukan hotel dan paket staycation terbaik di seluruh Indonesia — harga selalu yang termurah.'),
-    _Slide(Icons.calendar_month_rounded, MC.blue, 'Booking Mudah & Fleksibel',
-        'Pilih tanggal lewat kalender harga, bayar dengan VA / e-wallet / QRIS, dan e-voucher langsung terbit.'),
-    _Slide(Icons.verified_user_rounded, MC.success, 'Aman & Bisa Dibatalkan',
-        'Pembatalan dengan kebijakan refund yang jelas, dan setiap transaksi tersimpan rapi di akunmu.'),
+  List<_Slide> get _slides => [
+    _Slide(Icons.hotel_rounded, MC.primary, tr('Ribuan Hotel & Paket', 'Thousands of Hotels & Packages'),
+        tr('Temukan hotel dan paket staycation terbaik di seluruh Indonesia — harga selalu yang termurah.',
+            'Discover the best hotels and staycation packages across Indonesia — always at the lowest prices.')),
+    _Slide(Icons.calendar_month_rounded, MC.blue, tr('Booking Mudah & Fleksibel', 'Easy & Flexible Booking'),
+        tr('Pilih tanggal lewat kalender harga, bayar dengan VA / e-wallet / QRIS, dan e-voucher langsung terbit.',
+            'Pick your dates on the price calendar, pay via VA / e-wallet / QRIS, and get your e-voucher instantly.')),
+    _Slide(Icons.verified_user_rounded, MC.success, tr('Aman & Bisa Dibatalkan', 'Safe & Cancellable'),
+        tr('Pembatalan dengan kebijakan refund yang jelas, dan setiap transaksi tersimpan rapi di akunmu.',
+            'Cancellation with clear refund policies, and every transaction neatly kept in your account.')),
   ];
 
   Future<void> _finish() async {
@@ -50,7 +54,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(children: [
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(onPressed: _finish, child: Text('Lewati', style: TextStyle(color: MC.inkMuted))),
+            child: TextButton(onPressed: _finish, child: Text(tr('Lewati', 'Skip'), style: TextStyle(color: MC.inkMuted))),
           ),
           Expanded(
             child: PageView.builder(
@@ -86,7 +90,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ))),
           Padding(
             padding: const EdgeInsets.all(24),
-            child: PrimaryButton(last ? 'Mulai Sekarang' : 'Lanjut',
+            child: PrimaryButton(last ? tr('Mulai Sekarang', 'Get Started') : tr('Lanjut', 'Next'),
                 icon: last ? Icons.arrow_forward_rounded : null,
                 onPressed: () {
                   if (last) {

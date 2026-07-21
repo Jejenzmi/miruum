@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -40,9 +41,9 @@ class _SecurityScreenState extends State<SecurityScreen> {
     try {
       final r = await context.read<Api>().set2fa(v);
       setState(() => _twoFa = r);
-      showSnack(context, v ? 'Verifikasi 2 langkah aktif — kode dikirim ke email saat login.' : 'Verifikasi 2 langkah dimatikan.', kind: SnackKind.success);
+      showSnack(context, v ? tr('Verifikasi 2 langkah aktif — kode dikirim ke email saat login.', 'Two-step verification enabled — a code is emailed at each login.') : tr('Verifikasi 2 langkah dimatikan.', 'Two-step verification disabled.'), kind: SnackKind.success);
     } catch (_) {
-      if (mounted) showSnack(context, 'Gagal memperbarui.', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal memperbarui.', 'Failed to update.'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -55,7 +56,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   Future<void> _revokeOthers() async {
     try {
       await context.read<Api>().revokeOtherSessions();
-      showSnack(context, 'Keluar dari semua perangkat lain.', kind: SnackKind.success);
+      showSnack(context, tr('Keluar dari semua perangkat lain.', 'Signed out of all other devices.'), kind: SnackKind.success);
       _load();
     } catch (_) {}
   }
@@ -69,7 +70,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MC.bg,
-      appBar: AppBar(title: const Text('Keamanan')),
+      appBar: AppBar(title: Text(tr('Keamanan', 'Security'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: MC.primary))
           : ListView(padding: const EdgeInsets.all(20), children: [
@@ -79,24 +80,24 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   child: const Icon(Icons.verified_user_rounded, color: MC.primaryDark)),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Verifikasi 2 Langkah', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                  Text(tr('Verifikasi 2 Langkah', 'Two-Step Verification'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
                   const SizedBox(height: 2),
-                  Text('Kode via email setiap kali login.', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                  Text(tr('Kode via email setiap kali login.', 'A code is emailed at each login.'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
                 ])),
                 Switch(value: _twoFa, activeColor: MC.primary, onChanged: _busy ? null : _toggle2fa),
               ])),
               const SizedBox(height: 22),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Perangkat Aktif', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                Text(tr('Perangkat Aktif', 'Active Devices'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
                 if (_sessions.length > 1)
-                  GestureDetector(onTap: _revokeOthers, child: const Text('Keluar lainnya', style: TextStyle(color: MC.danger, fontWeight: FontWeight.w600, fontSize: 12.5))),
+                  GestureDetector(onTap: _revokeOthers, child: Text(tr('Keluar lainnya', 'Sign out others'), style: const TextStyle(color: MC.danger, fontWeight: FontWeight.w600, fontSize: 12.5))),
               ]),
               const SizedBox(height: 10),
               for (final s in _sessions) _sessionTile(s),
               const SizedBox(height: 22),
-              const Text('Riwayat Login', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(tr('Riwayat Login', 'Login History'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 10),
-              if (_history.isEmpty) Text('Belum ada riwayat.', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+              if (_history.isEmpty) Text(tr('Belum ada riwayat.', 'No history yet.'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
               for (final h in _history.take(15)) _historyTile(h),
             ]),
     );
@@ -113,11 +114,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text((s['device'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-          Text('Masuk ${_fmt(s['createdAt'])}${current ? ' · Perangkat ini' : ''}',
+          Text(tr('Masuk ${_fmt(s['createdAt'])}${current ? ' · Perangkat ini' : ''}', 'Signed in ${_fmt(s['createdAt'])}${current ? ' · This device' : ''}'),
               style: TextStyle(color: current ? MC.success : MC.inkFaint, fontSize: 11.5)),
         ])),
         if (!current)
-          TextButton(onPressed: () => _revoke((s['id']).toString()), child: const Text('Keluar', style: TextStyle(color: MC.danger, fontSize: 12.5))),
+          TextButton(onPressed: () => _revoke((s['id']).toString()), child: Text(tr('Keluar', 'Sign out'), style: const TextStyle(color: MC.danger, fontSize: 12.5))),
       ]),
     );
   }
@@ -127,7 +128,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
         child: Row(children: [
           Icon(h['ok'] == true ? Icons.check_circle_rounded : Icons.cancel_rounded, size: 15, color: h['ok'] == true ? MC.success : MC.danger),
           const SizedBox(width: 8),
-          Expanded(child: Text((h['device'] ?? 'Perangkat').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5))),
+          Expanded(child: Text((h['device'] ?? tr('Perangkat', 'Device')).toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5))),
           Text(_fmt(h['createdAt']), style: TextStyle(color: MC.inkFaint, fontSize: 11.5)),
         ]),
       );

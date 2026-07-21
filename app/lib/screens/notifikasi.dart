@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
@@ -24,7 +25,7 @@ class NotifikasiScreen extends StatelessWidget {
     return BlocProvider(
       create: (ctx) => NotificationsCubit(ctx.read<Api>())..load(),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Notifikasi')),
+        appBar: AppBar(title: Text(tr('Notifikasi', 'Notifications'))),
         body: SafeArea(
           child: BlocBuilder<NotificationsCubit, ViewState<List<AppNotification>>>(
             builder: (context, state) {
@@ -33,10 +34,10 @@ class NotifikasiScreen extends StatelessWidget {
               }
               final items = state.data ?? [];
               if (items.isEmpty) {
-                return const EmptyState(
+                return EmptyState(
                   icon: Icons.notifications_none_rounded,
-                  title: 'Belum ada notifikasi',
-                  subtitle: 'Info pesanan & promo akan muncul di sini',
+                  title: tr('Belum ada notifikasi', 'No notifications yet'),
+                  subtitle: tr('Info pesanan & promo akan muncul di sini', 'Booking info & promos will appear here'),
                 );
               }
               return ListView.separated(

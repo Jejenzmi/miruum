@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -101,7 +102,7 @@ class _PriceCalendarState extends State<_PriceCalendar> {
       builder: (context, controller) => Column(children: [
         const SizedBox(height: 12),
         Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2))),
-        const Padding(padding: EdgeInsets.all(14), child: Text('Pilih Tanggal Menginap', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+        Padding(padding: const EdgeInsets.all(14), child: Text(tr('Pilih Tanggal Menginap', 'Select Stay Dates'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
         if (!_loading && _minPrice != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
@@ -112,12 +113,12 @@ class _PriceCalendarState extends State<_PriceCalendar> {
                 const Icon(Icons.trending_down_rounded, size: 18, color: MC.success),
                 const SizedBox(width: 8),
                 Expanded(child: RichText(text: TextSpan(style: TextStyle(fontSize: 12.5, color: MC.ink), children: [
-                  const TextSpan(text: 'Termurah '),
+                  TextSpan(text: tr('Termurah ', 'Cheapest ')),
                   TextSpan(text: rupiah(_minPrice!), style: const TextStyle(fontWeight: FontWeight.w800, color: MC.success)),
-                  const TextSpan(text: '/malam pada rentang ini'),
+                  TextSpan(text: tr('/malam pada rentang ini', '/night in this range')),
                 ]))),
                 TextButton(onPressed: _pickCheapest, style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                  child: const Text('Saya fleksibel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5))),
+                  child: Text(tr('Saya fleksibel', 'I\'m flexible'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5))),
               ]),
             ),
           ),
@@ -139,13 +140,13 @@ class _PriceCalendarState extends State<_PriceCalendar> {
             child: Row(children: [
               Expanded(child: Text(
                 _checkIn == null
-                    ? 'Pilih tanggal check-in'
+                    ? tr('Pilih tanggal check-in', 'Select check-in date')
                     : _checkOut == null
-                        ? 'Pilih tanggal check-out'
-                        : '${_checkOut!.difference(_checkIn!).inDays} malam dipilih',
+                        ? tr('Pilih tanggal check-out', 'Select check-out date')
+                        : tr('${_checkOut!.difference(_checkIn!).inDays} malam dipilih', '${_checkOut!.difference(_checkIn!).inDays} nights selected'),
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
               const SizedBox(width: 12),
-              SizedBox(width: 150, child: PrimaryButton('Terapkan',
+              SizedBox(width: 150, child: PrimaryButton(tr('Terapkan', 'Apply'),
                   onPressed: (_checkIn != null && _checkOut != null)
                       ? () => Navigator.pop(context, DateTimeRange(start: _checkIn!, end: _checkOut!))
                       : null)),
@@ -208,7 +209,7 @@ class _PriceCalendarState extends State<_PriceCalendar> {
                 decoration: soldOut ? TextDecoration.lineThrough : null,
               )),
           if (info != null && !soldOut)
-            Text('${(info.price / 1000).round()}rb',
+            Text('${(info.price / 1000).round()}${tr('rb', 'k')}',
                 style: TextStyle(fontSize: 8.5, fontWeight: isCheapest ? FontWeight.w800 : FontWeight.w400,
                     color: selected ? Colors.white70 : isCheapest ? MC.success : MC.inkFaint)),
         ]),

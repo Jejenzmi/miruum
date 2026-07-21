@@ -96,7 +96,7 @@ class _SettingScreenState extends State<SettingScreen> {
     try {
       final data = await context.read<Api>().exportMyData();
       const encoder = JsonEncoder.withIndent('  ');
-      await Share.share(encoder.convert(data), subject: 'Data Miruum Saya');
+      await Share.share(encoder.convert(data), subject: tr('Data Miruum Saya', 'My Miruum Data'));
     } catch (_) {
       if (mounted) showSnack(context, tr('Gagal mengunduh data.', 'Failed to export data.'), kind: SnackKind.error);
     }

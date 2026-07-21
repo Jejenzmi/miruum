@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'l10n.dart';
 import 'models.dart';
 import 'theme.dart';
 
@@ -147,7 +148,7 @@ class NetImage extends StatelessWidget {
 class BookingStepper extends StatelessWidget {
   final int step; // 1..4
   const BookingStepper(this.step, {super.key});
-  static const _labels = ['Rincian', 'Review', 'Pembayaran', 'Voucher'];
+  List<String> get _labels => [tr('Rincian', 'Details'), tr('Review', 'Review'), tr('Pembayaran', 'Payment'), tr('Voucher', 'Voucher')];
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -213,7 +214,7 @@ class SourceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = _hex(channel.color) ?? (channel.isDirect ? MC.success : MC.blue);
-    final label = channel.isDirect ? 'Direct' : 'via ${channel.name}';
+    final label = channel.isDirect ? tr('Langsung', 'Direct') : 'via ${channel.name}';
     final icon = channel.isDirect ? Icons.verified_rounded : Icons.storefront_rounded;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 8, vertical: compact ? 2.5 : 4),

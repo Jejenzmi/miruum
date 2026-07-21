@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/auth/auth_bloc.dart';
+import 'l10n.dart';
 import 'theme.dart';
 import 'screens/auth.dart';
 
@@ -60,12 +61,14 @@ Future<bool> confirmDialog(
   BuildContext context, {
   required String title,
   required String message,
-  String confirmText = 'Ya, lanjutkan',
-  String cancelText = 'Batal',
+  String? confirmText,
+  String? cancelText,
   IconData icon = Icons.help_rounded,
   bool danger = false,
 }) async {
   final accent = danger ? MC.danger : MC.primary;
+  final confirmLabel = confirmText ?? tr('Ya, lanjutkan', 'Yes, continue');
+  final cancelLabel = cancelText ?? tr('Batal', 'Cancel');
   final result = await showGeneralDialog<bool>(
     context: context,
     barrierDismissible: true,
@@ -90,7 +93,7 @@ Future<bool> confirmDialog(
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
                   ),
-                  child: Text(cancelText, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(cancelLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
                 )),
                 const SizedBox(width: 10),
                 Expanded(child: ElevatedButton(
@@ -100,7 +103,7 @@ Future<bool> confirmDialog(
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
                   ),
-                  child: Text(confirmText, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(confirmLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
                 )),
               ]),
             ),
@@ -118,9 +121,10 @@ Future<void> resultDialog(
   required String title,
   required String message,
   SnackKind kind = SnackKind.success,
-  String okText = 'Oke',
+  String? okText,
 }) async {
   final s = _kindStyle(kind);
+  final okLabel = okText ?? tr('Oke', 'OK');
   await showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -146,7 +150,7 @@ Future<void> resultDialog(
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
                   ),
-                  child: Text(okText, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(okLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ),
@@ -162,7 +166,7 @@ Future<void> resultDialog(
 bool ensureLoggedIn(BuildContext context, {String? reason}) {
   final state = context.read<AuthBloc>().state;
   if (state.isLoggedIn) return true;
-  _showLoginGate(context, reason ?? 'Masuk dulu untuk melanjutkan aksi ini.');
+  _showLoginGate(context, reason ?? tr('Masuk dulu untuk melanjutkan aksi ini.', 'Please sign in to continue.'));
   return false;
 }
 
@@ -186,7 +190,7 @@ void _showLoginGate(BuildContext context, String reason) {
           child: const Icon(Icons.lock_person_rounded, color: MC.primaryDark, size: 32),
         ),
         const SizedBox(height: 16),
-        Text('Masuk ke Miruum', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: MC.ink)),
+        Text(tr('Masuk ke Miruum', 'Sign in to Miruum'), style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: MC.ink)),
         const SizedBox(height: 6),
         Text(reason, textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 13.5, height: 1.45)),
         const SizedBox(height: 22),
@@ -198,7 +202,7 @@ void _showLoginGate(BuildContext context, String reason) {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen()));
             },
             icon: const Icon(Icons.login_rounded, size: 19),
-            label: const Text('Masuk', style: TextStyle(fontWeight: FontWeight.w800)),
+            label: Text(tr('Masuk', 'Sign In'), style: const TextStyle(fontWeight: FontWeight.w800)),
             style: ElevatedButton.styleFrom(
               backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
               padding: const EdgeInsets.symmetric(vertical: 15),
@@ -215,8 +219,8 @@ void _showLoginGate(BuildContext context, String reason) {
           child: RichText(text: TextSpan(
             style: TextStyle(color: MC.inkMuted, fontSize: 13),
             children: [
-              const TextSpan(text: 'Belum punya akun? '),
-              TextSpan(text: 'Daftar sekarang', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w800)),
+              TextSpan(text: tr('Belum punya akun? ', "Don't have an account? ")),
+              TextSpan(text: tr('Daftar sekarang', 'Sign up'), style: TextStyle(color: MC.primary, fontWeight: FontWeight.w800)),
             ],
           )),
         ),

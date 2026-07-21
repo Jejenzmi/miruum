@@ -7,6 +7,7 @@ import '../bloc/auth/auth_bloc.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../hotel_card.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
@@ -22,7 +23,7 @@ class FavoritScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Favorit'),
+        title: Text(tr('Favorit', 'Saved')),
         centerTitle: false,
         titleTextStyle: TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
       ),
@@ -41,9 +42,9 @@ class FavoritScreen extends StatelessWidget {
   Widget _guestPrompt(BuildContext context) => EmptyState(
         icon: Icons.favorite_rounded,
         color: MC.danger,
-        title: 'Isi list favoritmu',
-        subtitle: 'Simpan hotel kesukaanmu di sini',
-        action: PrimaryButton('Masuk / Daftar', expand: false, onPressed: () => ensureLoggedIn(context)),
+        title: tr('Isi list favoritmu', 'Fill up your favorites list'),
+        subtitle: tr('Simpan hotel kesukaanmu di sini', 'Save your favorite hotels here'),
+        action: PrimaryButton(tr('Masuk / Daftar', 'Log In / Sign Up'), expand: false, onPressed: () => ensureLoggedIn(context)),
       );
 }
 
@@ -73,10 +74,10 @@ class _FavListState extends State<_FavList> {
         }
         final hotels = (state.data ?? []).where((h) => widget.favoriteIds.contains(h.id)).toList();
         if (hotels.isEmpty) {
-          return const EmptyState(
+          return EmptyState(
             icon: Icons.favorite_border_rounded, color: MC.danger,
-            title: 'Belum ada favorit',
-            subtitle: 'Ketuk ikon hati pada hotel untuk menyimpannya',
+            title: tr('Belum ada favorit', 'No favorites yet'),
+            subtitle: tr('Ketuk ikon hati pada hotel untuk menyimpannya', 'Tap the heart icon on a hotel to save it'),
           );
         }
         return RefreshIndicator(

@@ -5,6 +5,7 @@ import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../feedback.dart';
 import '../image_upload.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
@@ -36,19 +37,19 @@ class ProfileScreen extends StatelessWidget {
           showBack: false,
           child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
             Row(children: [
-              const Text('Akun Saya', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+              Text(tr('Akun Saya', 'My Account'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.logout_rounded, color: Colors.white),
                 onPressed: () async {
                   final ok = await confirmDialog(context,
-                      title: 'Keluar dari Akun?',
-                      message: 'Kamu perlu masuk lagi untuk mengelola pesanan & favoritmu.',
-                      confirmText: 'Ya, keluar', cancelText: 'Batal',
+                      title: tr('Keluar dari Akun?', 'Log Out?'),
+                      message: tr('Kamu perlu masuk lagi untuk mengelola pesanan & favoritmu.', 'You will need to log in again to manage your orders and favorites.'),
+                      confirmText: tr('Ya, keluar', 'Yes, log out'), cancelText: tr('Batal', 'Cancel'),
                       icon: Icons.logout_rounded, danger: true);
                   if (ok && context.mounted) {
                     context.read<AuthBloc>().add(const AuthLoggedOut());
-                    showSnack(context, 'Kamu telah keluar dari akun.', kind: SnackKind.info, title: 'Sampai jumpa 👋');
+                    showSnack(context, tr('Kamu telah keluar dari akun.', 'You have been logged out.'), kind: SnackKind.info, title: tr('Sampai jumpa 👋', 'See you soon 👋'));
                   }
                 },
               ),
@@ -71,32 +72,32 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ...stagger([
                 if (session.user!.isCorporate)
-                  _menuTile(context, Icons.business_center_rounded, 'Portal Korporat', MC.primaryDark,
+                  _menuTile(context, Icons.business_center_rounded, tr('Portal Bisnis', 'Business Portal'), MC.primaryDark,
                       () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporatePortalScreen()))),
-                _menuTile(context, Icons.person_outline_rounded, 'Data Pribadi', MC.blue,
+                _menuTile(context, Icons.person_outline_rounded, tr('Data Pribadi', 'Personal Data'), MC.blue,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalDataScreen()))),
-                _menuTile(context, Icons.stars_rounded, 'Poin & Membership', MC.primary,
+                _menuTile(context, Icons.stars_rounded, tr('Poin & Membership', 'Points & Membership'), MC.primary,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoyaltyScreen()))),
-                _menuTile(context, Icons.confirmation_num_outlined, 'Voucher Saya', MC.accent,
+                _menuTile(context, Icons.confirmation_num_outlined, tr('Voucher Saya', 'My Vouchers'), MC.accent,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletScreen()))),
-                _menuTile(context, Icons.luggage_outlined, 'Trips Saya', MC.success,
+                _menuTile(context, Icons.luggage_outlined, tr('Trips Saya', 'My Trips'), MC.success,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripsScreen()))),
-                _menuTile(context, Icons.security_rounded, 'Keamanan', MC.blue,
+                _menuTile(context, Icons.security_rounded, tr('Keamanan', 'Security'), MC.blue,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SecurityScreen()))),
-                _menuTile(context, Icons.receipt_long_outlined, 'Pesanan Saya', MC.primary,
+                _menuTile(context, Icons.receipt_long_outlined, tr('Pesanan Saya', 'My Orders'), MC.primary,
                     () => goToTab(context, 1)),
-                _menuTile(context, Icons.favorite_border_rounded, 'Hotel Favorit', MC.danger,
+                _menuTile(context, Icons.favorite_border_rounded, tr('Hotel Favorit', 'Favorite Hotels'), MC.danger,
                     () => goToTab(context, 3)),
-                _menuTile(context, Icons.lock_outline_rounded, 'Ganti Password', MC.accent,
+                _menuTile(context, Icons.lock_outline_rounded, tr('Ganti Password', 'Change Password'), MC.accent,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen()))),
-                _menuTile(context, Icons.support_agent_rounded, 'Live Chat CS', MC.blue,
+                _menuTile(context, Icons.support_agent_rounded, tr('Live Chat CS', 'Live Chat CS'), MC.blue,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()))),
-                _menuTile(context, Icons.help_outline_rounded, 'FAQ & Bantuan', MC.success, () => _faq(context)),
-                _menuTile(context, Icons.settings_outlined, 'Pengaturan', MC.inkMuted,
+                _menuTile(context, Icons.help_outline_rounded, tr('FAQ & Bantuan', 'FAQ & Help'), MC.success, () => _faq(context)),
+                _menuTile(context, Icons.settings_outlined, tr('Pengaturan', 'Settings'), MC.inkMuted,
                     () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingScreen()))),
               ]),
               const SizedBox(height: 20),
-              Center(child: Text('Miruum · Version 1.0', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+              Center(child: Text(tr('Miruum · Versi 1.0', 'Miruum · Version 1.0'), style: TextStyle(color: MC.inkFaint, fontSize: 12))),
             ],
           ),
         ),
@@ -129,13 +130,13 @@ class ProfileScreen extends StatelessWidget {
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('FAQ', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          Text(tr('FAQ', 'FAQ'), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           SizedBox(height: 12),
-          Text('Bagaimana cara memesan hotel?', style: TextStyle(fontWeight: FontWeight.w600)),
-          Text('Pilih hotel → Pilih Kamar → isi Rincian → Bayar → E-Voucher terbit.', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+          Text(tr('Bagaimana cara memesan hotel?', 'How do I book a hotel?'), style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(tr('Pilih hotel → Pilih Kamar → isi Rincian → Bayar → E-Voucher terbit.', 'Pick a hotel → Choose a Room → fill in Details → Pay → E-Voucher issued.'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
           SizedBox(height: 12),
-          Text('Bagaimana kebijakan refund?', style: TextStyle(fontWeight: FontWeight.w600)),
-          Text('Kamar refundable dapat dibatalkan sesuai ketentuan hotel.', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+          Text(tr('Bagaimana kebijakan refund?', 'What is the refund policy?'), style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(tr('Kamar refundable dapat dibatalkan sesuai ketentuan hotel.', 'Refundable rooms can be cancelled according to the hotel\'s terms.'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
         ]),
       ),
     );
@@ -168,10 +169,10 @@ class _EditableAvatarState extends State<_EditableAvatar> {
       final user = await context.read<Api>().updateMe({'avatarUrl': url});
       if (!mounted) return;
       context.read<AuthBloc>().add(AuthUserUpdated(user));
-      showSnack(context, 'Foto profil berhasil diperbarui.', kind: SnackKind.success);
+      showSnack(context, tr('Foto profil berhasil diperbarui.', 'Profile photo updated successfully.'), kind: SnackKind.success);
     } catch (_) {
       if (mounted) {
-        showSnack(context, 'Gagal menyimpan foto. Coba lagi.', kind: SnackKind.error);
+        showSnack(context, tr('Gagal menyimpan foto. Coba lagi.', 'Failed to save photo. Try again.'), kind: SnackKind.error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -247,23 +248,23 @@ class _GuestProfile extends StatelessWidget {
             child: const Icon(Icons.person_rounded, color: Colors.white, size: 34),
           ).animate().scale(begin: const Offset(0.6, 0.6), duration: 500.ms, curve: Curves.elasticOut),
           const SizedBox(height: 14),
-          const Text('Hai, Sahabat Miruum 👋', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))
+          Text(tr('Hai, Sahabat Miruum 👋', 'Hi, Miruum Friend 👋'), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))
               .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
           const SizedBox(height: 4),
-          const Text('Masuk untuk pengalaman terbaik', style: TextStyle(color: Colors.white70, fontSize: 13.5))
+          Text(tr('Masuk untuk pengalaman terbaik', 'Log in for the best experience'), style: const TextStyle(color: Colors.white70, fontSize: 13.5))
               .animate().fadeIn(delay: 220.ms),
         ]),
       ),
       Expanded(
         child: ListView(padding: const EdgeInsets.fromLTRB(24, 26, 24, 24), children: [
           ...stagger([
-            _benefit(Icons.receipt_long_rounded, MC.primary, 'Kelola Pesanan', 'Lihat & lanjutkan pembayaran pesananmu'),
-            _benefit(Icons.favorite_rounded, MC.danger, 'Simpan Favorit', 'Bookmark hotel kesukaanmu'),
-            _benefit(Icons.local_offer_rounded, MC.accent, 'Promo Eksklusif', 'Dapatkan penawaran & diskon khusus member'),
-            _benefit(Icons.verified_user_rounded, MC.blue, 'Aman & Terverifikasi', 'Transaksi & e-voucher tersimpan rapi'),
+            _benefit(Icons.receipt_long_rounded, MC.primary, tr('Kelola Pesanan', 'Manage Orders'), tr('Lihat & lanjutkan pembayaran pesananmu', 'View & continue paying for your orders')),
+            _benefit(Icons.favorite_rounded, MC.danger, tr('Simpan Favorit', 'Save Favorites'), tr('Bookmark hotel kesukaanmu', 'Bookmark your favorite hotels')),
+            _benefit(Icons.local_offer_rounded, MC.accent, tr('Promo Eksklusif', 'Exclusive Promos'), tr('Dapatkan penawaran & diskon khusus member', 'Get member-only offers & discounts')),
+            _benefit(Icons.verified_user_rounded, MC.blue, tr('Aman & Terverifikasi', 'Safe & Verified'), tr('Transaksi & e-voucher tersimpan rapi', 'Transactions & e-vouchers kept neatly')),
           ], startMs: 250),
           const SizedBox(height: 10),
-          PrimaryButton('Masuk', icon: Icons.login_rounded,
+          PrimaryButton(tr('Masuk', 'Log In'), icon: Icons.login_rounded,
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignInScreen())))
               .animate().fadeIn(delay: 560.ms).slideY(begin: 0.2, end: 0),
           const SizedBox(height: 10),
@@ -271,8 +272,8 @@ class _GuestProfile extends StatelessWidget {
             child: GestureDetector(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
               child: RichText(text: TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
-                TextSpan(text: 'Belum punya akun? '),
-                TextSpan(text: 'Daftar', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                TextSpan(text: tr('Belum punya akun? ', 'Don\'t have an account? ')),
+                TextSpan(text: tr('Daftar', 'Sign Up'), style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
               ])),
             ),
           ).animate().fadeIn(delay: 640.ms),

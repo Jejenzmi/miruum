@@ -8,6 +8,7 @@ import '../bloc/view_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../l10n.dart';
 import 'auth.dart';
 import 'hotel_detail.dart';
 import 'rincian_pesanan.dart';
@@ -25,7 +26,7 @@ class PackageDetailScreen extends StatelessWidget {
           builder: (context, state) {
             if (state.isLoading) return const Center(child: CircularProgressIndicator(color: MC.primary));
             if (state.isFailure) {
-              return Center(child: OutlineButtonX('Coba lagi',
+              return Center(child: OutlineButtonX(tr('Coba lagi', 'Try again'),
                   icon: Icons.refresh_rounded, onPressed: () => context.read<PackageDetailCubit>().load(id)));
             }
             return _PackageView(state.data!);
@@ -116,13 +117,13 @@ class _PackageViewState extends State<_PackageView> {
                 ]),
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  TagChip('${pkg.nights} Malam / ${pkg.days} Hari', Icons.calendar_month_rounded),
-                  TagChip('${pkg.guests} Tamu', Icons.people_alt_rounded),
+                  TagChip(tr('${pkg.nights} Malam / ${pkg.days} Hari', '${pkg.nights} Nights / ${pkg.days} Days'), Icons.calendar_month_rounded),
+                  TagChip(tr('${pkg.guests} Tamu', '${pkg.guests} Guests'), Icons.people_alt_rounded),
                   TagChip(pkg.boardLabel, Icons.restaurant_rounded),
                   StarRow(pkg.starRating),
                 ]),
                 const SizedBox(height: 20),
-                const Text('Paket Makan', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(tr('Paket Makan', 'Meal Package'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 12),
                 cardBox(child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Container(
@@ -135,7 +136,7 @@ class _PackageViewState extends State<_PackageView> {
                     Text(pkg.boardLabel, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                     const SizedBox(height: 6),
                     if (pkg.meals.isEmpty)
-                      Text('Belum termasuk makan', style: TextStyle(color: MC.inkMuted, fontSize: 12.5))
+                      Text(tr('Belum termasuk makan', 'Meals not included'), style: TextStyle(color: MC.inkMuted, fontSize: 12.5))
                     else
                       Wrap(spacing: 6, runSpacing: 6, children: [
                         for (final m in pkg.meals)
@@ -145,13 +146,13 @@ class _PackageViewState extends State<_PackageView> {
                             child: Text(m, style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w600, fontSize: 11.5)),
                           ),
                       ]),
-                    Text(' • per orang, per hari selama ${pkg.nights} malam',
+                    Text(tr(' • per orang, per hari selama ${pkg.nights} malam', ' • per person, per day for ${pkg.nights} nights'),
                         style: TextStyle(color: MC.inkFaint, fontSize: 11, height: 1.6)),
                   ])),
                 ])),
                 if (pkg.inclusions.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                const Text('Fasilitas & inklusi lain', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(tr('Fasilitas & inklusi lain', 'Other facilities & inclusions'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 12),
                 cardBox(child: Column(children: [
                   for (var i = 0; i < pkg.inclusions.length; i++) ...[
@@ -166,13 +167,13 @@ class _PackageViewState extends State<_PackageView> {
                 ],
                 if (pkg.description != null) ...[
                   const SizedBox(height: 20),
-                  const Text('Tentang paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text(tr('Tentang paket', 'About the package'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 8),
                   Text(pkg.description!, style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
                 ],
                 if (hotel != null) ...[
                   const SizedBox(height: 20),
-                  const Text('Hotel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text(tr('Hotel', 'Hotel'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 10),
                   GestureDetector(
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(hotel.id))),
@@ -193,7 +194,7 @@ class _PackageViewState extends State<_PackageView> {
                   ),
                 ],
                 const SizedBox(height: 20),
-                const Text('Tanggal menginap', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(tr('Tanggal menginap', 'Stay dates'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: _pickDate,
@@ -204,7 +205,7 @@ class _PackageViewState extends State<_PackageView> {
                       Text('${_fmt.format(_checkIn)}  →  ${_fmt.format(_checkOut)}',
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       const SizedBox(height: 2),
-                      Text('${pkg.nights} malam menginap', style: TextStyle(color: MC.inkFaint, fontSize: 11)),
+                      Text(tr('${pkg.nights} malam menginap', '${pkg.nights} nights stay'), style: TextStyle(color: MC.inkFaint, fontSize: 11)),
                     ])),
                     Icon(Icons.edit_calendar_rounded, color: MC.inkFaint, size: 18),
                   ])),
@@ -232,10 +233,10 @@ class _PackageViewState extends State<_PackageView> {
                 Text(rupiah(pkg.originalPrice),
                     style: TextStyle(fontSize: 11, color: MC.inkFaint, decoration: TextDecoration.lineThrough)),
               Text(rupiah(pkg.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
-              Text('Harga paket / bundle', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
+              Text(tr('Harga paket / bundle', 'Package / bundle price'), style: TextStyle(fontSize: 10, color: MC.inkFaint)),
             ]),
             const SizedBox(width: 16),
-            Expanded(child: PrimaryButton('Pesan Paket', icon: Icons.card_giftcard_rounded, onPressed: _book)),
+            Expanded(child: PrimaryButton(tr('Pesan Paket', 'Book Package'), icon: Icons.card_giftcard_rounded, onPressed: _book)),
           ]),
         ),
       );

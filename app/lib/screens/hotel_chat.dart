@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 
 /// Direct chat between the guest and a hotel (polls every 5s, like CS chat).
@@ -62,12 +63,14 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
       final res = await context.read<Api>().sendHotelChat(widget.hotelId, text);
       await _load(silent: true);
       if (mounted && res['flagged'] == true) {
+        final reason = (res['reason'] ?? tr('melanggar kebijakan', 'policy violation')).toString();
         showSnack(context,
-            'Pesan diblokir: ${res['reason'] ?? 'melanggar kebijakan'}. Dilarang berbagi nomor/kontak atau bertransaksi di luar Miruum.',
+            tr('Pesan diblokir: $reason. Dilarang berbagi nomor/kontak atau bertransaksi di luar Miruum.',
+                'Message blocked: $reason. Do not share phone numbers/contacts or transact outside Miruum.'),
             kind: SnackKind.error);
       }
     } catch (e) {
-      if (mounted) showSnack(context, 'Gagal mengirim pesan', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal mengirim pesan', 'Failed to send message'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -80,7 +83,7 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(widget.hotelName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          Text('Chat langsung dengan hotel', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+          Text(tr('Chat langsung dengan hotel', 'Chat directly with the hotel'), style: TextStyle(fontSize: 11, color: MC.inkFaint)),
         ]),
       ),
       body: Column(children: [
@@ -107,7 +110,8 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(Icons.chat_bubble_outline_rounded, size: 48, color: MC.inkFaint),
             const SizedBox(height: 12),
-            Text('Mulai percakapan dengan ${widget.hotelName}.\nTanyakan fasilitas, permintaan khusus, atau info check-in.',
+            Text(tr('Mulai percakapan dengan ${widget.hotelName}.\nTanyakan fasilitas, permintaan khusus, atau info check-in.',
+                    'Start a conversation with ${widget.hotelName}.\nAsk about facilities, special requests, or check-in info.'),
                 textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5)),
           ]),
         ),
@@ -130,7 +134,7 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Pelanggaran kebijakan${fromGuest ? ' (Anda)' : ' (Hotel)'}',
+              Text(tr('Pelanggaran kebijakan', 'Policy violation') + (fromGuest ? tr(' (Anda)', ' (You)') : tr(' (Hotel)', ' (Hotel)')),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFC0392B))),
               const SizedBox(height: 2),
               Text((m['body'] ?? '').toString(),
@@ -173,7 +177,7 @@ class _HotelChatScreenState extends State<HotelChatScreen> {
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
-                  hintText: 'Tulis pesan…',
+                  hintText: tr('Tulis pesan…', 'Type a message…'),
                   filled: true, fillColor: MC.field,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),

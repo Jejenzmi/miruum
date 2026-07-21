@@ -8,6 +8,7 @@ import '../location.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../l10n.dart';
 
 /// Airport shuttle — antar-jemput Bandara Soekarno-Hatta (CGK). One end is
 /// always the airport terminal; the other is the guest's location (GPS or a
@@ -81,7 +82,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
         _phase = _Phase.choose;
       });
     } catch (_) {
-      if (mounted) showSnack(context, 'Gagal menghitung tarif.', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal menghitung tarif.', 'Failed to calculate fare.'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -96,14 +97,14 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
     try {
       final ride = await context.read<Api>().shuttleRequest(
         vehicleTypeId: _selected!.id,
-        originLabel: _toAirport ? 'Lokasi saya' : airportLabel, originLat: o.latitude, originLng: o.longitude,
-        destLabel: _toAirport ? airportLabel : 'Lokasi saya', destLat: d.latitude, destLng: d.longitude,
+        originLabel: _toAirport ? tr('Lokasi saya', 'My location') : airportLabel, originLat: o.latitude, originLng: o.longitude,
+        destLabel: _toAirport ? airportLabel : tr('Lokasi saya', 'My location'), destLat: d.latitude, destLng: d.longitude,
         paymentMethod: _payment);
       setState(() { _ride = ride; _phase = _Phase.ride; });
     } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.status == 401 ? 'Silakan login untuk memesan shuttle.' : e.message, kind: SnackKind.error);
+      if (mounted) showSnack(context, e.status == 401 ? tr('Silakan login untuk memesan shuttle.', 'Please log in to book a shuttle.') : e.message, kind: SnackKind.error);
     } catch (_) {
-      if (mounted) showSnack(context, 'Gagal memesan shuttle.', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal memesan shuttle.', 'Failed to book shuttle.'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -116,7 +117,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
       final r = await context.read<Api>().shuttleRideStatus(_ride!.id, status);
       setState(() => _ride = r);
     } catch (_) {
-      if (mounted) showSnack(context, 'Gagal memperbarui perjalanan.', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal memperbarui perjalanan.', 'Failed to update trip.'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -130,7 +131,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MC.bg,
-      appBar: AppBar(title: const Text('Shuttle Bandara', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17))),
+      appBar: AppBar(title: Text(tr('Shuttle Bandara', 'Airport Shuttle'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17))),
       body: Column(children: [
         Expanded(
           child: Stack(children: [
@@ -160,7 +161,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
                 child: Row(children: [
                   const Icon(Icons.touch_app_rounded, color: MC.primary, size: 18),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(_userPoint == null ? 'Ketuk peta / GPS untuk titik lokasimu' : 'Lokasi dipilih — lihat tarif di bawah',
+                  Expanded(child: Text(_userPoint == null ? tr('Ketuk peta / GPS untuk titik lokasimu', 'Tap the map / GPS to set your location') : tr('Lokasi dipilih — lihat tarif di bawah', 'Location selected — see fares below'),
                       style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
                 ]),
               )),
@@ -183,23 +184,23 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(color: MC.field, borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
-              _dirBtn('Ke Bandara', Icons.flight_takeoff_rounded, true),
-              _dirBtn('Dari Bandara', Icons.flight_land_rounded, false),
+              _dirBtn(tr('Ke Bandara', 'To Airport'), Icons.flight_takeoff_rounded, true),
+              _dirBtn(tr('Dari Bandara', 'From Airport'), Icons.flight_land_rounded, false),
             ]),
           ),
           const SizedBox(height: 14),
           // Route rows (airport end fixed; guest end = location)
           if (_toAirport) ...[
-            _routeRow(Icons.my_location_rounded, MC.success, 'Titik Jemput', _userPoint == null ? 'Ketuk peta untuk memilih' : 'Lokasi saya'),
+            _routeRow(Icons.my_location_rounded, MC.success, tr('Titik Jemput', 'Pickup Point'), _userPoint == null ? tr('Ketuk peta untuk memilih', 'Tap map to select') : tr('Lokasi saya', 'My location')),
             const Divider(height: 16),
-            _airportRow('Tujuan'),
+            _airportRow(tr('Tujuan', 'Destination')),
           ] else ...[
-            _airportRow('Titik Jemput'),
+            _airportRow(tr('Titik Jemput', 'Pickup Point')),
             const Divider(height: 16),
-            _routeRow(Icons.location_on_rounded, MC.primary, 'Tujuan', _userPoint == null ? 'Ketuk peta untuk memilih' : 'Lokasi saya'),
+            _routeRow(Icons.location_on_rounded, MC.primary, tr('Tujuan', 'Destination'), _userPoint == null ? tr('Ketuk peta untuk memilih', 'Tap map to select') : tr('Lokasi saya', 'My location')),
           ],
           const SizedBox(height: 14),
-          PrimaryButton('Lihat Tarif', icon: Icons.local_taxi_rounded, loading: _busy,
+          PrimaryButton(tr('Lihat Tarif', 'See Fares'), icon: Icons.local_taxi_rounded, loading: _busy,
               onPressed: _userPoint == null ? null : _estimate),
         ]));
       case _Phase.choose:
@@ -207,25 +208,25 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
           Row(children: [
             Icon(_toAirport ? Icons.flight_takeoff_rounded : Icons.flight_land_rounded, size: 16, color: MC.blue),
             const SizedBox(width: 6),
-            Text(_toAirport ? 'Ke $_terminal' : 'Dari $_terminal', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(_toAirport ? tr('Ke $_terminal', 'To $_terminal') : tr('Dari $_terminal', 'From $_terminal'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             const Spacer(),
-            Text('${_distanceKm.toStringAsFixed(1)} km · ±$_etaMin mnt', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+            Text('${_distanceKm.toStringAsFixed(1)} km · ±$_etaMin ${tr('mnt', 'min')}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
             const SizedBox(width: 8),
-            GestureDetector(onTap: _reset, child: Text('Ubah', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700, fontSize: 12.5))),
+            GestureDetector(onTap: _reset, child: Text(tr('Ubah', 'Change'), style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700, fontSize: 12.5))),
           ]),
           const SizedBox(height: 10),
           ..._options.map(_vehicleTile),
           const SizedBox(height: 10),
           Row(children: [
-            Text('Bayar:', style: TextStyle(color: MC.inkMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
+            Text(tr('Bayar:', 'Pay:'), style: TextStyle(color: MC.inkMuted, fontSize: 12.5, fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             ...['CASH', 'WALLET', 'QRIS'].map((m) => Padding(padding: const EdgeInsets.only(right: 6),
-              child: ChoiceChip(label: Text(m == 'CASH' ? 'Tunai' : m), selected: _payment == m, onSelected: (_) => setState(() => _payment = m),
+              child: ChoiceChip(label: Text(m == 'CASH' ? tr('Tunai', 'Cash') : m), selected: _payment == m, onSelected: (_) => setState(() => _payment = m),
                 selectedColor: MC.primarySoft, visualDensity: VisualDensity.compact,
                 labelStyle: TextStyle(color: _payment == m ? MC.primaryDark : MC.inkMuted, fontWeight: FontWeight.w600, fontSize: 11.5)))),
           ]),
           const SizedBox(height: 12),
-          PrimaryButton(_selected == null ? 'Pilih kendaraan' : 'Pesan ${_selected!.name} · ${rupiah(_selected!.fare)}',
+          PrimaryButton(_selected == null ? tr('Pilih kendaraan', 'Select vehicle') : tr('Pesan ${_selected!.name} · ${rupiah(_selected!.fare)}', 'Book ${_selected!.name} · ${rupiah(_selected!.fare)}'),
               loading: _busy, onPressed: _selected == null ? null : _request),
         ]));
       case _Phase.ride:
@@ -255,7 +256,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
         Icon(Icons.local_airport_rounded, color: MC.blue, size: 20), const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(color: MC.inkFaint, fontSize: 11)),
-          const Text('Bandara Soekarno-Hatta', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          Text(tr('Bandara Soekarno-Hatta', 'Soekarno-Hatta Airport'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
         ])),
         DropdownButton<String>(
           value: _terminal, underline: const SizedBox(), isDense: true,
@@ -280,7 +281,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(v.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            Text('${v.capacity} penumpang', style: TextStyle(color: MC.inkFaint, fontSize: 11.5)),
+            Text('${v.capacity} ${tr('penumpang', 'passengers')}', style: TextStyle(color: MC.inkFaint, fontSize: 11.5)),
           ])),
           Text(rupiah(v.fare), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: MC.primaryDark)),
         ]),
@@ -297,7 +298,7 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
           decoration: BoxDecoration(color: _statusColor(r.status).withOpacity(0.14), borderRadius: BorderRadius.circular(20)),
           child: Text(_statusLabel(r.status), style: TextStyle(color: _statusColor(r.status), fontWeight: FontWeight.w700, fontSize: 12))),
         const Spacer(),
-        Text('No. ${r.code}', style: TextStyle(color: MC.inkFaint, fontSize: 11.5)),
+        Text(tr('No. ${r.code}', 'No. ${r.code}'), style: TextStyle(color: MC.inkFaint, fontSize: 11.5)),
       ]),
       const SizedBox(height: 8),
       Row(children: [
@@ -324,20 +325,20 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
         ]),
       const Divider(height: 20),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text('${r.distanceKm.toStringAsFixed(1)} km · ${r.paymentMethod == 'CASH' ? 'Tunai' : r.paymentMethod}', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+        Text('${r.distanceKm.toStringAsFixed(1)} km · ${r.paymentMethod == 'CASH' ? tr('Tunai', 'Cash') : r.paymentMethod}', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
         Text(rupiah(r.fare), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: MC.primaryDark)),
       ]),
       const SizedBox(height: 14),
       if (r.status == 'DRIVER_ASSIGNED')
         Row(children: [
-          Expanded(child: OutlineButtonX('Batalkan', onPressed: _busy ? null : () => _advance('CANCELLED'))),
+          Expanded(child: OutlineButtonX(tr('Batalkan', 'Cancel'), onPressed: _busy ? null : () => _advance('CANCELLED'))),
           const SizedBox(width: 10),
-          Expanded(child: PrimaryButton('Mulai Perjalanan', loading: _busy, onPressed: () => _advance('ONGOING'))),
+          Expanded(child: PrimaryButton(tr('Mulai Perjalanan', 'Start Trip'), loading: _busy, onPressed: () => _advance('ONGOING'))),
         ])
       else if (r.status == 'ONGOING')
-        PrimaryButton('Selesaikan Perjalanan', icon: Icons.flag_rounded, loading: _busy, onPressed: () => _advance('COMPLETED'))
+        PrimaryButton(tr('Selesaikan Perjalanan', 'Finish Trip'), icon: Icons.flag_rounded, loading: _busy, onPressed: () => _advance('COMPLETED'))
       else if (done)
-        PrimaryButton('Pesan Shuttle Lagi', onPressed: _reset),
+        PrimaryButton(tr('Pesan Shuttle Lagi', 'Book Shuttle Again'), onPressed: _reset),
     ]);
   }
 
@@ -370,10 +371,10 @@ class _ShuttleScreenState extends State<ShuttleScreen> {
         _ => MC.accent,
       };
   String _statusLabel(String s) => switch (s) {
-        'DRIVER_ASSIGNED' => 'Driver ditemukan',
-        'ONGOING' => 'Dalam perjalanan',
-        'COMPLETED' => 'Selesai',
-        'CANCELLED' => 'Dibatalkan',
+        'DRIVER_ASSIGNED' => tr('Driver ditemukan', 'Driver found'),
+        'ONGOING' => tr('Dalam perjalanan', 'On the way'),
+        'COMPLETED' => tr('Selesai', 'Completed'),
+        'CANCELLED' => tr('Dibatalkan', 'Cancelled'),
         _ => s,
       };
 }

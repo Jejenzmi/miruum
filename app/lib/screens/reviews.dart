@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
+import '../l10n.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../models.dart';
@@ -11,14 +12,14 @@ class ReviewsScreen extends StatelessWidget {
   final Hotel hotel;
   const ReviewsScreen({super.key, required this.hotel});
 
-  String _label(double r) => r >= 9 ? 'Sempurna' : r >= 8 ? 'Sangat Bagus' : r >= 7 ? 'Bagus' : 'Cukup';
+  String _label(double r) => r >= 9 ? tr('Sempurna', 'Exceptional') : r >= 8 ? tr('Sangat Bagus', 'Very Good') : r >= 7 ? tr('Bagus', 'Good') : tr('Cukup', 'Fair');
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (ctx) => ReviewsCubit(ctx.read<Api>())..load(hotel.id),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Semua Ulasan')),
+        appBar: AppBar(title: Text(tr('Semua Ulasan', 'All Reviews'))),
         body: SafeArea(
           child: BlocBuilder<ReviewsCubit, ViewState<List<Review>>>(
             builder: (context, state) {
@@ -43,12 +44,12 @@ class ReviewsScreen extends StatelessWidget {
                       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(_label(hotel.rating), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                         const SizedBox(height: 2),
-                        Text('Dari ${hotel.reviewCount} ulasan', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+                        Text(tr('Dari ${hotel.reviewCount} ulasan', 'From ${hotel.reviewCount} reviews'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
                       ]),
                     ]),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Ulasan Tamu', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                  Text(tr('Ulasan Tamu', 'Guest Reviews'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                   const SizedBox(height: 12),
                   for (final r in reviews) Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -64,7 +65,7 @@ class ReviewsScreen extends StatelessWidget {
                           if (r.verified) Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.verified_rounded, size: 12, color: MC.success),
                             const SizedBox(width: 3),
-                            Text('Menginap terverifikasi', style: TextStyle(fontSize: 10.5, color: MC.success, fontWeight: FontWeight.w600)),
+                            Text(tr('Menginap terverifikasi', 'Verified stay'), style: TextStyle(fontSize: 10.5, color: MC.success, fontWeight: FontWeight.w600)),
                           ]),
                         ])),
                         RatingPill(r.rating, small: true),

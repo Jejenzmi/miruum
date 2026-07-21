@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../api.dart';
 import '../feedback.dart';
 import '../bloc/auth/auth_bloc.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -93,7 +94,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
     try {
       final r = await context.read<Api>().validatePromo(code, _roomPrice);
       setState(() { _discount = (r['discount'] ?? 0) as int; _appliedPromo = r['code'] as String?; });
-      if (mounted) showSnack(context, 'Promo diterapkan: hemat ${rupiah(_discount)}', kind: SnackKind.success);
+      if (mounted) showSnack(context, tr('Promo diterapkan: hemat ${rupiah(_discount)}', 'Promo applied: save ${rupiah(_discount)}'), kind: SnackKind.success);
     } on ApiException catch (e) {
       setState(() { _discount = 0; _appliedPromo = null; });
       if (mounted) showSnack(context, e.message, kind: SnackKind.error);
@@ -104,11 +105,11 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
 
   Future<void> _submit() async {
     if (_name.text.trim().isEmpty || !_email.text.contains('@') || _phone.text.trim().length < 5) {
-      showSnack(context, 'Lengkapi detail kontak pemesan.', kind: SnackKind.error);
+      showSnack(context, tr('Lengkapi detail kontak pemesan.', 'Complete the booker contact details.'), kind: SnackKind.error);
       return;
     }
     if (!_forSelf && _guest.text.trim().isEmpty) {
-      showSnack(context, 'Isi nama tamu yang menginap.', kind: SnackKind.error);
+      showSnack(context, tr('Isi nama tamu yang menginap.', 'Enter the staying guest\'s name.'), kind: SnackKind.error);
       return;
     }
     setState(() => _loading = true);
@@ -146,7 +147,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
       if (!mounted) return;
       if (_payAtHotel) {
         // Confirmed reservation — no upfront payment. Show the booking + voucher.
-        showSnack(context, 'Reservasi terkonfirmasi — bayar saat check-in di hotel.', kind: SnackKind.success);
+        showSnack(context, tr('Reservasi terkonfirmasi — bayar saat check-in di hotel.', 'Reservation confirmed — pay at check-in at the hotel.'), kind: SnackKind.success);
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => BookingDetailScreen(booking)));
       } else {
         Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: booking.id)));
@@ -161,7 +162,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Rincian Pesanan')),
+      appBar: AppBar(title: Text(tr('Rincian Pesanan', 'Order Details'))),
       body: SafeArea(
         child: Column(
           children: [
@@ -212,18 +213,18 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
             ])),
           ]),
           Divider(height: 24, color: MC.line),
-          if (_isPackage) _row('Paket', widget.package!.title),
-          _row('Kamar', _isPackage
-              ? (widget.package!.room?.name ?? '${widget.rooms}x Kamar')
+          if (_isPackage) _row(tr('Paket', 'Package'), widget.package!.title),
+          _row(tr('Kamar', 'Room'), _isPackage
+              ? (widget.package!.room?.name ?? tr('${widget.rooms}x Kamar', '${widget.rooms}x Room'))
               : '(${widget.rooms}x) ${widget.room!.name}'),
-          _row('Tamu', '${widget.adults} Dewasa'),
-          _row('Durasi', '${widget.nights} Malam / ${widget.nights + 1} Hari'),
-          _row('Check-in', _fmt.format(widget.checkIn)),
-          _row('Check-out', _fmt.format(widget.checkOut)),
-          if (!_isPackage) _row('Tempat tidur', widget.room!.bedInfo),
+          _row(tr('Tamu', 'Guests'), tr('${widget.adults} Dewasa', '${widget.adults} Adults')),
+          _row(tr('Durasi', 'Duration'), tr('${widget.nights} Malam / ${widget.nights + 1} Hari', '${widget.nights} Nights / ${widget.nights + 1} Days')),
+          _row(tr('Check-in', 'Check-in'), _fmt.format(widget.checkIn)),
+          _row(tr('Check-out', 'Check-out'), _fmt.format(widget.checkOut)),
+          if (!_isPackage) _row(tr('Tempat tidur', 'Bed'), widget.room!.bedInfo),
           if (_isPackage) ...[
             Divider(height: 24, color: MC.line),
-            const Text('Termasuk dalam paket', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(tr('Termasuk dalam paket', 'Included in package'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 8),
             for (final inc in widget.package!.inclusions)
               Padding(
@@ -251,21 +252,21 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           Row(children: [
             const Icon(Icons.person_pin_rounded, color: MC.primary, size: 20),
             const SizedBox(width: 8),
-            const Text('Detail Kontak', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(tr('Detail Kontak', 'Contact Details'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           ]),
           const SizedBox(height: 4),
-          Text('E-voucher & info pesanan dikirim ke sini.', style: TextStyle(fontSize: 11.5, color: MC.inkFaint)),
+          Text(tr('E-voucher & info pesanan dikirim ke sini.', 'E-voucher & order info will be sent here.'), style: TextStyle(fontSize: 11.5, color: MC.inkFaint)),
           const SizedBox(height: 14),
-          _labeled('Nama Lengkap', _name),
-          _labeled('Email', _email),
-          _labeled('No. Telepon', _phone, keyboard: TextInputType.phone),
+          _labeled(tr('Nama Lengkap', 'Full Name'), _name),
+          _labeled(tr('Email', 'Email'), _email),
+          _labeled(tr('No. Telepon', 'Phone Number'), _phone, keyboard: TextInputType.phone),
 
           const SizedBox(height: 6),
           Divider(color: MC.line, height: 24),
           Row(children: [
             const Icon(Icons.hotel_rounded, color: MC.primary, size: 20),
             const SizedBox(width: 8),
-            const Text('Untuk siapa pesanan ini?', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(tr('Untuk siapa pesanan ini?', 'Who is this order for?'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           ]),
           const SizedBox(height: 12),
           _segToggle(),
@@ -278,7 +279,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                     child: Row(children: [
                       const Icon(Icons.check_circle_rounded, color: MC.success, size: 16),
                       const SizedBox(width: 7),
-                      Expanded(child: Text('Tamu menginap atas nama ${_name.text.trim().isEmpty ? 'Anda' : _name.text.trim()}.',
+                      Expanded(child: Text(tr('Tamu menginap atas nama ${_name.text.trim().isEmpty ? 'Anda' : _name.text.trim()}.', 'Guest staying under the name ${_name.text.trim().isEmpty ? 'you' : _name.text.trim()}.'),
                           style: TextStyle(fontSize: 12, color: MC.inkMuted))),
                     ]),
                   )
@@ -286,7 +287,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                     padding: const EdgeInsets.only(top: 14),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       if (_savedGuests.isNotEmpty) ...[
-                        Text('Tamu Tersimpan', style: TextStyle(fontSize: 12, color: MC.inkMuted)),
+                        Text(tr('Tamu Tersimpan', 'Saved Guests'), style: TextStyle(fontSize: 12, color: MC.inkMuted)),
                         const SizedBox(height: 8),
                         Wrap(spacing: 8, runSpacing: 8, children: _savedGuests.map((g) {
                           final sel = _guest.text.trim() == g.name;
@@ -310,7 +311,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                         }).toList()),
                         const SizedBox(height: 14),
                       ],
-                      _labeled('Nama Tamu yang Menginap', _guest, hint: 'Sesuai identitas tamu'),
+                      _labeled(tr('Nama Tamu yang Menginap', 'Staying Guest Name'), _guest, hint: tr('Sesuai identitas tamu', 'As per guest ID')),
                       GestureDetector(
                         onTap: () => setState(() => _saveGuest = !_saveGuest),
                         behavior: HitTestBehavior.opaque,
@@ -318,7 +319,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                           Icon(_saveGuest ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
                               size: 20, color: _saveGuest ? MC.primary : MC.inkFaint),
                           const SizedBox(width: 8),
-                          Expanded(child: Text('Simpan tamu ini untuk pemesanan berikutnya', style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
+                          Expanded(child: Text(tr('Simpan tamu ini untuk pemesanan berikutnya', 'Save this guest for next bookings'), style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
                         ]),
                       ),
                     ]),
@@ -331,8 +332,8 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(color: MC.field, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
-          _segOpt('Saya Sendiri', Icons.person_rounded, _forSelf, () => setState(() => _forSelf = true)),
-          _segOpt('Orang Lain', Icons.group_rounded, !_forSelf, () => setState(() => _forSelf = false)),
+          _segOpt(tr('Saya Sendiri', 'Myself'), Icons.person_rounded, _forSelf, () => setState(() => _forSelf = true)),
+          _segOpt(tr('Orang Lain', 'Someone Else'), Icons.group_rounded, !_forSelf, () => setState(() => _forSelf = false)),
         ]),
       );
 
@@ -373,13 +374,13 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
 
   Widget _promoCard() => cardBox(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Kode Promo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          Text(tr('Kode Promo', 'Promo Code'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: TextField(
               controller: _promo,
               textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(hintText: 'mis. MIRUUM30', isDense: true),
+              decoration: InputDecoration(hintText: tr('mis. MIRUUM30', 'e.g. MIRUUM30'), isDense: true),
             )),
             const SizedBox(width: 10),
             SizedBox(height: 44, child: ElevatedButton(
@@ -390,7 +391,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
               ),
               child: _checkingPromo
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Terapkan'),
+                  : Text(tr('Terapkan', 'Apply')),
             )),
           ]),
           if (_appliedPromo != null) ...[
@@ -398,7 +399,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
             Row(children: [
               const Icon(Icons.check_circle_rounded, color: MC.success, size: 16),
               const SizedBox(width: 6),
-              Text('$_appliedPromo diterapkan — hemat ${rupiah(_discount)}',
+              Text(tr('$_appliedPromo diterapkan — hemat ${rupiah(_discount)}', '$_appliedPromo applied — save ${rupiah(_discount)}'),
                   style: const TextStyle(color: MC.success, fontSize: 12.5, fontWeight: FontWeight.w600)),
             ]),
           ],
@@ -410,17 +411,17 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           Row(children: [
             const Icon(Icons.meeting_room_rounded, size: 18, color: MC.primary),
             const SizedBox(width: 8),
-            Text('Detail Tamu per Kamar (${widget.rooms} kamar)', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            Text(tr('Detail Tamu per Kamar (${widget.rooms} kamar)', 'Per-Room Guest Details (${widget.rooms} rooms)'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           ]),
           const SizedBox(height: 4),
-          Text('Nama tamu utama & permintaan khusus tiap kamar (opsional).', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+          Text(tr('Nama tamu utama & permintaan khusus tiap kamar (opsional).', 'Main guest name & special requests per room (optional).'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
           for (var i = 0; i < widget.rooms; i++) ...[
             const SizedBox(height: 12),
-            Text('Kamar ${i + 1}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(tr('Kamar ${i + 1}', 'Room ${i + 1}'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
             const SizedBox(height: 6),
-            TextField(controller: _roomNames[i], decoration: const InputDecoration(hintText: 'Nama tamu', isDense: true)),
+            TextField(controller: _roomNames[i], decoration: InputDecoration(hintText: tr('Nama tamu', 'Guest name'), isDense: true)),
             const SizedBox(height: 8),
-            TextField(controller: _roomRequests[i], decoration: const InputDecoration(hintText: 'Permintaan khusus (mis. lantai tinggi)', isDense: true)),
+            TextField(controller: _roomRequests[i], decoration: InputDecoration(hintText: tr('Permintaan khusus (mis. lantai tinggi)', 'Special request (e.g. high floor)'), isDense: true)),
           ],
         ]),
       );
@@ -430,22 +431,22 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           Row(children: [
             const Icon(Icons.storefront_rounded, size: 18, color: MC.primary),
             const SizedBox(width: 8),
-            const Expanded(child: Text('Bayar di Hotel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+            Expanded(child: Text(tr('Bayar di Hotel', 'Pay at Hotel'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
             Switch(value: _payAtHotel, activeColor: MC.primary, onChanged: (v) => setState(() => _payAtHotel = v)),
           ]),
           Text(_payAtHotel
-              ? 'Reservasi langsung terkonfirmasi. Bayar tunai/kartu saat check-in di hotel.'
-              : 'Aktifkan untuk memesan tanpa bayar di muka — bayar saat tiba di hotel.',
+              ? tr('Reservasi langsung terkonfirmasi. Bayar tunai/kartu saat check-in di hotel.', 'Reservation confirmed instantly. Pay by cash/card at check-in at the hotel.')
+              : tr('Aktifkan untuk memesan tanpa bayar di muka — bayar saat tiba di hotel.', 'Enable to book without upfront payment — pay when you arrive at the hotel.'),
               style: TextStyle(color: MC.inkMuted, fontSize: 12.5, height: 1.4)),
         ]),
       );
 
   Widget _specialRequest() => cardBox(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Permintaan Khusus', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          Text(tr('Permintaan Khusus', 'Special Requests'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 10),
           TextField(controller: _request, maxLines: 3,
-              decoration: const InputDecoration(hintText: 'Contoh: kamar bebas asap rokok, lantai atas...')),
+              decoration: InputDecoration(hintText: tr('Contoh: kamar bebas asap rokok, lantai atas...', 'Example: non-smoking room, upper floor...'))),
         ]),
       );
 
@@ -459,17 +460,17 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
       );
 
   Widget _priceBreakdown() {
-    final unit = _isPackage ? 'paket' : '${widget.nights} malam × ${widget.rooms} kamar';
+    final unit = _isPackage ? tr('paket', 'package') : tr('${widget.nights} malam × ${widget.rooms} kamar', '${widget.nights} nights × ${widget.rooms} rooms');
     return cardBox(child: Column(children: [
       Row(children: [const Icon(Icons.receipt_long_rounded, size: 18, color: MC.primary), const SizedBox(width: 8),
-        const Text('Rincian Harga', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15))]),
+        Text(tr('Rincian Harga', 'Price Breakdown'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))]),
       const SizedBox(height: 10),
-      _priceRow('Harga kamar ($unit)', rupiah(_roomPrice)),
-      _priceRow('Pajak & biaya layanan (${_taxPct.toStringAsFixed(_taxPct % 1 == 0 ? 0 : 1)}%)', rupiah(_tax)),
-      if (_discount > 0) _priceRow('Diskon${_appliedPromo != null ? ' ($_appliedPromo)' : ''}', '- ${rupiah(_discount)}', discount: true),
-      if (_pointsDiscount > 0) _priceRow('Poin Miruum', '- ${rupiah(_pointsDiscount)}', discount: true),
+      _priceRow(tr('Harga kamar ($unit)', 'Room price ($unit)'), rupiah(_roomPrice)),
+      _priceRow(tr('Pajak & biaya layanan (${_taxPct.toStringAsFixed(_taxPct % 1 == 0 ? 0 : 1)}%)', 'Tax & service fee (${_taxPct.toStringAsFixed(_taxPct % 1 == 0 ? 0 : 1)}%)'), rupiah(_tax)),
+      if (_discount > 0) _priceRow(tr('Diskon${_appliedPromo != null ? ' ($_appliedPromo)' : ''}', 'Discount${_appliedPromo != null ? ' ($_appliedPromo)' : ''}'), '- ${rupiah(_discount)}', discount: true),
+      if (_pointsDiscount > 0) _priceRow(tr('Poin Miruum', 'Miruum Points'), '- ${rupiah(_pointsDiscount)}', discount: true),
       Divider(height: 18, color: MC.line),
-      _priceRow('Total', rupiah(_total), bold: true),
+      _priceRow(tr('Total', 'Total'), rupiah(_total), bold: true),
     ]));
   }
 
@@ -482,8 +483,8 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Gunakan Poin Miruum', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            Text('$_points poin · hemat s/d ${rupiah(((_roomPrice + _tax - _discount) * _maxRedeemPct / 100).floor())}',
+            Text(tr('Gunakan Poin Miruum', 'Use Miruum Points'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            Text(tr('$_points poin · hemat s/d ${rupiah(((_roomPrice + _tax - _discount) * _maxRedeemPct / 100).floor())}', '$_points points · save up to ${rupiah(((_roomPrice + _tax - _discount) * _maxRedeemPct / 100).floor())}'),
                 style: TextStyle(color: MC.inkMuted, fontSize: 12)),
           ])),
           Switch(value: _usePoints, activeColor: MC.primary, onChanged: (v) => setState(() => _usePoints = v)),
@@ -501,13 +502,13 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
             Expanded(
               flex: 4,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                Text('Total', style: TextStyle(fontSize: 11, color: MC.inkFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(tr('Total', 'Total'), style: TextStyle(fontSize: 11, color: MC.inkFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(rupiah(_total), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text('Termasuk pajak & layanan', style: TextStyle(fontSize: 10, color: MC.inkFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(tr('Termasuk pajak & layanan', 'Incl. tax & service'), style: TextStyle(fontSize: 10, color: MC.inkFaint), maxLines: 1, overflow: TextOverflow.ellipsis),
               ]),
             ),
             const SizedBox(width: 12),
-            Expanded(flex: 5, child: PrimaryButton(_payAtHotel ? 'Konfirmasi Reservasi' : 'Pesan Sekarang', loading: _loading, onPressed: _submit)),
+            Expanded(flex: 5, child: PrimaryButton(_payAtHotel ? tr('Konfirmasi Reservasi', 'Confirm Reservation') : tr('Pesan Sekarang', 'Book Now'), loading: _loading, onPressed: _submit)),
           ]),
         ),
       );

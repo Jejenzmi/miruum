@@ -5,6 +5,7 @@ import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../feedback.dart';
 import '../image_upload.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
@@ -33,7 +34,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
       if (user.isCorporate) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CorporatePortalScreen()));
       } else {
-        _toast(context, 'Akun ini bukan akun Corporate. Masuk sebagai pengguna biasa.', err: false);
+        _toast(context, tr('Akun ini bukan akun Bisnis. Masuk sebagai pengguna biasa.', 'This is not a Business account. Signing in as a regular user.'), err: false);
         Navigator.pop(context);
       }
     } on TwoFactorRequired {
@@ -49,16 +50,16 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     final ctl = TextEditingController();
     final code = await showDialog<String>(context: context, builder: (_) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Verifikasi 2 Langkah'),
+      title: Text(tr('Verifikasi 2 Langkah', 'Two-Step Verification')),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Kode verifikasi dikirim ke email PIC. Masukkan di bawah.', style: TextStyle(fontSize: 13)),
+        Text(tr('Kode verifikasi dikirim ke email PIC. Masukkan di bawah.', 'A verification code was sent to the PIC email. Enter it below.'), style: const TextStyle(fontSize: 13)),
         const SizedBox(height: 12),
         TextField(controller: ctl, keyboardType: TextInputType.number, textAlign: TextAlign.center,
           decoration: const InputDecoration(hintText: '••••••'), maxLength: 6),
       ]),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-        FilledButton(onPressed: () => Navigator.pop(context, ctl.text.trim()), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Verifikasi')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Batal', 'Cancel'))),
+        FilledButton(onPressed: () => Navigator.pop(context, ctl.text.trim()), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: Text(tr('Verifikasi', 'Verify'))),
       ],
     ));
     if (code != null && code.length >= 4) _submit(code: code);
@@ -78,11 +79,11 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               child: const Text('CORPORATE & GOVERNMENT', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
             ).animate().fadeIn(duration: 400.ms),
             const SizedBox(height: 12),
-            const Text('Portal Korporat', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
+            Text(tr('Portal Bisnis', 'Business Portal'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
                 .animate().fadeIn(delay: 120.ms).scale(begin: const Offset(0.9, 0.9)),
             const SizedBox(height: 4),
-            const Text('Kelola pemesanan dinas & tagihan corporate Anda',
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 13))
+            Text(tr('Kelola perjalanan dinas & tagihan bisnis Anda', 'Manage business trips & billing'),
+                    textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13))
                 .animate().fadeIn(delay: 220.ms),
           ]),
         ),
@@ -90,15 +91,15 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField('Email Corporate', Icons.business_center_outlined, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Email PIC', 'PIC Email'), Icons.business_center_outlined, _email, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 14),
-              AuthTextField('Kata Sandi', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField(tr('Kata Sandi', 'Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   )),
               const SizedBox(height: 20),
-              PrimaryButton('Masuk Portal Korporat', loading: _loading, onPressed: _submit),
+              PrimaryButton(tr('Masuk Portal Bisnis', 'Enter Business Portal'), loading: _loading, onPressed: _submit),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -106,7 +107,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 child: Row(children: [
                   const Icon(Icons.info_outline_rounded, color: MC.primaryDark, size: 20),
                   const SizedBox(width: 10),
-                  Expanded(child: Text('Belum punya akun corporate? Ajukan pendaftaran & unggah dokumen legalitas — tim Miruum akan meninjau.',
+                  Expanded(child: Text(tr('Belum punya akun bisnis? Ajukan pendaftaran & unggah dokumen legalitas — tim Miruum akan meninjau.',
+                      'No business account yet? Apply and upload your legal documents — the Miruum team will review it.'),
                       style: TextStyle(color: MC.ink, fontSize: 12.5, height: 1.35))),
                 ]),
               ),
@@ -116,7 +118,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateRegisterScreen())),
                   icon: const Icon(Icons.apartment_rounded, size: 20, color: MC.primary),
-                  label: const Text('Daftarkan Corporate', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                  label: Text(tr('Daftarkan Perusahaan', 'Register Your Company'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(side: const BorderSide(color: MC.primary), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
                 ),
               ),
@@ -141,9 +143,14 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
 
   // Entity types + document catalog (fetched from backend so it stays in sync).
   List<String> _entityTypes = const ['SWASTA', 'BUMN', 'BUMD', 'PEMERINTAH'];
-  Map<String, String> _labels = const {
-    'SWASTA': 'Perusahaan Swasta', 'BUMN': 'BUMN', 'BUMD': 'BUMD', 'PEMERINTAH': 'Pemerintahan',
-  };
+  // Bilingual display labels by entity key. Kept local (not overwritten by the
+  // backend) so English users always see English names.
+  Map<String, String> get _labels => {
+        'SWASTA': tr('Perusahaan Swasta', 'Private Company'),
+        'BUMN': 'BUMN',
+        'BUMD': 'BUMD',
+        'PEMERINTAH': tr('Pemerintahan', 'Government'),
+      };
   Map<String, List<Map<String, dynamic>>> _catalog = const {};
 
   String? _entityType;
@@ -168,12 +175,12 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     'BUMD': Icons.location_city_rounded,
     'PEMERINTAH': Icons.gavel_rounded,
   };
-  static const _entityDesc = {
-    'SWASTA': 'PT / CV / perusahaan milik swasta',
-    'BUMN': 'Badan Usaha Milik Negara',
-    'BUMD': 'Badan Usaha Milik Daerah',
-    'PEMERINTAH': 'Kementerian / Dinas / Lembaga',
-  };
+  Map<String, String> get _entityDesc => {
+        'SWASTA': tr('PT / CV / perusahaan milik swasta', 'Ltd / private company'),
+        'BUMN': tr('Badan Usaha Milik Negara', 'State-owned enterprise'),
+        'BUMD': tr('Badan Usaha Milik Daerah', 'Regionally-owned enterprise'),
+        'PEMERINTAH': tr('Kementerian / Dinas / Lembaga', 'Ministry / agency / institution'),
+      };
 
   @override
   void initState() {
@@ -185,7 +192,6 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     try {
       final cfg = await context.read<Api>().corporateDocRequirements();
       final types = (cfg['entityTypes'] as List?)?.map((e) => e.toString()).toList();
-      final labels = (cfg['labels'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString()));
       final catalog = (cfg['catalog'] as Map?)?.map((k, v) => MapEntry(
             k.toString(),
             (v as List).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
@@ -193,7 +199,8 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
       if (!mounted) return;
       setState(() {
         if (types != null && types.isNotEmpty) _entityTypes = types;
-        if (labels != null && labels.isNotEmpty) _labels = labels;
+        // Note: display labels come from the local bilingual `_labels` getter and
+        // are intentionally not overwritten by the backend.
         if (catalog != null) _catalog = catalog;
         _loadingCfg = false;
       });
@@ -228,7 +235,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_docsComplete) { _toast(context, 'Lengkapi semua dokumen wajib terlebih dahulu'); return; }
+    if (!_docsComplete) { _toast(context, tr('Lengkapi semua dokumen wajib terlebih dahulu', 'Please complete all required documents first')); return; }
     setState(() => _submitting = true);
     try {
       final documents = _docList
@@ -270,9 +277,10 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
             child: const Icon(Icons.mark_email_read_rounded, color: MC.primaryDark, size: 34),
           ).animate().scale(begin: const Offset(0.6, 0.6), curve: Curves.elasticOut, duration: 600.ms),
           const SizedBox(height: 16),
-          const Text('Pengajuan Terkirim!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          Text(tr('Pengajuan Terkirim!', 'Application Submitted!'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          Text('Tim Miruum akan meninjau dokumen legalitas Anda. Kredensial login akan dikirim ke email PIC setelah disetujui.',
+          Text(tr('Tim Miruum akan meninjau dokumen legalitas Anda. Kredensial login akan dikirim ke email PIC setelah disetujui.',
+              'The Miruum team will review your legal documents. Login credentials will be sent to the PIC email once approved.'),
               textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.4)),
         ]),
         actions: [
@@ -280,7 +288,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
             child: FilledButton(
               style: FilledButton.styleFrom(backgroundColor: MC.primary),
               onPressed: () { Navigator.pop(context); Navigator.pop(context); },
-              child: const Text('Kembali ke Login'),
+              child: Text(tr('Kembali ke Login', 'Back to Login')),
             ),
           ),
         ],
@@ -293,7 +301,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     return Scaffold(
       backgroundColor: MC.bg,
       appBar: AppBar(
-        title: const Text('Daftar Corporate'),
+        title: Text(tr('Daftar Bisnis', 'Business Registration')),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(6),
           child: LinearProgressIndicator(
@@ -326,9 +334,10 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
       children: [
-        const Text('Jenis Corporate', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        Text(tr('Jenis Bisnis', 'Business Type'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Pilih jenis badan usaha corporate Anda. Dokumen yang diminta menyesuaikan pilihan ini.',
+        Text(tr('Pilih jenis badan usaha bisnis Anda. Dokumen yang diminta menyesuaikan pilihan ini.',
+            'Choose your business entity type. The required documents adjust to this choice.'),
             style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.4)),
         const SizedBox(height: 18),
         ..._entityTypes.map((t) {
@@ -378,31 +387,31 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
       children: [
-        Text('Data ${_labels[_entityType] ?? 'Corporate'}', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        Text(tr('Data ${_labels[_entityType] ?? 'Bisnis'}', 'Details — ${_labels[_entityType] ?? 'Business'}'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
-        TextField(controller: _company, decoration: dec('Nama Corporate / Perusahaan *', hint: 'mis. PT Nusantara Jaya'), onChanged: (_) => setState(() {})),
+        TextField(controller: _company, decoration: dec(tr('Nama Perusahaan *', 'Company Name *'), hint: 'mis. PT Nusantara Jaya'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: TextField(controller: _picName, decoration: dec('Nama PIC *'), onChanged: (_) => setState(() {}))),
+          Expanded(child: TextField(controller: _picName, decoration: dec(tr('Nama PIC *', 'PIC Name *')), onChanged: (_) => setState(() {}))),
           const SizedBox(width: 10),
-          Expanded(child: TextField(controller: _picPos, decoration: dec('Jabatan PIC'))),
+          Expanded(child: TextField(controller: _picPos, decoration: dec(tr('Jabatan PIC', 'PIC Position')))),
         ]),
         const SizedBox(height: 12),
-        TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: dec('Email PIC *', hint: 'email@perusahaan.co.id'), onChanged: (_) => setState(() {})),
+        TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: dec(tr('Email PIC *', 'PIC Email *'), hint: 'email@perusahaan.co.id'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
-        TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: dec('No. Telepon *', hint: '08xx / 021xxx'), onChanged: (_) => setState(() {})),
+        TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: dec(tr('No. Telepon *', 'Phone Number *'), hint: '08xx / 021xxx'), onChanged: (_) => setState(() {})),
         const SizedBox(height: 12),
-        TextField(controller: _address, maxLines: 2, decoration: dec('Alamat')),
+        TextField(controller: _address, maxLines: 2, decoration: dec(tr('Alamat', 'Address'))),
         const SizedBox(height: 12),
         Row(children: [
-          Expanded(child: TextField(controller: _npwp, decoration: dec('NPWP', hint: '00.000.000.0-000.000'))),
+          Expanded(child: TextField(controller: _npwp, decoration: dec(tr('NPWP', 'Tax ID (NPWP)'), hint: '00.000.000.0-000.000'))),
           const SizedBox(width: 10),
-          SizedBox(width: 110, child: TextField(controller: _employees, keyboardType: TextInputType.number, decoration: dec('Karyawan'))),
+          SizedBox(width: 110, child: TextField(controller: _employees, keyboardType: TextInputType.number, decoration: dec(tr('Karyawan', 'Employees')))),
         ]),
         const SizedBox(height: 12),
-        TextField(controller: _note, maxLines: 2, decoration: dec('Kebutuhan / Catatan', hint: 'mis. ±30 pemesanan dinas/bulan')),
+        TextField(controller: _note, maxLines: 2, decoration: dec(tr('Kebutuhan / Catatan', 'Needs / Notes'), hint: 'mis. ±30 pemesanan dinas/bulan')),
         const SizedBox(height: 4),
-        Text('* wajib diisi', style: TextStyle(color: MC.inkFaint, fontSize: 12)),
+        Text(tr('* wajib diisi', '* required'), style: TextStyle(color: MC.inkFaint, fontSize: 12)),
       ],
     );
   }
@@ -412,9 +421,10 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
       children: [
-        const Text('Dokumen Legalitas', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+        Text(tr('Dokumen Legalitas', 'Legal Documents'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Text('Unggah dokumen berikut untuk ${_labels[_entityType] ?? 'corporate Anda'}. Format foto/scan JPG/PNG, jelas & terbaca.',
+        Text(tr('Unggah dokumen berikut untuk ${_labels[_entityType] ?? 'bisnis Anda'}. Format foto/scan JPG/PNG, jelas & terbaca.',
+            'Upload the following documents for ${_labels[_entityType] ?? 'your business'}. Photo/scan JPG/PNG, clear & legible.'),
             style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.4)),
         const SizedBox(height: 16),
         ..._docList.map((d) {
@@ -441,21 +451,21 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
                   if (required) Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(color: MC.danger.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                    child: const Text('Wajib', style: TextStyle(color: MC.danger, fontSize: 10, fontWeight: FontWeight.w700)),
+                    child: Text(tr('Wajib', 'Required'), style: const TextStyle(color: MC.danger, fontSize: 10, fontWeight: FontWeight.w700)),
                   ) else Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(6)),
-                    child: Text('Opsional', style: TextStyle(color: MC.inkMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                    child: Text(tr('Opsional', 'Optional'), style: TextStyle(color: MC.inkMuted, fontSize: 10, fontWeight: FontWeight.w600)),
                   ),
                 ]),
-                if (uploaded) Padding(padding: const EdgeInsets.only(top: 2), child: Text('Terunggah ✓', style: TextStyle(color: MC.success, fontSize: 12))),
+                if (uploaded) Padding(padding: const EdgeInsets.only(top: 2), child: Text(tr('Terunggah ✓', 'Uploaded ✓'), style: TextStyle(color: MC.success, fontSize: 12))),
               ])),
               const SizedBox(width: 8),
               busy
                   ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: MC.primary))
                   : TextButton(
                       onPressed: () => _upload(key),
-                      child: Text(uploaded ? 'Ganti' : 'Unggah', style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                      child: Text(uploaded ? tr('Ganti', 'Replace') : tr('Unggah', 'Upload'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                     ),
             ]),
           );
@@ -475,7 +485,7 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
           Expanded(child: OutlinedButton(
             onPressed: _submitting ? null : () => setState(() => _step--),
             style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15), side: BorderSide(color: MC.line), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-            child: const Text('Kembali'),
+            child: Text(tr('Kembali', 'Back')),
           )),
         if (_step > 0) const SizedBox(width: 12),
         Expanded(
@@ -484,9 +494,9 @@ class _CorporateRegisterScreenState extends State<CorporateRegisterScreen> {
               ? FilledButton(
                   onPressed: canNext ? () => setState(() => _step++) : null,
                   style: FilledButton.styleFrom(backgroundColor: MC.primary, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  child: const Text('Lanjut', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(tr('Lanjut', 'Next'), style: const TextStyle(fontWeight: FontWeight.w700)),
                 )
-              : PrimaryButton('Kirim Pengajuan', loading: _submitting, onPressed: canNext ? _submit : null),
+              : PrimaryButton(tr('Kirim Pengajuan', 'Submit Application'), loading: _submitting, onPressed: canNext ? _submit : null),
         ),
       ]),
     );
@@ -521,7 +531,7 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
       if (!mounted) return;
       setState(() { _overview = ov; _invoices = inv; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = 'Gagal memuat data portal'; _loading = false; });
+      if (mounted) setState(() { _error = tr('Gagal memuat data portal', 'Failed to load portal data'); _loading = false; });
     }
   }
 
@@ -539,7 +549,7 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
     return Scaffold(
       backgroundColor: MC.bg,
       appBar: AppBar(
-        title: const Text('Portal Korporat'),
+        title: Text(tr('Portal Bisnis', 'Business Portal')),
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
           IconButton(onPressed: _logout, icon: const Icon(Icons.logout_rounded)),
@@ -551,7 +561,7 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
               ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Text(_error!, style: TextStyle(color: MC.inkMuted)),
                   const SizedBox(height: 12),
-                  FilledButton(onPressed: _load, style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Coba Lagi')),
+                  FilledButton(onPressed: _load, style: FilledButton.styleFrom(backgroundColor: MC.primary), child: Text(tr('Coba Lagi', 'Try Again'))),
                 ]))
               : RefreshIndicator(
                   color: MC.primary,
@@ -567,15 +577,15 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(isGov ? 'Government' : 'Corporate', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                          Text(isGov ? tr('Pemerintahan', 'Government') : tr('Bisnis', 'Business'), style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                           const SizedBox(height: 4),
                           Text(corp?['name']?.toString() ?? '—', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-                          if (corp?['taxId'] != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text('NPWP: ${corp!['taxId']}', style: const TextStyle(color: Colors.white70, fontSize: 12))),
+                          if (corp?['taxId'] != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(tr('NPWP: ${corp!['taxId']}', 'Tax ID: ${corp!['taxId']}'), style: const TextStyle(color: Colors.white70, fontSize: 12))),
                           const SizedBox(height: 16),
                           Row(children: [
                             const Icon(Icons.account_balance_wallet_rounded, color: Colors.white70, size: 18),
                             const SizedBox(width: 6),
-                            const Text('Limit Kredit', style: TextStyle(color: Colors.white70, fontSize: 12.5)),
+                            Text(tr('Limit Kredit', 'Credit Limit'), style: const TextStyle(color: Colors.white70, fontSize: 12.5)),
                             const Spacer(),
                             Text(rupiah(_toInt(corp?['creditLimit'])), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
                           ]),
@@ -584,16 +594,16 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                       const SizedBox(height: 14),
                       // Stats.
                       Row(children: [
-                        _statCard('Total Pesanan', '${stats?['bookings'] ?? 0}', Icons.receipt_long_rounded),
+                        _statCard(tr('Total Pesanan', 'Total Bookings'), '${stats?['bookings'] ?? 0}', Icons.receipt_long_rounded),
                         const SizedBox(width: 12),
-                        _statCard('Total Belanja', rupiah(_toInt(stats?['spend'])), Icons.payments_rounded),
+                        _statCard(tr('Total Belanja', 'Total Spend'), rupiah(_toInt(stats?['spend'])), Icons.payments_rounded),
                       ]),
                       const SizedBox(height: 22),
                       // Invoices.
-                      const Text('Tagihan dari Miruum', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      Text(tr('Tagihan dari Miruum', 'Invoices from Miruum'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 10),
                       if (_invoices.isEmpty)
-                        _emptyBox('Belum ada tagihan.')
+                        _emptyBox(tr('Belum ada tagihan.', 'No invoices yet.'))
                       else
                         ..._invoices.map((raw) {
                           final inv = raw as Map<String, dynamic>;
@@ -607,7 +617,7 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text(inv['number']?.toString() ?? '—', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                                 const SizedBox(height: 2),
-                                Text('${inv['bookingsCount'] ?? 0} pesanan', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                                Text(tr('${inv['bookingsCount'] ?? 0} pesanan', '${inv['bookingsCount'] ?? 0} bookings'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
                               ])),
                               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                                 Text(rupiah(_toInt(inv['amount'])), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
@@ -615,7 +625,7 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(color: (paid ? MC.success : MC.primary).withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                                  child: Text(paid ? 'Lunas' : status == 'CANCELLED' ? 'Batal' : 'Belum Bayar',
+                                  child: Text(paid ? tr('Lunas', 'Paid') : status == 'CANCELLED' ? tr('Batal', 'Cancelled') : tr('Belum Bayar', 'Unpaid'),
                                       style: TextStyle(color: paid ? MC.success : MC.primaryDark, fontSize: 11, fontWeight: FontWeight.w700)),
                                 ),
                               ]),
@@ -624,10 +634,10 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                         }),
                       const SizedBox(height: 22),
                       // Recent bookings.
-                      const Text('Pesanan Terbaru', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      Text(tr('Pesanan Terbaru', 'Recent Bookings'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 10),
                       if (recent.isEmpty)
-                        _emptyBox('Belum ada pesanan dinas.')
+                        _emptyBox(tr('Belum ada pesanan dinas.', 'No business trips yet.'))
                       else
                         ...recent.map((raw) {
                           final b = raw as Map<String, dynamic>;

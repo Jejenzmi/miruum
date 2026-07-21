@@ -6,6 +6,7 @@ import '../bloc/auth/auth_bloc.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../location.dart';
 import '../models.dart';
 import '../theme.dart';
@@ -57,8 +58,8 @@ class _HomeView extends StatelessWidget {
                 const SizedBox(height: 20),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SectionHeader('Promo Terbaru', action: 'Lihat semua',
-                      onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen(title: 'Promo Hotel', promoOnly: true)))),
+                  child: SectionHeader(tr('Promo Terbaru', 'Latest Promos'), action: tr('Lihat semua', 'See all'),
+                      onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(title: tr('Promo Hotel', 'Hotel Promos'), promoOnly: true)))),
                 ),
                 const SizedBox(height: 12),
                 _promoCarousel(data.banners).animate().fadeIn(delay: 100.ms, duration: 400.ms).slideX(begin: 0.1, end: 0),
@@ -69,13 +70,13 @@ class _HomeView extends StatelessWidget {
                 const SizedBox(height: 22),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SectionHeader('Rekomendasi Hotel', action: 'Lihat semua',
-                      onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen(title: 'Rekomendasi Hotel')))),
+                  child: SectionHeader(tr('Rekomendasi Hotel', 'Recommended Hotels'), action: tr('Lihat semua', 'See all'),
+                      onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(title: tr('Rekomendasi Hotel', 'Recommended Hotels'))))),
                 ),
                 const SizedBox(height: 12),
                 _recommendationGrid(context, data.recommended).animate().fadeIn(delay: 300.ms, duration: 450.ms),
-                const _ProgramRail(type: 'PROMO', title: 'Promo Spesial'),
-                const _ProgramRail(type: 'CAMPAIGN', title: 'Campaign'),
+                _ProgramRail(type: 'PROMO', title: tr('Promo Spesial', 'Special Promo')),
+                _ProgramRail(type: 'CAMPAIGN', title: tr('Campaign', 'Campaign')),
                 const SizedBox(height: 24),
               ],
             );
@@ -103,7 +104,7 @@ class _HomeView extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    auth.isLoggedIn ? 'Halo, ${auth.user!.name} 👋' : 'Selamat datang di Miruum',
+                    auth.isLoggedIn ? tr('Halo, ${auth.user!.name} 👋', 'Hi, ${auth.user!.name} 👋') : tr('Selamat datang di Miruum', 'Welcome to Miruum'),
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -136,8 +137,8 @@ class _HomeView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            const Text('Yuk pilih hotel\nsesukamu',
-                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.15)),
+            Text(tr('Yuk pilih hotel\nsesukamu', 'Pick the hotel\nyou love'),
+                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800, height: 1.15)),
             const SizedBox(height: 16),
             GestureDetector(
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MenuHotelScreen())),
@@ -148,7 +149,7 @@ class _HomeView extends StatelessWidget {
                 child: Row(children: [
                   const Icon(Icons.search_rounded, color: MC.primary),
                   SizedBox(width: 10),
-                  Text('Cari hotel', style: TextStyle(color: MC.inkFaint, fontSize: 15)),
+                  Text(tr('Cari hotel', 'Search hotels'), style: TextStyle(color: MC.inkFaint, fontSize: 15)),
                 ]),
               ),
             ),
@@ -157,9 +158,9 @@ class _HomeView extends StatelessWidget {
             if (!auth.isLoggedIn) ...[
               const SizedBox(height: 14),
               Row(children: [
-                Expanded(child: _headerBtn(context, 'Login', Icons.login_rounded, false, const SignInScreen())),
+                Expanded(child: _headerBtn(context, tr('Login', 'Login'), Icons.login_rounded, false, const SignInScreen())),
                 const SizedBox(width: 12),
-                Expanded(child: _headerBtn(context, 'Registrasi', Icons.person_add_alt_1_rounded, true, const SignUpScreen())),
+                Expanded(child: _headerBtn(context, tr('Registrasi', 'Register'), Icons.person_add_alt_1_rounded, true, const SignUpScreen())),
               ]),
             ],
           ],
@@ -200,13 +201,13 @@ class _HomeView extends StatelessWidget {
         valueListenable: AppSettings.modules,
         builder: (context, mods, _) {
           final tiles = <Widget>[
-            _categoryTile(context, 'Hotel', Icons.apartment_rounded, MC.blue, const MenuHotelScreen()),
+            _categoryTile(context, tr('Hotel', 'Hotel'), Icons.apartment_rounded, MC.blue, const MenuHotelScreen()),
             if (mods['hotelPackage'] ?? true)
-              _categoryTile(context, 'Hotel Package', Icons.card_giftcard_rounded, MC.primary, const PackageListScreen()),
+              _categoryTile(context, tr('Paket Hotel', 'Hotel Package'), Icons.card_giftcard_rounded, MC.primary, const PackageListScreen()),
             if (mods['tour'] ?? true)
-              _categoryTile(context, 'Tour', Icons.travel_explore_rounded, MC.success, const TourListScreen()),
+              _categoryTile(context, tr('Tur', 'Tour'), Icons.travel_explore_rounded, MC.success, const TourListScreen()),
             if (mods['shuttle'] ?? true)
-              _categoryTile(context, 'Shuttle Bandara', Icons.local_airport_rounded, MC.accent, const ShuttleScreen()),
+              _categoryTile(context, tr('Shuttle Bandara', 'Airport Shuttle'), Icons.local_airport_rounded, MC.accent, const ShuttleScreen()),
           ];
           // 2 per row.
           final rows = <Widget>[];
@@ -355,7 +356,7 @@ class _VerticalHotelCard extends StatelessWidget {
               const SizedBox(height: 4),
               RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
                 TextSpan(text: rupiah(hotel.priceFrom), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                TextSpan(text: '/mlm', style: TextStyle(fontSize: 10, color: MC.inkFaint)),
+                TextSpan(text: tr('/mlm', '/night'), style: TextStyle(fontSize: 10, color: MC.inkFaint)),
               ])),
             ]),
           ),
@@ -373,9 +374,9 @@ class _ErrorState extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.cloud_off_rounded, size: 48, color: MC.inkFaint),
           const SizedBox(height: 12),
-          Text('Gagal memuat data', style: TextStyle(color: MC.inkMuted)),
+          Text(tr('Gagal memuat data', 'Failed to load data'), style: TextStyle(color: MC.inkMuted)),
           const SizedBox(height: 12),
-          OutlineButtonX('Coba lagi', onPressed: onRetry, icon: Icons.refresh_rounded),
+          OutlineButtonX(tr('Coba lagi', 'Try again'), onPressed: onRetry, icon: Icons.refresh_rounded),
         ]),
       );
 }
@@ -398,7 +399,7 @@ class _NearMeButtonState extends State<_NearMeButton> {
     if (mounted) setState(() => _busy = false);
     if (pos == null || !mounted) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(
-      title: 'Hotel di Sekitarmu',
+      title: tr('Hotel di Sekitarmu', 'Hotels Near You'),
       nearLat: pos.latitude,
       nearLng: pos.longitude,
     )));
@@ -421,7 +422,7 @@ class _NearMeButtonState extends State<_NearMeButton> {
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.my_location_rounded, color: Colors.white, size: 19),
           const SizedBox(width: 10),
-          Text(_busy ? 'Mencari lokasi…' : 'Cari hotel di sekitar saya',
+          Text(_busy ? tr('Mencari lokasi…', 'Finding location…') : tr('Cari hotel di sekitar saya', 'Find hotels near me'),
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
         ]),
       ),
@@ -462,7 +463,7 @@ class _ProgramRailState extends State<_ProgramRail> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(color: campaign ? MC.blue.withOpacity(.12) : MC.primary.withOpacity(.12), borderRadius: BorderRadius.circular(8)),
-                child: Text(campaign ? 'CAMPAIGN' : 'PROMO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .5, color: campaign ? MC.blue : MC.primaryDark)),
+                child: Text(campaign ? tr('KAMPANYE', 'CAMPAIGN') : tr('PROMO', 'PROMO'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: .5, color: campaign ? MC.blue : MC.primaryDark)),
               ),
               const SizedBox(width: 8),
               Text(widget.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
@@ -519,7 +520,7 @@ class _ProgramRailState extends State<_ProgramRail> {
               Positioned(top: 8, left: 8, child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: (campaign ? MC.blue : MC.primary).withOpacity(.92), borderRadius: BorderRadius.circular(20)),
-                child: Text(campaign ? 'Campaign' : 'Promo', style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                child: Text(campaign ? tr('Kampanye', 'Campaign') : tr('Promo', 'Promo'), style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
               )),
             ]),
           ),
@@ -541,7 +542,7 @@ class _ProgramRailState extends State<_ProgramRail> {
                     child: Text(rupiah(h.priceFrom), maxLines: 1, style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 13)),
                   ),
                 ),
-                Text(' /mlm', style: TextStyle(color: MC.inkFaint, fontSize: 10)),
+                Text(tr(' /mlm', ' /night'), style: TextStyle(color: MC.inkFaint, fontSize: 10)),
               ]),
             ]),
           ),
@@ -575,8 +576,8 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
     if (_hotels.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 22),
-      const Padding(padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text('Baru dilihat', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700))),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(tr('Baru dilihat', 'Recently viewed'), style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700))),
       const SizedBox(height: 12),
       SizedBox(height: 168, child: ListView.separated(
         scrollDirection: Axis.horizontal,

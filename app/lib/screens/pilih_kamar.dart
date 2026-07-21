@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'auth.dart';
@@ -58,10 +59,10 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
           ]),
           const SizedBox(height: 10),
           Row(children: [
-            _sumItem(Icons.nightlight_round, '$_nights Malam', () => setState(() => _nights = _nights % 5 + 1)),
+            _sumItem(Icons.nightlight_round, '$_nights ${tr('Malam', 'Nights')}', () => setState(() => _nights = _nights % 5 + 1)),
             _sumItem(Icons.calendar_today_rounded, _fmt.format(_checkIn), _pickDate),
-            _sumItem(Icons.meeting_room_rounded, '$_rooms Kamar', () => setState(() => _rooms = _rooms % 3 + 1)),
-            _sumItem(Icons.people_alt_rounded, '$_adults Dewasa', () => setState(() => _adults = (_adults % 4) + 1)),
+            _sumItem(Icons.meeting_room_rounded, '$_rooms ${tr('Kamar', 'Rooms')}', () => setState(() => _rooms = _rooms % 3 + 1)),
+            _sumItem(Icons.people_alt_rounded, '$_adults ${tr('Dewasa', 'Adults')}', () => setState(() => _adults = (_adults % 4) + 1)),
           ]),
         ]),
       );
@@ -101,10 +102,10 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
           Text(room.bedInfo, style: TextStyle(color: MC.inkMuted, fontSize: 12.5)),
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
-            if (room.freeWifi) const TagChip('Wifi Gratis', Icons.wifi_rounded),
-            if (room.breakfast) const TagChip('Sarapan Gratis', Icons.free_breakfast_rounded),
-            if (room.freeCancellation) const TagChip('Pembatalan Gratis', Icons.event_available_rounded),
-            TagChip(room.refundable ? 'Refundable' : 'Non refundable', Icons.replay_rounded,
+            if (room.freeWifi) TagChip(tr('Wifi Gratis', 'Free Wifi'), Icons.wifi_rounded),
+            if (room.breakfast) TagChip(tr('Sarapan Gratis', 'Free Breakfast'), Icons.free_breakfast_rounded),
+            if (room.freeCancellation) TagChip(tr('Pembatalan Gratis', 'Free Cancellation'), Icons.event_available_rounded),
+            TagChip(room.refundable ? tr('Refundable', 'Refundable') : tr('Non refundable', 'Non-refundable'), Icons.replay_rounded,
                 color: room.refundable ? MC.primary : MC.inkFaint),
           ]),
           const SizedBox(height: 12),
@@ -119,7 +120,7 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
               ]),
             ),
           const SizedBox(height: 8),
-          Text('Sisa ${room.stock} Kamar', style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w600)),
+          Text(tr('Sisa ${room.stock} Kamar', '${room.stock} Rooms left'), style: const TextStyle(color: MC.danger, fontSize: 11.5, fontWeight: FontWeight.w600)),
           if (room.ratePlans.isEmpty) ...[
             const SizedBox(height: 6),
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -128,7 +129,7 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
                   Text(rupiah(room.originalPrice!), style: TextStyle(color: MC.inkFaint, fontSize: 12, decoration: TextDecoration.lineThrough)),
                 RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
                   TextSpan(text: rupiah(room.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                  TextSpan(text: '/malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                  TextSpan(text: tr('/malam', '/night'), style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                 ])),
               ])),
               SizedBox(height: 40, child: ElevatedButton(
@@ -136,11 +137,11 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
                   padding: const EdgeInsets.symmetric(horizontal: 26), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   textStyle: const TextStyle(fontWeight: FontWeight.w600)),
-                child: const Text('Pilih'))),
+                child: Text(tr('Pilih', 'Select')))),
             ]),
           ] else ...[
             const SizedBox(height: 6),
-            Text('Pilihan tarif', style: TextStyle(fontSize: 11.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
+            Text(tr('Pilihan tarif', 'Rate options'), style: TextStyle(fontSize: 11.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
             for (var i = 0; i < room.ratePlans.length; i++) ...[
               if (i > 0) Divider(height: 16, color: MC.line),
               _planRow(h, room, room.ratePlans[i]),
@@ -179,14 +180,14 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
           const SizedBox(height: 4),
           Wrap(spacing: 6, runSpacing: 4, children: [
             _miniChip(p.boardLabel, p.boardBasis == 'ROOM_ONLY' ? Icons.no_meals_rounded : Icons.free_breakfast_rounded, MC.primary),
-            if (p.freeCancellation) _miniChip('Bebas batal', Icons.event_available_rounded, MC.success)
-            else if (p.refundable) _miniChip('Refundable', Icons.replay_rounded, MC.blue)
-            else _miniChip('Non-refund', Icons.block_rounded, MC.inkFaint),
+            if (p.freeCancellation) _miniChip(tr('Bebas batal', 'Free cancel'), Icons.event_available_rounded, MC.success)
+            else if (p.refundable) _miniChip(tr('Refundable', 'Refundable'), Icons.replay_rounded, MC.blue)
+            else _miniChip(tr('Non-refund', 'Non-refund'), Icons.block_rounded, MC.inkFaint),
           ]),
           const SizedBox(height: 5),
           RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
             TextSpan(text: rupiah(price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-            TextSpan(text: '/malam', style: TextStyle(fontSize: 10.5, color: MC.inkFaint)),
+            TextSpan(text: tr('/malam', '/night'), style: TextStyle(fontSize: 10.5, color: MC.inkFaint)),
           ])),
         ])),
         const SizedBox(width: 8),
@@ -194,7 +195,7 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
           onPressed: () => _selectRoom(h, room, p),
           style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-          child: const Text('Pilih', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
+          child: Text(tr('Pilih', 'Select'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)))),
       ]),
     );
   }

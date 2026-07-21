@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -31,7 +32,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     final located = _located;
     return Scaffold(
-      appBar: AppBar(title: const Text('Peta Hotel')),
+      appBar: AppBar(title: Text(tr('Peta Hotel', 'Hotel Map'))),
       body: Stack(children: [
         FlutterMap(
           options: MapOptions(initialCenter: _center, initialZoom: located.length > 1 ? 5.2 : 11),
@@ -58,7 +59,7 @@ class _MapScreenState extends State<MapScreen> {
           ],
         ),
         if (located.isEmpty)
-          Center(child: Text('Lokasi hotel belum tersedia', style: TextStyle(color: MC.inkMuted))),
+          Center(child: Text(tr('Lokasi hotel belum tersedia', 'Hotel location not available yet'), style: TextStyle(color: MC.inkMuted))),
         if (_selected != null)
           Positioned(
             left: 16, right: 16, bottom: 20,

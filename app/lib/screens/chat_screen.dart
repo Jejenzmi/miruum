@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -87,7 +88,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             const Text('Miruum CS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            Text(_status == 'AGENT' ? 'Agen online' : _status == 'WAITING_AGENT' ? 'Menghubungkan agen…' : 'Asisten otomatis',
+            Text(_status == 'AGENT' ? tr('Agen online', 'Agent online') : _status == 'WAITING_AGENT' ? tr('Menghubungkan agen…', 'Connecting to agent…') : tr('Asisten otomatis', 'Automated assistant'),
                 style: const TextStyle(fontSize: 11, color: MC.success)),
           ]),
         ]),
@@ -114,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 controller: _input,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
-                decoration: const InputDecoration(hintText: 'Tulis pesan…', isDense: true),
+                decoration: InputDecoration(hintText: tr('Tulis pesan…', 'Type a message…'), isDense: true),
               )),
               const SizedBox(width: 8),
               GestureDetector(
@@ -156,7 +157,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Icon(m.isBot ? Icons.smart_toy_rounded : Icons.support_agent_rounded,
                   size: 12, color: m.isBot ? MC.blue : MC.primaryDark),
               const SizedBox(width: 4),
-              Text(m.isBot ? 'Asisten' : 'Agen',
+              Text(m.isBot ? tr('Asisten', 'Assistant') : tr('Agen', 'Agent'),
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: m.isBot ? MC.blue : MC.primaryDark)),
             ]),
           ),

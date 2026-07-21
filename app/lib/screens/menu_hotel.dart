@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'results.dart';
@@ -40,7 +41,7 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
   void _search(String query) {
     _saveRecent(query.trim());
     Navigator.push(context, MaterialPageRoute(builder: (_) => ResultsScreen(
-          title: query.trim().isEmpty ? 'Hasil Pencarian' : query.trim(),
+          title: query.trim().isEmpty ? tr('Hasil Pencarian', 'Search Results') : query.trim(),
           query: query.trim(), checkIn: _checkIn, checkOut: _checkOut, rooms: _rooms, initialFilter: _filter,
         )));
   }
@@ -84,15 +85,15 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('Masukan tamu & kamar', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            Text(tr('Masukan tamu & kamar', 'Enter guests & rooms'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
             const SizedBox(height: 10),
-            stepper('Kamar', _rooms, () => setSheet(() => _rooms = (_rooms - 1).clamp(1, 9)), () => setSheet(() => _rooms++)),
+            stepper(tr('Kamar', 'Rooms'), _rooms, () => setSheet(() => _rooms = (_rooms - 1).clamp(1, 9)), () => setSheet(() => _rooms++)),
             Divider(color: MC.line),
-            stepper('Dewasa', _adults, () => setSheet(() => _adults = (_adults - 1).clamp(1, 20)), () => setSheet(() => _adults++)),
+            stepper(tr('Dewasa', 'Adults'), _adults, () => setSheet(() => _adults = (_adults - 1).clamp(1, 20)), () => setSheet(() => _adults++)),
             Divider(color: MC.line),
-            stepper('Anak', _children, () => setSheet(() => _children = (_children - 1).clamp(0, 20)), () => setSheet(() => _children++)),
+            stepper(tr('Anak', 'Children'), _children, () => setSheet(() => _children = (_children - 1).clamp(0, 20)), () => setSheet(() => _children++)),
             const SizedBox(height: 16),
-            PrimaryButton('Simpan', onPressed: () {
+            PrimaryButton(tr('Simpan', 'Save'), onPressed: () {
               setState(() {});
               Navigator.pop(context);
             }),
@@ -105,32 +106,32 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.package ? 'Hotel Package' : 'Hotel')),
+      appBar: AppBar(title: Text(widget.package ? tr('Paket Hotel', 'Hotel Package') : tr('Hotel', 'Hotel'))),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Hotel disekitar kamu', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+              Text(tr('Hotel disekitar kamu', 'Hotels near you'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const SizedBox(height: 16),
-              _field(Icons.location_on_rounded, 'Lokasi', TextField(
+              _field(Icons.location_on_rounded, tr('Lokasi', 'Location'), TextField(
                 controller: _loc,
                 textInputAction: TextInputAction.search,
                 onSubmitted: _search,
-                decoration: const InputDecoration(hintText: 'Kota / nama hotel', border: InputBorder.none, isDense: true),
+                decoration: InputDecoration(hintText: tr('Kota / nama hotel', 'City / hotel name'), border: InputBorder.none, isDense: true),
               )),
               if (_recent.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Row(children: [
-                  Text('Pencarian terakhir', style: TextStyle(fontSize: 12.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
+                  Text(tr('Pencarian terakhir', 'Recent searches'), style: TextStyle(fontSize: 12.5, color: MC.inkMuted, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   GestureDetector(
                     onTap: () async {
                       (await SharedPreferences.getInstance()).remove(_recentKey);
                       setState(() => _recent = []);
                     },
-                    child: const Text('Hapus', style: TextStyle(fontSize: 12, color: MC.primary, fontWeight: FontWeight.w600)),
+                    child: Text(tr('Hapus', 'Clear'), style: const TextStyle(fontSize: 12, color: MC.primary, fontWeight: FontWeight.w600)),
                   ),
                 ]),
                 const SizedBox(height: 8),
@@ -152,15 +153,15 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
               ],
               const SizedBox(height: 12),
               Row(children: [
-                Expanded(child: _dateBox('Check-in', _checkIn, () => _pickDate(true))),
+                Expanded(child: _dateBox(tr('Check-in', 'Check-in'), _checkIn, () => _pickDate(true))),
                 const SizedBox(width: 12),
-                Expanded(child: _dateBox('Check-out', _checkOut, () => _pickDate(false))),
+                Expanded(child: _dateBox(tr('Check-out', 'Check-out'), _checkOut, () => _pickDate(false))),
               ]),
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: _guestSheet,
-                child: _field(Icons.people_alt_rounded, 'Tamu & Kamar',
-                    Text('$_rooms Kamar $_adults Dewasa, $_children Anak', style: const TextStyle(fontWeight: FontWeight.w600))),
+                child: _field(Icons.people_alt_rounded, tr('Tamu & Kamar', 'Guests & Rooms'),
+                    Text('$_rooms ${tr('Kamar', 'Rooms')} $_adults ${tr('Dewasa', 'Adults')}, $_children ${tr('Anak', 'Children')}', style: const TextStyle(fontWeight: FontWeight.w600))),
               ),
               const SizedBox(height: 12),
               GestureDetector(
@@ -168,14 +169,14 @@ class _MenuHotelScreenState extends State<MenuHotelScreen> {
                   final res = await Navigator.push<FilterResult>(context, MaterialPageRoute(builder: (_) => FilterScreen(initial: _filter)));
                   if (res != null) setState(() => _filter = res);
                 },
-                child: _field(Icons.tune_rounded, 'Filter',
+                child: _field(Icons.tune_rounded, tr('Filter', 'Filter'),
                     Text(_filter.star > 0 || _filter.minPrice > 0 || _filter.maxPrice < 5000000
-                        ? 'Harga & bintang diatur'
-                        : 'Atur harga & bintang',
+                        ? tr('Harga & bintang diatur', 'Price & stars set')
+                        : tr('Atur harga & bintang', 'Set price & stars'),
                         style: TextStyle(color: _filter.star > 0 || _filter.minPrice > 0 || _filter.maxPrice < 5000000 ? MC.primary : MC.inkMuted, fontWeight: FontWeight.w600))),
               ),
               const SizedBox(height: 24),
-              PrimaryButton('Cari Hotel', icon: Icons.search_rounded, onPressed: () => _search(_loc.text)),
+              PrimaryButton(tr('Cari Hotel', 'Search Hotels'), icon: Icons.search_rounded, onPressed: () => _search(_loc.text)),
             ],
           ),
         ),

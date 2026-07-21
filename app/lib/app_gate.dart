@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
+import 'l10n.dart';
 import 'theme.dart';
 
 /// On app launch: show a forced/optional update prompt or an admin announcement
@@ -172,7 +173,7 @@ class _UpdateCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Text(forced ? 'Pembaruan Wajib' : 'Pembaruan Tersedia',
+                  Text(forced ? tr('Pembaruan Wajib', 'Required Update') : tr('Pembaruan Tersedia', 'Update Available'),
                           style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18))
                       .animate().fadeIn(duration: 300.ms).moveX(begin: -10, end: 0, curve: Curves.easeOut),
                   const Spacer(),
@@ -185,8 +186,10 @@ class _UpdateCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   forced
-                      ? 'Versi baru wajib dipasang untuk terus menggunakan Miruum.'
-                      : 'Tersedia versi terbaru Miruum dengan peningkatan & fitur baru.',
+                      ? tr('Versi baru wajib dipasang untuk terus menggunakan Miruum.',
+                          'A new version must be installed to keep using Miruum.')
+                      : tr('Tersedia versi terbaru Miruum dengan peningkatan & fitur baru.',
+                          'A newer version of Miruum is available with improvements & new features.'),
                   style: TextStyle(color: MC.inkMuted, fontSize: 13, height: 1.5),
                 ).animate().fadeIn(delay: 150.ms),
                 if (lines.isNotEmpty) ...[
@@ -207,7 +210,7 @@ class _UpdateCard extends StatelessWidget {
                     style: FilledButton.styleFrom(backgroundColor: MC.primary, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
                     onPressed: () => AppGate._launch(url),
                     icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Perbarui Sekarang', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+                    label: Text(tr('Perbarui Sekarang', 'Update Now'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
                   ).animate(onPlay: (c) => c.repeat())
                       .shimmer(delay: 1200.ms, duration: 1600.ms, color: Colors.white.withOpacity(0.35)),
                 ),
@@ -221,7 +224,7 @@ class _UpdateCard extends StatelessWidget {
                         await prefs.setString('update_dismissed', version);
                         if (context.mounted) Navigator.pop(context);
                       },
-                      child: Text('Nanti Saja', style: TextStyle(color: MC.inkMuted, fontWeight: FontWeight.w600)),
+                      child: Text(tr('Nanti Saja', 'Later'), style: TextStyle(color: MC.inkMuted, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -275,7 +278,7 @@ class _PopupCard extends StatelessWidget {
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(backgroundColor: MC.field, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      child: Text('Tutup', style: TextStyle(color: MC.inkMuted, fontWeight: FontWeight.w600)),
+                      child: Text(tr('Tutup', 'Close'), style: TextStyle(color: MC.inkMuted, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   if (ctaText.isNotEmpty) ...[

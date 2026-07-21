@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -38,10 +39,10 @@ class _WalletScreenState extends State<WalletScreen> {
   Future<void> _claim(String promoId) async {
     try {
       await context.read<Api>().claimVoucher(promoId);
-      showSnack(context, 'Voucher ditambahkan ke dompetmu.', kind: SnackKind.success);
+      showSnack(context, tr('Voucher ditambahkan ke dompetmu.', 'Voucher added to your wallet.'), kind: SnackKind.success);
       _load();
     } catch (e) {
-      if (mounted) showSnack(context, 'Gagal mengambil voucher.', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal mengambil voucher.', 'Failed to claim voucher.'), kind: SnackKind.error);
     }
   }
 
@@ -50,7 +51,7 @@ class _WalletScreenState extends State<WalletScreen> {
     if (code.isEmpty) return;
     try {
       final r = await context.read<Api>().applyReferral(code);
-      showSnack(context, 'Berhasil! +${r['bonus']} poin untukmu & temanmu.', kind: SnackKind.success);
+      showSnack(context, tr('Berhasil! +${r['bonus']} poin untukmu & temanmu.', 'Success! +${r['bonus']} points for you & your friend.'), kind: SnackKind.success);
       _codeCtl.clear();
       _load();
     } on ApiException catch (e) {
@@ -64,23 +65,23 @@ class _WalletScreenState extends State<WalletScreen> {
     final claimable = (_vouchers?['claimable'] as List?) ?? [];
     return Scaffold(
       backgroundColor: MC.bg,
-      appBar: AppBar(title: const Text('Voucher Saya')),
+      appBar: AppBar(title: Text(tr('Voucher Saya', 'My Vouchers'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: MC.primary))
           : ListView(padding: const EdgeInsets.all(20), children: [
               // Referral card
               if (_referral != null) _referralCard(),
               const SizedBox(height: 22),
-              const Text('Voucher Saya', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(tr('Voucher Saya', 'My Vouchers'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 10),
               if (mine.isEmpty)
-                Text('Belum ada voucher. Ambil voucher yang tersedia di bawah.', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+                Text(tr('Belum ada voucher. Ambil voucher yang tersedia di bawah.', 'No vouchers yet. Claim the available ones below.'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
               for (final v in mine) _voucherCard(v, owned: true),
               const SizedBox(height: 22),
-              const Text('Voucher Tersedia', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(tr('Voucher Tersedia', 'Available Vouchers'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               const SizedBox(height: 10),
               if (claimable.isEmpty)
-                Text('Belum ada voucher baru untuk diambil.', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+                Text(tr('Belum ada voucher baru untuk diambil.', 'No new vouchers to claim.'), style: TextStyle(color: MC.inkMuted, fontSize: 13)),
               for (final v in claimable) _voucherCard(v, owned: false),
             ]),
     );
@@ -99,11 +100,11 @@ class _WalletScreenState extends State<WalletScreen> {
         Row(children: [
           const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Undang Teman', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))),
-          Text('$invited diundang', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Expanded(child: Text(tr('Undang Teman', 'Invite Friends'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16))),
+          Text(tr('$invited diundang', '$invited invited'), style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ]),
         const SizedBox(height: 6),
-        Text('Bagikan kodemu — kamu & temanmu sama-sama dapat $bonus poin.', style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4)),
+        Text(tr('Bagikan kodemu — kamu & temanmu sama-sama dapat $bonus poin.', 'Share your code — you & your friend both get $bonus points.'), style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4)),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(child: Container(
@@ -112,22 +113,22 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Text(code, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: 2)),
           )),
           const SizedBox(width: 10),
-          IconButton(onPressed: () => Share.share('Pakai kode $code di aplikasi Miruum & dapat $bonus poin! Unduh: https://api.miruum.id'),
+          IconButton(onPressed: () => Share.share(tr('Pakai kode $code di aplikasi Miruum & dapat $bonus poin! Unduh: https://api.miruum.id', 'Use code $code in the Miruum app & get $bonus points! Download: https://api.miruum.id')),
             icon: const Icon(Icons.share_rounded, color: Colors.white)),
         ]),
         const SizedBox(height: 12),
-        const Text('Punya kode dari teman?', style: TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(tr('Punya kode dari teman?', 'Have a code from a friend?'), style: const TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 6),
         Row(children: [
           Expanded(child: TextField(controller: _codeCtl, textCapitalization: TextCapitalization.characters,
             style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(hintText: 'Masukkan kode', hintStyle: const TextStyle(color: Colors.white54),
+            decoration: InputDecoration(hintText: tr('Masukkan kode', 'Enter code'), hintStyle: const TextStyle(color: Colors.white54),
               filled: true, fillColor: Colors.white.withOpacity(0.15), isDense: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))),
           const SizedBox(width: 8),
           FilledButton(onPressed: _applyReferral,
             style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: MC.primaryDark),
-            child: const Text('Pakai')),
+            child: Text(tr('Pakai', 'Apply'))),
         ]),
       ]),
     );
@@ -145,7 +146,7 @@ class _WalletScreenState extends State<WalletScreen> {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text((v['title'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             const SizedBox(height: 2),
-            Text('Kode: ${v['code']}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+            Text('${tr('Kode', 'Code')}: ${v['code']}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
           ])),
           if (owned)
             const Icon(Icons.check_circle_rounded, color: MC.success)
@@ -153,7 +154,7 @@ class _WalletScreenState extends State<WalletScreen> {
             SizedBox(height: 34, child: ElevatedButton(onPressed: () => _claim((v['id']).toString()),
               style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-              child: const Text('Ambil'))),
+              child: Text(tr('Ambil', 'Claim'))),
         ]),
       );
 }

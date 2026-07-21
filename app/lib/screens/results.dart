@@ -7,6 +7,7 @@ import '../bloc/view_state.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../hotel_card.dart';
 import '../models.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import 'filter.dart';
@@ -19,7 +20,7 @@ class ResultsScreen extends StatelessWidget {
   final FilterResult? initialFilter;
   final double? nearLat, nearLng;
   final bool promoOnly;
-  const ResultsScreen({super.key, this.title = 'Hasil Pencarian', this.query = '', this.checkIn, this.checkOut, this.rooms = 1, this.initialFilter, this.nearLat, this.nearLng, this.promoOnly = false});
+  const ResultsScreen({super.key, this.title = '', this.query = '', this.checkIn, this.checkOut, this.rooms = 1, this.initialFilter, this.nearLat, this.nearLng, this.promoOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -76,13 +77,13 @@ class _ResultsViewState extends State<_ResultsView> {
   @override
   Widget build(BuildContext context) {
     final dates = widget.near
-        ? 'Diurutkan dari yang terdekat dengan lokasimu'
+        ? tr('Diurutkan dari yang terdekat dengan lokasimu', 'Sorted by nearest to your location')
         : widget.checkIn != null && widget.checkOut != null
-            ? '${_fmt.format(widget.checkIn!)} - ${_fmt.format(widget.checkOut!)} , ${widget.rooms} Kamar'
-            : 'Hotel di sekitar kamu';
+            ? '${_fmt.format(widget.checkIn!)} - ${_fmt.format(widget.checkOut!)} , ${widget.rooms} ${tr('Kamar', 'Rooms')}'
+            : tr('Hotel di sekitar kamu', 'Hotels near you');
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(widget.title.isEmpty ? tr('Hasil Pencarian', 'Search Results') : widget.title),
         actions: [IconButton(onPressed: _openFilter, icon: const Icon(Icons.tune_rounded))],
       ),
       body: SafeArea(
@@ -96,10 +97,10 @@ class _ResultsViewState extends State<_ResultsView> {
                 Expanded(child: Text(dates, style: TextStyle(fontSize: 12.5, color: MC.inkMuted))),
                 GestureDetector(
                   onTap: _openFilter,
-                  child: const Row(children: [
-                    Icon(Icons.edit_rounded, size: 14, color: MC.primary),
-                    SizedBox(width: 4),
-                    Text('Edit', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                  child: Row(children: [
+                    const Icon(Icons.edit_rounded, size: 14, color: MC.primary),
+                    const SizedBox(width: 4),
+                    Text(tr('Edit', 'Edit'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w600, fontSize: 12.5)),
                   ]),
                 ),
               ]),
@@ -112,10 +113,10 @@ class _ResultsViewState extends State<_ResultsView> {
                   }
                   final hotels = state.data ?? [];
                   if (hotels.isEmpty) {
-                    return const EmptyState(
+                    return EmptyState(
                       icon: Icons.search_off_rounded,
-                      title: 'Hotel tidak ditemukan',
-                      subtitle: 'Coba ubah kata kunci atau filter pencarian',
+                      title: tr('Hotel tidak ditemukan', 'No hotels found'),
+                      subtitle: tr('Coba ubah kata kunci atau filter pencarian', 'Try changing your keywords or search filters'),
                     );
                   }
                   return ListView.separated(

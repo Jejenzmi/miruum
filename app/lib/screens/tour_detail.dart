@@ -6,6 +6,7 @@ import '../feedback.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../l10n.dart';
 
 class TourDetailScreen extends StatefulWidget {
   final String tourId;
@@ -33,7 +34,7 @@ class _TourDetailScreenState extends State<TourDetailScreen> {
             return const Center(child: CircularProgressIndicator(color: MC.primary));
           }
           if (!snap.hasData) {
-            return Center(child: Text('Gagal memuat tour.', style: TextStyle(color: MC.inkMuted)));
+            return Center(child: Text(tr('Gagal memuat tour.', 'Failed to load tour.'), style: TextStyle(color: MC.inkMuted)));
           }
           final t = snap.data!;
           return Column(children: [
@@ -65,21 +66,21 @@ class _TourDetailScreenState extends State<TourDetailScreen> {
                       const SizedBox(width: 14),
                       Icon(Icons.schedule_rounded, size: 15, color: MC.inkFaint),
                       const SizedBox(width: 4),
-                      Text('${t.durationHours} jam', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
+                      Text('${t.durationHours} ${tr('jam', 'hours')}', style: TextStyle(color: MC.inkMuted, fontSize: 13)),
                     ]),
                     const Divider(height: 26),
-                    _section('Deskripsi'),
+                    _section(tr('Deskripsi', 'Description')),
                     Text(t.description, style: TextStyle(color: MC.inkMuted, fontSize: 13.5, height: 1.6)),
                     if (t.highlights.isNotEmpty) ...[
-                      const SizedBox(height: 18), _section('Highlight'),
+                      const SizedBox(height: 18), _section(tr('Highlight', 'Highlights')),
                       ...t.highlights.map((h) => _bullet(h, Icons.star_rounded, MC.accent)),
                     ],
                     if (t.included.isNotEmpty) ...[
-                      const SizedBox(height: 18), _section('Termasuk'),
+                      const SizedBox(height: 18), _section(tr('Termasuk', 'Included')),
                       ...t.included.map((h) => _bullet(h, Icons.check_circle_rounded, MC.success)),
                     ],
                     if ((t.meetingPoint ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 18), _section('Titik Kumpul'),
+                      const SizedBox(height: 18), _section(tr('Titik Kumpul', 'Meeting Point')),
                       Row(children: [
                         const Icon(Icons.place_rounded, size: 16, color: MC.primary),
                         const SizedBox(width: 6),
@@ -113,13 +114,13 @@ class _TourDetailScreenState extends State<TourDetailScreen> {
         decoration: BoxDecoration(color: MC.surface, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 14, offset: const Offset(0, -3))]),
         child: SafeArea(top: false, child: Row(children: [
           Expanded(flex: 4, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text('Mulai dari', style: TextStyle(fontSize: 11, color: MC.inkFaint), maxLines: 1),
+            Text(tr('Mulai dari', 'Starting from'), style: TextStyle(fontSize: 11, color: MC.inkFaint), maxLines: 1),
             Text(rupiah(t.price), maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 18)),
-            Text('per orang', style: TextStyle(fontSize: 10.5, color: MC.inkFaint), maxLines: 1),
+            Text(tr('per orang', 'per person'), style: TextStyle(fontSize: 10.5, color: MC.inkFaint), maxLines: 1),
           ])),
           const SizedBox(width: 12),
-          Expanded(flex: 5, child: PrimaryButton('Pesan Tour', icon: Icons.event_available_rounded, onPressed: () => _openBooking(t))),
+          Expanded(flex: 5, child: PrimaryButton(tr('Pesan Tour', 'Book Tour'), icon: Icons.event_available_rounded, onPressed: () => _openBooking(t))),
         ])),
       );
 
@@ -148,7 +149,7 @@ class _BookingSheetState extends State<_BookingSheet> {
 
   Future<void> _submit() async {
     if (_name.text.trim().isEmpty || _phone.text.trim().length < 6) {
-      showSnack(context, 'Isi nama & nomor telepon pemesan.', kind: SnackKind.error);
+      showSnack(context, tr('Isi nama & nomor telepon pemesan.', 'Enter the booker\'s name & phone number.'), kind: SnackKind.error);
       return;
     }
     setState(() => _loading = true);
@@ -161,14 +162,14 @@ class _BookingSheetState extends State<_BookingSheet> {
       Navigator.pop(context);
       showDialog(context: context, builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(children: [const Icon(Icons.check_circle_rounded, color: MC.success), const SizedBox(width: 8), const Text('Tour Terpesan')]),
-        content: Text('Pemesanan tour berhasil.\nNo. Pesanan: $code\n${_pax} peserta · ${DateFormat('d MMM yyyy', 'id_ID').format(_date)}'),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Selesai'))],
+        title: Row(children: [const Icon(Icons.check_circle_rounded, color: MC.success), const SizedBox(width: 8), Text(tr('Tour Terpesan', 'Tour Booked'))]),
+        content: Text(tr('Pemesanan tour berhasil.\nNo. Pesanan: $code\n${_pax} peserta · ${DateFormat('d MMM yyyy', 'id_ID').format(_date)}', 'Tour booking successful.\nBooking No: $code\n${_pax} participants · ${DateFormat('d MMM yyyy', 'id_ID').format(_date)}')),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Selesai', 'Done')))],
       ));
     } on ApiException catch (e) {
-      if (mounted) showSnack(context, e.status == 401 ? 'Silakan login untuk memesan tour.' : e.message, kind: SnackKind.error);
+      if (mounted) showSnack(context, e.status == 401 ? tr('Silakan login untuk memesan tour.', 'Please log in to book a tour.') : e.message, kind: SnackKind.error);
     } catch (_) {
-      if (mounted) showSnack(context, 'Gagal memesan tour.', kind: SnackKind.error);
+      if (mounted) showSnack(context, tr('Gagal memesan tour.', 'Failed to book tour.'), kind: SnackKind.error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -184,10 +185,10 @@ class _BookingSheetState extends State<_BookingSheet> {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 14),
-          Text('Pesan ${widget.tour.title}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          Text(tr('Pesan ${widget.tour.title}', 'Book ${widget.tour.title}'), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           const SizedBox(height: 16),
           // Date
-          _label('Tanggal Keberangkatan'),
+          _label(tr('Tanggal Keberangkatan', 'Departure Date')),
           GestureDetector(
             onTap: () async {
               final d = await showDatePicker(context: context, initialDate: _date,
@@ -207,19 +208,19 @@ class _BookingSheetState extends State<_BookingSheet> {
           const SizedBox(height: 14),
           // Pax stepper
           Row(children: [
-            Expanded(child: _label('Jumlah Peserta')),
+            Expanded(child: _label(tr('Jumlah Peserta', 'Number of Participants'))),
             _stepBtn(Icons.remove_rounded, () { if (_pax > 1) setState(() => _pax--); }),
             SizedBox(width: 42, child: Text('$_pax', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
             _stepBtn(Icons.add_rounded, () { if (_pax < widget.tour.maxPax) setState(() => _pax++); }),
           ]),
           const SizedBox(height: 14),
-          _label('Nama Pemesan'),
-          TextField(controller: _name, decoration: _dec('Nama lengkap')),
+          _label(tr('Nama Pemesan', 'Booker Name')),
+          TextField(controller: _name, decoration: _dec(tr('Nama lengkap', 'Full name'))),
           const SizedBox(height: 12),
-          _label('No. Telepon'),
+          _label(tr('No. Telepon', 'Phone Number')),
           TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: _dec('08xxxxxxxxxx')),
           const SizedBox(height: 14),
-          _label('Metode Pembayaran'),
+          _label(tr('Metode Pembayaran', 'Payment Method')),
           Wrap(spacing: 8, children: ['QRIS', 'Transfer Bank', 'E-Wallet'].map((m) {
             final sel = m == _method;
             return ChoiceChip(label: Text(m), selected: sel, onSelected: (_) => setState(() => _method = m),
@@ -228,11 +229,11 @@ class _BookingSheetState extends State<_BookingSheet> {
           const SizedBox(height: 16),
           Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: MC.primarySoft, borderRadius: BorderRadius.circular(14)),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('Total ($_pax orang)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+              Text(tr('Total ($_pax orang)', 'Total ($_pax people)'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
               Text(rupiah(_total), style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w800, fontSize: 18)),
             ])),
           const SizedBox(height: 16),
-          PrimaryButton('Bayar & Pesan', loading: _loading, onPressed: _submit),
+          PrimaryButton(tr('Bayar & Pesan', 'Pay & Book'), loading: _loading, onPressed: _submit),
         ]),
       ),
     );

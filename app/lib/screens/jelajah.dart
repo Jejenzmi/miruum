@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../bloc/cubits.dart';
 import '../bloc/view_state.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
@@ -23,7 +24,7 @@ class JelajahScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: const Text('Jelajah'),
+          title: Text(tr('Jelajah', 'Explore')),
           centerTitle: false,
           titleTextStyle: TextStyle(color: MC.ink, fontSize: 20, fontWeight: FontWeight.w800),
           actions: [
@@ -33,7 +34,7 @@ class JelajahScreen extends StatelessWidget {
                 Navigator.push(ctx, MaterialPageRoute(builder: (_) => MapScreen(hotels: hotels)));
               },
               icon: const Icon(Icons.map_outlined, color: MC.primary, size: 20),
-              label: const Text('Peta', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+              label: Text(tr('Peta', 'Map'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
             )),
           ],
         ),
@@ -48,7 +49,7 @@ class JelajahScreen extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  const Text('Destinasi Populer', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text(tr('Destinasi Populer', 'Popular Destinations'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 40,
@@ -67,7 +68,7 @@ class JelajahScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text('Jelajahi Hotel', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  Text(tr('Jelajahi Hotel', 'Explore Hotels'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                   const SizedBox(height: 12),
                   GridView.builder(
                     shrinkWrap: true,

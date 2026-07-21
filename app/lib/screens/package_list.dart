@@ -6,6 +6,7 @@ import '../bloc/view_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../l10n.dart';
 import 'package_detail.dart';
 
 /// "Hotel Package" — curated bundled deals list.
@@ -17,17 +18,17 @@ class PackageListScreen extends StatelessWidget {
     return BlocProvider(
       create: (ctx) => PackagesCubit(ctx.read<Api>())..load(query: query == null ? null : {'query': query}),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Hotel Package')),
+        appBar: AppBar(title: Text(tr('Paket Hotel', 'Hotel Package'))),
         body: BlocBuilder<PackagesCubit, ViewState<List<HotelPackage>>>(
           builder: (context, state) {
             if (state.isLoading) return const Center(child: CircularProgressIndicator(color: MC.primary));
             if (state.isFailure) {
-              return Center(child: OutlineButtonX('Coba lagi',
+              return Center(child: OutlineButtonX(tr('Coba lagi', 'Try again'),
                   icon: Icons.refresh_rounded, onPressed: () => context.read<PackagesCubit>().load()));
             }
             final pkgs = state.data!;
             if (pkgs.isEmpty) {
-              return Center(child: Text('Belum ada paket tersedia', style: TextStyle(color: MC.inkMuted)));
+              return Center(child: Text(tr('Belum ada paket tersedia', 'No packages available yet'), style: TextStyle(color: MC.inkMuted)));
             }
             return ListView.separated(
               padding: const EdgeInsets.all(20),
@@ -63,7 +64,7 @@ class PackageCard extends StatelessWidget {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 13),
                   const SizedBox(width: 4),
-                  Text('${pkg.nights}N${pkg.days}D',
+                  Text(tr('${pkg.nights}M${pkg.days}H', '${pkg.nights}N${pkg.days}D'),
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11)),
                 ]),
               ),
@@ -120,7 +121,7 @@ class PackageCard extends StatelessWidget {
                           style: TextStyle(fontSize: 11, color: MC.inkFaint, decoration: TextDecoration.lineThrough)),
                     RichText(text: TextSpan(style: const TextStyle(color: MC.primaryDark), children: [
                       TextSpan(text: rupiah(pkg.price), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                      TextSpan(text: ' / paket', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                      TextSpan(text: tr(' / paket', ' / package'), style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                     ])),
                   ]),
                 ),

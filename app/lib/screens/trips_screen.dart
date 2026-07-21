@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'hotel_detail.dart';
@@ -42,7 +43,7 @@ class _TripsScreenState extends State<TripsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MC.bg,
-      appBar: AppBar(title: const Text('Trips Saya'), actions: [
+      appBar: AppBar(title: Text(tr('Trips Saya', 'My Trips')), actions: [
         IconButton(onPressed: _create, icon: const Icon(Icons.add_rounded)),
       ]),
       body: _loading
@@ -51,9 +52,9 @@ class _TripsScreenState extends State<TripsScreen> {
               ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.luggage_rounded, size: 52, color: MC.inkFaint),
                   const SizedBox(height: 12),
-                  Text('Belum ada trip. Buat trip & simpan\nhotel + tour untuk rencanamu.', textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, height: 1.5)),
+                  Text(tr('Belum ada trip. Buat trip & simpan\nhotel + tour untuk rencanamu.', 'No trips yet. Create a trip & save\nhotels + tours for your plans.'), textAlign: TextAlign.center, style: TextStyle(color: MC.inkMuted, height: 1.5)),
                   const SizedBox(height: 16),
-                  PrimaryButton('Buat Trip', expand: false, icon: Icons.add_rounded, onPressed: _create),
+                  PrimaryButton(tr('Buat Trip', 'Create Trip'), expand: false, icon: Icons.add_rounded, onPressed: _create),
                 ]))
               : ListView(padding: const EdgeInsets.all(20), children: [
                   for (final w in _lists) _tripCard(w),
@@ -71,11 +72,11 @@ class _TripsScreenState extends State<TripsScreen> {
           const Icon(Icons.luggage_rounded, size: 18, color: MC.primary),
           const SizedBox(width: 8),
           Expanded(child: Text((w['name'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5))),
-          Text('${items.length} item', style: TextStyle(color: MC.inkFaint, fontSize: 12)),
+          Text('${items.length} ${tr('item', 'items')}', style: TextStyle(color: MC.inkFaint, fontSize: 12)),
           IconButton(onPressed: () => _delete((w['id']).toString()), icon: Icon(Icons.delete_outline_rounded, size: 20, color: MC.inkFaint)),
         ])),
         if (items.isEmpty)
-          Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 14), child: Text('Kosong — simpan hotel/tour dari halaman detail.', style: TextStyle(color: MC.inkMuted, fontSize: 12.5)))
+          Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 14), child: Text(tr('Kosong — simpan hotel/tour dari halaman detail.', 'Empty — save hotels/tours from the detail page.'), style: TextStyle(color: MC.inkMuted, fontSize: 12.5)))
         else
           ...items.map((i) => _itemTile(i as Map)),
         const SizedBox(height: 6),
@@ -92,7 +93,7 @@ class _TripsScreenState extends State<TripsScreen> {
       subtitle: Row(children: [
         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(color: (kind == 'TOUR' ? MC.success : MC.blue).withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
-          child: Text(kind == 'TOUR' ? 'Tour' : 'Hotel', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: kind == 'TOUR' ? MC.success : MC.blue))),
+          child: Text(kind == 'TOUR' ? tr('Tur', 'Tour') : tr('Hotel', 'Hotel'), style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: kind == 'TOUR' ? MC.success : MC.blue))),
         const SizedBox(width: 6),
         Expanded(child: Text((i['subtitle'] ?? '').toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: MC.inkFaint, fontSize: 11.5))),
       ]),
@@ -109,11 +110,11 @@ Future<String?> _promptName(BuildContext context) {
   final ctl = TextEditingController();
   return showDialog<String>(context: context, builder: (_) => AlertDialog(
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-    title: const Text('Buat Trip Baru'),
-    content: TextField(controller: ctl, autofocus: true, decoration: const InputDecoration(hintText: 'Contoh: Liburan Bali')),
+    title: Text(tr('Buat Trip Baru', 'Create New Trip')),
+    content: TextField(controller: ctl, autofocus: true, decoration: InputDecoration(hintText: tr('Contoh: Liburan Bali', 'e.g. Bali Getaway'))),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-      FilledButton(onPressed: () => Navigator.pop(context, ctl.text), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Buat')),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Batal', 'Cancel'))),
+      FilledButton(onPressed: () => Navigator.pop(context, ctl.text), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: Text(tr('Buat', 'Create'))),
     ],
   ));
 }
@@ -123,7 +124,7 @@ Future<void> showSaveToTrip(BuildContext context, {required String kind, require
     required String title, String? imageUrl, String? subtitle, int price = 0}) async {
   final api = context.read<Api>();
   List<dynamic> lists;
-  try { lists = await api.wishlists(); } catch (_) { if (context.mounted) showSnack(context, 'Masuk dulu untuk menyimpan.', kind: SnackKind.error); return; }
+  try { lists = await api.wishlists(); } catch (_) { if (context.mounted) showSnack(context, tr('Masuk dulu untuk menyimpan.', 'Sign in first to save.'), kind: SnackKind.error); return; }
   if (!context.mounted) return;
   await showModalBottomSheet(context: context, backgroundColor: MC.surface,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -132,7 +133,7 @@ Future<void> showSaveToTrip(BuildContext context, {required String kind, require
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2)))),
         const SizedBox(height: 14),
-        const Text('Simpan ke Trip', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        Text(tr('Simpan ke Trip', 'Save to Trip'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         const SizedBox(height: 12),
         ...lists.map((w) => ListTile(
           contentPadding: EdgeInsets.zero,
@@ -142,21 +143,21 @@ Future<void> showSaveToTrip(BuildContext context, {required String kind, require
           onTap: () async {
             await api.addToWishlist((w['id']).toString(), {'kind': kind, 'refId': refId, 'title': title, 'imageUrl': imageUrl, 'subtitle': subtitle, 'price': price});
             if (ctx.mounted) Navigator.pop(ctx);
-            if (context.mounted) showSnack(context, 'Disimpan ke "${w['name']}".', kind: SnackKind.success);
+            if (context.mounted) showSnack(context, tr('Disimpan ke "${w['name']}".', 'Saved to "${w['name']}".'), kind: SnackKind.success);
           },
         )),
         const Divider(),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.add_rounded, color: MC.primary),
-          title: const Text('Buat trip baru', style: TextStyle(fontWeight: FontWeight.w600, color: MC.primary)),
+          title: Text(tr('Buat trip baru', 'Create new trip'), style: const TextStyle(fontWeight: FontWeight.w600, color: MC.primary)),
           onTap: () async {
             final name = await _promptName(ctx);
             if (name == null || name.trim().isEmpty) return;
             final w = await api.createWishlist(name.trim());
             await api.addToWishlist((w['id']).toString(), {'kind': kind, 'refId': refId, 'title': title, 'imageUrl': imageUrl, 'subtitle': subtitle, 'price': price});
             if (ctx.mounted) Navigator.pop(ctx);
-            if (context.mounted) showSnack(context, 'Disimpan ke "$name".', kind: SnackKind.success);
+            if (context.mounted) showSnack(context, tr('Disimpan ke "$name".', 'Saved to "$name".'), kind: SnackKind.success);
           },
         ),
       ]),

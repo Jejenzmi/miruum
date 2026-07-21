@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../api.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -27,7 +28,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
       final d = await context.read<Api>().loyalty();
       if (mounted) setState(() => _data = d);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Gagal memuat poin');
+      if (mounted) setState(() => _error = tr('Gagal memuat poin', 'Failed to load points'));
     }
   }
 
@@ -43,7 +44,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
 
     return Scaffold(
       backgroundColor: MC.bg,
-      appBar: AppBar(title: const Text('Poin Miruum')),
+      appBar: AppBar(title: Text(tr('Poin Miruum', 'Miruum Points'))),
       body: _error != null
           ? Center(child: Text(_error!, style: TextStyle(color: MC.inkMuted)))
           : d == null
@@ -63,12 +64,12 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                         Row(children: [
                           const Icon(Icons.stars_rounded, color: Colors.white, size: 22),
                           const SizedBox(width: 8),
-                          const Text('Poin Saya', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+                          Text(tr('Poin Saya', 'My Points'), style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                         ]),
                         const SizedBox(height: 10),
                         Text('$points', style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w900, height: 1)),
                         const SizedBox(height: 2),
-                        Text('Senilai ${rupiah(rupiahValue)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text(tr('Senilai ${rupiah(rupiahValue)}', 'Worth ${rupiah(rupiahValue)}'), style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
                       ]),
                     ),
                     if (d['tier'] != null) ...[
@@ -78,16 +79,16 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                     const SizedBox(height: 16),
                     // How it works
                     cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Cara Kerja', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      Text(tr('Cara Kerja', 'How It Works'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                       const SizedBox(height: 10),
-                      _bullet('Dapat 1 poin setiap ${rupiah(earnPer)} untuk menginap yang dibayar.'),
-                      _bullet('1 poin = ${rupiah(redeemValue)} saat ditukar jadi diskon.'),
-                      _bullet('Poin bisa menutup hingga $maxPct% dari total pesanan.'),
+                      _bullet(tr('Dapat 1 poin setiap ${rupiah(earnPer)} untuk menginap yang dibayar.', 'Earn 1 point for every ${rupiah(earnPer)} of paid stays.')),
+                      _bullet(tr('1 poin = ${rupiah(redeemValue)} saat ditukar jadi diskon.', '1 point = ${rupiah(redeemValue)} when redeemed as a discount.')),
+                      _bullet(tr('Poin bisa menutup hingga $maxPct% dari total pesanan.', 'Points can cover up to $maxPct% of the order total.')),
                     ])),
                     const SizedBox(height: 16),
-                    const Padding(padding: EdgeInsets.only(left: 4, bottom: 8), child: Text('Riwayat Poin', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+                    Padding(padding: const EdgeInsets.only(left: 4, bottom: 8), child: Text(tr('Riwayat Poin', 'Points History'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
                     if (txns.isEmpty)
-                      cardBox(child: Text('Belum ada aktivitas poin. Selesaikan pesanan untuk mulai mengumpulkan poin!', style: TextStyle(color: MC.inkMuted, fontSize: 13)))
+                      cardBox(child: Text(tr('Belum ada aktivitas poin. Selesaikan pesanan untuk mulai mengumpulkan poin!', 'No point activity yet. Complete an order to start earning points!'), style: TextStyle(color: MC.inkMuted, fontSize: 13)))
                     else
                       ...txns.map((t) {
                         final pts = (t['points'] ?? 0) as int;
@@ -132,22 +133,22 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
           child: Icon(Icons.workspace_premium_rounded, color: c, size: 24)),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Member ${t['label']}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: c)),
-          Text('${t['lifetimePoints']} poin seumur hidup', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+          Text('${tr('Member', 'Member')} ${t['label']}', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: c)),
+          Text(tr('${t['lifetimePoints']} poin seumur hidup', '${t['lifetimePoints']} lifetime points'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
         ])),
         if (disc > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(color: c.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-          child: Text('Diskon +$disc%', style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 11.5))),
+          child: Text(tr('Diskon +$disc%', '+$disc% Discount'), style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 11.5))),
       ]),
       if (next != null) ...[
         const SizedBox(height: 12),
         ClipRRect(borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(value: pct / 100, minHeight: 7, backgroundColor: MC.field, color: c)),
         const SizedBox(height: 6),
-        Text('${next['remaining']} poin lagi menuju ${next['label']}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+        Text(tr('${next['remaining']} poin lagi menuju ${next['label']}', '${next['remaining']} more points to ${next['label']}'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
       ] else ...[
         const SizedBox(height: 8),
-        Text('Kamu di tier tertinggi! 🎉', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+        Text(tr('Kamu di tier tertinggi! 🎉', "You're at the highest tier! 🎉"), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
       ],
     ]));
   }

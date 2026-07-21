@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -46,8 +47,8 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
         initialChildSize: 0.6, maxChildSize: 0.9,
         builder: (context, controller) => Column(
           children: [
-            const Padding(padding: EdgeInsets.all(16),
-                child: Text('Pilih Metode Pembayaran', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+            Padding(padding: const EdgeInsets.all(16),
+                child: Text(tr('Pilih Metode Pembayaran', 'Choose Payment Method'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
             Expanded(
               child: ListView(
                 controller: controller,
@@ -87,7 +88,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
 
   Future<void> _pay(Booking b) async {
     if (_methodCode == null) {
-      showSnack(context, 'Pilih metode pembayaran dulu', kind: SnackKind.error);
+      showSnack(context, tr('Pilih metode pembayaran dulu', 'Choose a payment method first'), kind: SnackKind.error);
       return;
     }
     setState(() => _paying = true);
@@ -105,7 +106,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Review Pesanan')),
+      appBar: AppBar(title: Text(tr('Review Pesanan', 'Review Order'))),
       body: SafeArea(
         child: FutureBuilder<Booking>(
           future: _future,
@@ -124,16 +125,16 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(color: MC.accentSoft, borderRadius: BorderRadius.circular(14)),
-                      child: Row(children: const [
-                        Icon(Icons.timer_outlined, color: MC.accent, size: 20),
-                        SizedBox(width: 10),
-                        Expanded(child: Text('Selesaikan pembayaran sebelum batas waktu', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
-                        Text('15:00', style: TextStyle(color: MC.accent, fontWeight: FontWeight.w800, fontSize: 16)),
+                      child: Row(children: [
+                        const Icon(Icons.timer_outlined, color: MC.accent, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(tr('Selesaikan pembayaran sebelum batas waktu', 'Complete payment before the deadline'), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
+                        const Text('15:00', style: TextStyle(color: MC.accent, fontWeight: FontWeight.w800, fontSize: 16)),
                       ]),
                     ),
                     const SizedBox(height: 16),
                     cardBox(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('No. Pesanan : ${b.code}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(tr('No. Pesanan : ${b.code}', 'Order No. : ${b.code}'), style: const TextStyle(fontWeight: FontWeight.w700)),
                       Divider(height: 20, color: MC.line),
                       Row(children: [
                         ClipRRect(borderRadius: BorderRadius.circular(12), child: NetImage(b.hotel?.imageUrl ?? '', width: 56, height: 56)),
@@ -151,17 +152,17 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       child: cardBox(child: Row(children: [
                         const Icon(Icons.account_balance_wallet_rounded, color: MC.primary),
                         const SizedBox(width: 12),
-                        Expanded(child: Text(_methodLabel ?? 'Metode Pembayaran',
+                        Expanded(child: Text(_methodLabel ?? tr('Metode Pembayaran', 'Payment Method'),
                             style: TextStyle(fontWeight: FontWeight.w600, color: _methodLabel == null ? MC.inkMuted : MC.ink))),
                         Icon(Icons.chevron_right_rounded, color: MC.inkFaint),
                       ])),
                     ),
                     const SizedBox(height: 16),
                     cardBox(child: Column(children: [
-                      _line('Harga Kamar', rupiah(b.roomPrice)),
-                      _line('Pajak & Biaya Layanan', rupiah(b.taxFee)),
+                      _line(tr('Harga Kamar', 'Room Price'), rupiah(b.roomPrice)),
+                      _line(tr('Pajak & Biaya Layanan', 'Tax & Service Fee'), rupiah(b.taxFee)),
                       Divider(height: 20, color: MC.line),
-                      _line('Harga Total', rupiah(b.totalPrice), bold: true),
+                      _line(tr('Harga Total', 'Total Price'), rupiah(b.totalPrice), bold: true),
                     ])),
                   ],
                 ),
@@ -175,11 +176,11 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                   top: false,
                   child: Row(children: [
                     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Harga Total', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                      Text(tr('Harga Total', 'Total Price'), style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                       Text(rupiah(b.totalPrice), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: MC.primaryDark)),
                     ]),
                     const SizedBox(width: 16),
-                    Expanded(child: PrimaryButton('Bayar', loading: _paying, onPressed: () => _pay(b))),
+                    Expanded(child: PrimaryButton(tr('Bayar', 'Pay'), loading: _paying, onPressed: () => _pay(b))),
                   ]),
                 ),
               ),

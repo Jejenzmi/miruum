@@ -6,6 +6,7 @@ import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../brand.dart';
 import '../feedback.dart';
+import '../l10n.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
@@ -22,9 +23,10 @@ const _googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID', 
 Future<void> signInWithGoogle(BuildContext context) async {
   if (_googleServerClientId.isEmpty) {
     resultDialog(context,
-        title: 'Login dengan Google',
-        message: 'Login Google sedang disiapkan. Untuk sekarang, gunakan email atau daftar akun baru.',
-        kind: SnackKind.info, okText: 'Mengerti');
+        title: tr('Login dengan Google', 'Sign in with Google'),
+        message: tr('Login Google sedang disiapkan. Untuk sekarang, gunakan email atau daftar akun baru.',
+            'Google sign-in is being set up. For now, please use email or create a new account.'),
+        kind: SnackKind.info, okText: tr('Mengerti', 'Got it'));
     return;
   }
   try {
@@ -34,7 +36,7 @@ Future<void> signInWithGoogle(BuildContext context) async {
     final acct = await gsi.authenticate(scopeHint: const ['email', 'profile']);
     final idToken = acct.authentication.idToken;
     if (idToken == null || idToken.isEmpty) {
-      if (context.mounted) showSnack(context, 'Gagal memperoleh token Google.', kind: SnackKind.error);
+      if (context.mounted) showSnack(context, tr('Gagal memperoleh token Google.', 'Failed to obtain Google token.'), kind: SnackKind.error);
       return;
     }
     final (token, user) = await context.read<Api>().googleLogin(idToken);
@@ -44,9 +46,9 @@ Future<void> signInWithGoogle(BuildContext context) async {
     }
   } on GoogleSignInException catch (e) {
     if (e.code == GoogleSignInExceptionCode.canceled) return; // user dismissed the picker
-    if (context.mounted) showSnack(context, 'Login Google gagal. Coba lagi.', kind: SnackKind.error);
+    if (context.mounted) showSnack(context, tr('Login Google gagal. Coba lagi.', 'Google sign-in failed. Please try again.'), kind: SnackKind.error);
   } catch (e) {
-    if (context.mounted) showSnack(context, 'Login Google gagal. Coba lagi.', kind: SnackKind.error);
+    if (context.mounted) showSnack(context, tr('Login Google gagal. Coba lagi.', 'Google sign-in failed. Please try again.'), kind: SnackKind.error);
   }
 }
 
@@ -115,16 +117,16 @@ class _SignInScreenState extends State<SignInScreen> {
     final ctl = TextEditingController();
     final code = await showDialog<String>(context: context, builder: (_) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text('Verifikasi 2 Langkah'),
+      title: Text(tr('Verifikasi 2 Langkah', 'Two-Step Verification')),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Kode verifikasi dikirim ke emailmu. Masukkan di bawah.', style: TextStyle(fontSize: 13)),
+        Text(tr('Kode verifikasi dikirim ke emailmu. Masukkan di bawah.', 'A verification code was sent to your email. Enter it below.'), style: const TextStyle(fontSize: 13)),
         const SizedBox(height: 12),
         TextField(controller: ctl, keyboardType: TextInputType.number, textAlign: TextAlign.center,
           decoration: const InputDecoration(hintText: '••••••'), maxLength: 6),
       ]),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
-        FilledButton(onPressed: () => Navigator.pop(context, ctl.text.trim()), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: const Text('Verifikasi')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Batal', 'Cancel'))),
+        FilledButton(onPressed: () => Navigator.pop(context, ctl.text.trim()), style: FilledButton.styleFrom(backgroundColor: MC.primary), child: Text(tr('Verifikasi', 'Verify'))),
       ],
     ));
     if (code != null && code.length >= 4) _submit(code: code);
@@ -140,11 +142,11 @@ class _SignInScreenState extends State<SignInScreen> {
           child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.center, children: [
             const MiruumLogo(size: 34, onDark: true).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
             const SizedBox(height: 14),
-            const Text('Sign In', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
+            Text(tr('Masuk', 'Sign In'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
                 .animate().fadeIn(delay: 120.ms).scale(begin: const Offset(0.9, 0.9)),
             const SizedBox(height: 4),
-            const Text('Halo Sahabat Miruum! Ayo login dulu 👋',
-                    textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 13.5))
+            Text(tr('Halo Sahabat Miruum! Ayo login dulu 👋', 'Hi there! Let\'s get you signed in 👋'),
+                    textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 13.5))
                 .animate().fadeIn(delay: 220.ms),
           ]),
         ),
@@ -152,9 +154,9 @@ class _SignInScreenState extends State<SignInScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField('Enter email', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Masukkan email', 'Enter email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 14),
-              AuthTextField('Enter Password', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField(tr('Masukkan kata sandi', 'Enter Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
@@ -163,13 +165,13 @@ class _SignInScreenState extends State<SignInScreen> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
-                    child: const Text('Forgot Password ?', style: TextStyle(color: MC.primary, fontSize: 12.5))),
+                    child: Text(tr('Lupa Kata Sandi ?', 'Forgot Password ?'), style: const TextStyle(color: MC.primary, fontSize: 12.5))),
               ),
-              PrimaryButton('Sign In', loading: _loading, onPressed: _submit),
+              PrimaryButton(tr('Masuk', 'Sign In'), loading: _loading, onPressed: _submit),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: Divider(color: MC.line)),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or continue with', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text(tr('atau lanjutkan dengan', 'or continue with'), style: TextStyle(color: MC.inkFaint, fontSize: 12))),
                 Expanded(child: Divider(color: MC.line)),
               ]),
               const SizedBox(height: 16),
@@ -179,7 +181,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => signInWithGoogle(context),
                   icon: const Padding(padding: EdgeInsets.only(right: 2), child: GoogleGLogo(size: 20)),
-                  label: Text('Sign In with Google', style: TextStyle(color: MC.ink, fontWeight: FontWeight.w600)),
+                  label: Text(tr('Masuk dengan Google', 'Sign In with Google'), style: TextStyle(color: MC.ink, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
                     alignment: Alignment.center,
                     side: BorderSide(color: MC.line),
@@ -195,7 +197,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CorporateLoginScreen())),
                   icon: const Icon(Icons.business_center_rounded, size: 20, color: MC.primary),
-                  label: const Text('Login Corporate', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                  label: Text(tr('Login Bisnis', 'Business Login'), style: const TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                   style: OutlinedButton.styleFrom(
                     alignment: Alignment.center,
                     side: const BorderSide(color: MC.primary),
@@ -209,8 +211,8 @@ class _SignInScreenState extends State<SignInScreen> {
                   onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignUpScreen())),
                   child: RichText(
                     text: TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
-                      TextSpan(text: "Don't Have an Account ? "),
-                      TextSpan(text: 'Sign Up', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                      TextSpan(text: tr('Belum punya akun ? ', "Don't Have an Account ? ")),
+                      TextSpan(text: tr('Daftar', 'Sign Up'), style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                     ]),
                   ),
                 ),
@@ -238,7 +240,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _submit() async {
     if (_name.text.trim().length < 2 || !_email.text.contains('@') || _pass.text.length < 6) {
-      _toast(context, 'Lengkapi nama, email valid, & kata sandi min. 6 karakter');
+      _toast(context, tr('Lengkapi nama, email valid, & kata sandi min. 6 karakter', 'Enter your name, a valid email, and a password of at least 6 characters'));
       return;
     }
     setState(() => _loading = true);
@@ -266,10 +268,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: Column(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start, children: [
             const MiruumLogo(size: 34, onDark: true).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
             const SizedBox(height: 14),
-            const Text('Registrasi', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
+            Text(tr('Registrasi', 'Register'), style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800))
                 .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
             const SizedBox(height: 4),
-            const Text('Buat akun & nikmati promo terbaik ✨', style: TextStyle(color: Colors.white70, fontSize: 13.5))
+            Text(tr('Buat akun & nikmati promo terbaik ✨', 'Create an account & enjoy the best deals ✨'), style: const TextStyle(color: Colors.white70, fontSize: 13.5))
                 .animate().fadeIn(delay: 220.ms),
           ]),
         ),
@@ -277,28 +279,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField('Nama Lengkap', Icons.person_outline_rounded, _name),
+              AuthTextField(tr('Nama Lengkap', 'Full Name'), Icons.person_outline_rounded, _name),
               const SizedBox(height: 14),
-              AuthTextField('Email', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Email', 'Email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
               const SizedBox(height: 14),
-              AuthTextField('Kata Sandi', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField(tr('Kata Sandi', 'Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
                   )),
               const SizedBox(height: 14),
-              Text('Dengan mendaftar, Anda menyetujui Syarat & Ketentuan dan Kebijakan Privasi Miruum',
+              Text(tr('Dengan mendaftar, Anda menyetujui Syarat & Ketentuan dan Kebijakan Privasi Miruum',
+                  'By registering, you agree to Miruum\'s Terms & Conditions and Privacy Policy'),
                   style: TextStyle(color: MC.inkMuted, fontSize: 12)),
               const SizedBox(height: 20),
-              PrimaryButton('Daftar', loading: _loading, onPressed: _submit),
+              PrimaryButton(tr('Daftar', 'Sign Up'), loading: _loading, onPressed: _submit),
               const SizedBox(height: 22),
               Center(
                 child: GestureDetector(
                   onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SignInScreen())),
                   child: RichText(
                     text: TextSpan(style: TextStyle(color: MC.inkMuted, fontSize: 13), children: [
-                      TextSpan(text: 'Sudah punya akun Miruum ? '),
-                      TextSpan(text: 'Masuk', style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
+                      TextSpan(text: tr('Sudah punya akun Miruum ? ', 'Already have a Miruum account ? ')),
+                      TextSpan(text: tr('Masuk', 'Sign In'), style: TextStyle(color: MC.primary, fontWeight: FontWeight.w700)),
                     ]),
                   ),
                 ),
@@ -325,11 +328,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _sent = false, _loading = false, _obscure = true;
 
   Future<void> _sendCode() async {
-    if (!_email.text.contains('@')) { _toast(context, 'Masukkan email yang valid'); return; }
+    if (!_email.text.contains('@')) { _toast(context, tr('Masukkan email yang valid', 'Enter a valid email')); return; }
     setState(() => _loading = true);
     try {
       await context.read<Api>().forgotPassword(_email.text.trim());
-      if (mounted) { setState(() => _sent = true); _toast(context, 'Kode reset telah dikirim ke email Anda.', err: false); }
+      if (mounted) { setState(() => _sent = true); _toast(context, tr('Kode reset telah dikirim ke email Anda.', 'A reset code has been sent to your email.'), err: false); }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -337,13 +340,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _reset() async {
     if (_code.text.trim().length < 4 || _pass.text.length < 6) {
-      _toast(context, 'Kode 4 digit & kata sandi baru min. 6 karakter'); return;
+      _toast(context, tr('Kode 4 digit & kata sandi baru min. 6 karakter', '4-digit code & new password of at least 6 characters')); return;
     }
     setState(() => _loading = true);
     try {
       await context.read<Api>().resetPassword(_email.text.trim(), _code.text.trim(), _pass.text);
       if (!mounted) return;
-      _toast(context, 'Kata sandi berhasil diubah, silakan masuk', err: false);
+      _toast(context, tr('Kata sandi berhasil diubah, silakan masuk', 'Password changed successfully, please sign in'), err: false);
       Navigator.pop(context);
     } on ApiException catch (e) {
       if (mounted) _toast(context, e.message);
@@ -363,10 +366,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             const Icon(Icons.lock_reset_rounded, color: Colors.white, size: 40)
                 .animate().scale(begin: const Offset(0.6, 0.6), duration: 500.ms, curve: Curves.elasticOut),
             const SizedBox(height: 10),
-            const Text('Lupa Password', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
+            Text(tr('Lupa Password', 'Forgot Password'), style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800))
                 .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
             const SizedBox(height: 4),
-            const Text('Reset kata sandimu dengan mudah', style: TextStyle(color: Colors.white70, fontSize: 13.5))
+            Text(tr('Reset kata sandimu dengan mudah', 'Reset your password easily'), style: const TextStyle(color: Colors.white70, fontSize: 13.5))
                 .animate().fadeIn(delay: 220.ms),
           ]),
         ),
@@ -374,19 +377,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField('Email terdaftar', Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Email terdaftar', 'Registered email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
               if (_sent) ...[
                 const SizedBox(height: 14),
-                AuthTextField('Kode reset dari email', Icons.pin_rounded, _code, keyboard: TextInputType.number),
+                AuthTextField(tr('Kode reset dari email', 'Reset code from email'), Icons.pin_rounded, _code, keyboard: TextInputType.number),
                 const SizedBox(height: 14),
-                AuthTextField('Kata sandi baru', Icons.lock_outline_rounded, _pass, obscure: _obscure,
+                AuthTextField(tr('Kata sandi baru', 'New password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
                     suffix: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                       onPressed: () => setState(() => _obscure = !_obscure),
                     )),
               ],
               const SizedBox(height: 22),
-              PrimaryButton(_sent ? 'Reset Kata Sandi' : 'Kirim Kode', loading: _loading, onPressed: _sent ? _reset : _sendCode),
+              PrimaryButton(_sent ? tr('Reset Kata Sandi', 'Reset Password') : tr('Kirim Kode', 'Send Code'), loading: _loading, onPressed: _sent ? _reset : _sendCode),
             ], startMs: 240)),
           ),
         ),
@@ -408,12 +411,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _loading = false, _o1 = true, _o2 = true;
 
   Future<void> _submit() async {
-    if (_next.text.length < 6) { _toast(context, 'Kata sandi baru minimal 6 karakter'); return; }
+    if (_next.text.length < 6) { _toast(context, tr('Kata sandi baru minimal 6 karakter', 'New password must be at least 6 characters')); return; }
     setState(() => _loading = true);
     try {
       await context.read<Api>().changePassword(_current.text, _next.text);
       if (!mounted) return;
-      _toast(context, 'Kata sandi berhasil diubah', err: false);
+      _toast(context, tr('Kata sandi berhasil diubah', 'Password changed successfully'), err: false);
       Navigator.pop(context);
     } on ApiException catch (e) {
       if (mounted) _toast(context, e.message);
@@ -433,7 +436,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             const Icon(Icons.password_rounded, color: Colors.white, size: 38)
                 .animate().scale(begin: const Offset(0.6, 0.6), duration: 500.ms, curve: Curves.elasticOut),
             const SizedBox(height: 10),
-            const Text('Ganti Password', style: TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w800))
+            Text(tr('Ganti Password', 'Change Password'), style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w800))
                 .animate().fadeIn(delay: 120.ms).slideX(begin: -0.15, end: 0),
           ]),
         ),
@@ -441,15 +444,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField('Kata sandi saat ini', Icons.lock_outline_rounded, _current, obscure: _o1,
+              AuthTextField(tr('Kata sandi saat ini', 'Current password'), Icons.lock_outline_rounded, _current, obscure: _o1,
                   suffix: IconButton(icon: Icon(_o1 ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                       onPressed: () => setState(() => _o1 = !_o1))),
               const SizedBox(height: 14),
-              AuthTextField('Kata sandi baru', Icons.lock_reset_rounded, _next, obscure: _o2,
+              AuthTextField(tr('Kata sandi baru', 'New password'), Icons.lock_reset_rounded, _next, obscure: _o2,
                   suffix: IconButton(icon: Icon(_o2 ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                       onPressed: () => setState(() => _o2 = !_o2))),
               const SizedBox(height: 22),
-              PrimaryButton('Simpan Kata Sandi', loading: _loading, onPressed: _submit),
+              PrimaryButton(tr('Simpan Kata Sandi', 'Save Password'), loading: _loading, onPressed: _submit),
             ], startMs: 240)),
           ),
         ),
@@ -488,7 +491,7 @@ class _OtpScreenState extends State<OtpScreen> {
   Future<void> _confirm() async {
     final code = _controllers.map((c) => c.text).join();
     if (code.length < 4) {
-      _toast(context, 'Masukkan 4 digit kode');
+      _toast(context, tr('Masukkan 4 digit kode', 'Enter the 4-digit code'));
       return;
     }
     setState(() => _loading = true);
@@ -512,16 +515,16 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Cek Email Anda', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+              Text(tr('Cek Email Anda', 'Check Your Email'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
-              Text('Masukan 4 digit kode yang dikirim ke email ${widget.email}',
+              Text(tr('Masukan 4 digit kode yang dikirim ke email ${widget.email}', 'Enter the 4-digit code sent to ${widget.email}'),
                   style: TextStyle(color: MC.inkMuted, fontSize: 13)),
               const SizedBox(height: 8),
               if (_devCode != null)
-                Text('Kode Anda: $_devCode', style: const TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600))
+                Text(tr('Kode Anda: $_devCode', 'Your code: $_devCode'), style: const TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600))
               else
                 TextButton(onPressed: _sendCode, style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                    child: const Text('Kirim ulang kode', style: TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600))),
+                    child: Text(tr('Kirim ulang kode', 'Resend code'), style: const TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w600))),
               const SizedBox(height: 32),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -545,7 +548,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 }),
               ),
               const SizedBox(height: 32),
-              PrimaryButton('Konfirmasi', loading: _loading, onPressed: _confirm),
+              PrimaryButton(tr('Konfirmasi', 'Confirm'), loading: _loading, onPressed: _confirm),
             ],
           ),
         ),
