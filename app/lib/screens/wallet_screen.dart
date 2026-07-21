@@ -154,7 +154,7 @@ class _WalletScreenState extends State<WalletScreen> {
             SizedBox(height: 34, child: ElevatedButton(onPressed: () => _claim((v['id']).toString()),
               style: ElevatedButton.styleFrom(backgroundColor: MC.primary, foregroundColor: Colors.white, elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-              child: Text(tr('Ambil', 'Claim'))),
+              child: Text(tr('Ambil', 'Claim')))),
         ]),
       );
 }
