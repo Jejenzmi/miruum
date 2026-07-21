@@ -81,7 +81,7 @@ class PersonalDataScreen extends StatelessWidget {
           PrimaryButton(tr('Lengkapi / Edit Data', 'Complete / Edit Data'), onPressed: () =>
               Navigator.push(context, MaterialPageRoute(builder: (_) => const EditProfileScreen()))),
           const SizedBox(height: 16),
-          Center(child: Text('Miruum · Version 1.1', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+          Center(child: Text(tr('Miruum · Versi 1.1', 'Miruum · Version 1.1'), style: TextStyle(color: MC.inkFaint, fontSize: 12))),
         ]),
       ),
     );
@@ -92,8 +92,8 @@ class PersonalDataScreen extends StatelessWidget {
         child: Text(t, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: MC.inkMuted)),
       );
 
-  static String? _idTypeLabel(String? t) => const {
-        'KTP': 'KTP', 'PASSPORT': 'Paspor', 'SIM': 'SIM',
+  static String? _idTypeLabel(String? t) => {
+        'KTP': 'KTP', 'PASSPORT': tr('Paspor', 'Passport'), 'SIM': 'SIM',
       }[t] ?? t;
 }
 
@@ -198,15 +198,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       body: SafeArea(
         child: Column(children: [
           Expanded(child: ListView(padding: const EdgeInsets.all(20), children: [
-            _dropdown(tr('Sapaan', 'Title'), _title, const {'Tuan': 'Tuan', 'Nyonya': 'Nyonya', 'Nona': 'Nona'}, (v) => setState(() => _title = v)),
+            _dropdown(tr('Sapaan', 'Title'), _title, {'Tuan': tr('Tuan', 'Mr.'), 'Nyonya': tr('Nyonya', 'Mrs.'), 'Nona': tr('Nona', 'Ms.')}, (v) => setState(() => _title = v)),
             _field(tr('Nama Lengkap', 'Full Name'), _name, hint: tr('Sesuai identitas', 'As on your ID')),
-            _dropdown(tr('Jenis Kelamin', 'Gender'), _gender, const {'Laki-laki': 'Laki-laki', 'Perempuan': 'Perempuan'}, (v) => setState(() => _gender = v)),
+            _dropdown(tr('Jenis Kelamin', 'Gender'), _gender, {'Laki-laki': tr('Laki-laki', 'Male'), 'Perempuan': tr('Perempuan', 'Female')}, (v) => setState(() => _gender = v)),
             GestureDetector(
               onTap: _pickBirth,
               child: AbsorbPointer(child: _field(tr('Tanggal Lahir', 'Date of Birth'), _birth, hint: 'YYYY-MM-DD')),
             ),
             _field(tr('Kewarganegaraan', 'Nationality'), _nationality, hint: 'Indonesia'),
-            _dropdown(tr('Jenis Identitas', 'ID Type'), _idType, const {'KTP': 'KTP', 'PASSPORT': 'Paspor', 'SIM': 'SIM'}, (v) => setState(() => _idType = v)),
+            _dropdown(tr('Jenis Identitas', 'ID Type'), _idType, {'KTP': 'KTP', 'PASSPORT': tr('Paspor', 'Passport'), 'SIM': 'SIM'}, (v) => setState(() => _idType = v)),
             _field(tr('Nomor Identitas', 'ID Number'), _idNumber, keyboard: TextInputType.number, hint: tr('No. KTP/Paspor/SIM', 'KTP/Passport/SIM number')),
             _field(tr('No. Handphone', 'Phone Number'), _phone, keyboard: TextInputType.phone, hint: '08xxxxxxxxxx'),
             _field(tr('Alamat', 'Address'), _address, hint: tr('Alamat lengkap', 'Full address'), maxLines: 2),

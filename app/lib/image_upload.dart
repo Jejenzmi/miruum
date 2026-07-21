@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'api.dart';
+import 'l10n.dart';
 import 'theme.dart';
 
 /// Shows a "Kamera / Galeri" sheet, requests the right runtime permission,
@@ -20,17 +21,17 @@ Future<String?> pickAndUploadImage(BuildContext context, {String folder = 'avata
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
-          const Align(alignment: Alignment.centerLeft,
-              child: Text('Ubah foto', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+          Align(alignment: Alignment.centerLeft,
+              child: Text(tr('Ubah foto', 'Change photo'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
           const SizedBox(height: 8),
           ListTile(
             leading: const Icon(Icons.photo_camera_rounded, color: MC.primary),
-            title: const Text('Ambil dari Kamera'),
+            title: Text(tr('Ambil dari Kamera', 'Take from Camera')),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_rounded, color: MC.primary),
-            title: const Text('Pilih dari Galeri'),
+            title: Text(tr('Pilih dari Galeri', 'Choose from Gallery')),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
         ]),
@@ -45,7 +46,7 @@ Future<String?> pickAndUploadImage(BuildContext context, {String folder = 'avata
   var status = await perm.status;
   if (!status.isGranted) status = await perm.request();
   if (!status.isGranted && source == ImageSource.camera) {
-    if (context.mounted) _snack(context, 'Izin kamera dibutuhkan untuk mengambil foto');
+    if (context.mounted) _snack(context, tr('Izin kamera dibutuhkan untuk mengambil foto', 'Camera permission is required to take a photo'));
     return null;
   }
 
@@ -65,7 +66,7 @@ Future<String?> pickAndUploadImage(BuildContext context, {String folder = 'avata
     if (context.mounted) _snack(context, e.message);
     return null;
   } catch (_) {
-    if (context.mounted) _snack(context, 'Gagal mengunggah foto');
+    if (context.mounted) _snack(context, tr('Gagal mengunggah foto', 'Failed to upload photo'));
     return null;
   }
 }
@@ -87,21 +88,21 @@ Future<String?> pickAndUploadDoc(BuildContext context) async {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 40, height: 4, decoration: BoxDecoration(color: MC.line, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
-          const Align(alignment: Alignment.centerLeft,
-              child: Text('Unggah Dokumen', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+          Align(alignment: Alignment.centerLeft,
+              child: Text(tr('Unggah Dokumen', 'Upload Document'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
           const SizedBox(height: 4),
           Align(alignment: Alignment.centerLeft,
-              child: Text('Foto / pindai dokumen legalitas dengan jelas & terbaca.',
+              child: Text(tr('Foto / pindai dokumen legalitas dengan jelas & terbaca.', 'Photo / scan your legal document clearly and legibly.'),
                   style: TextStyle(color: MC.inkMuted, fontSize: 12.5))),
           const SizedBox(height: 10),
           ListTile(
             leading: const Icon(Icons.document_scanner_rounded, color: MC.primary),
-            title: const Text('Pindai / Foto Dokumen'),
+            title: Text(tr('Pindai / Foto Dokumen', 'Scan / Photo Document')),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_rounded, color: MC.primary),
-            title: const Text('Pilih dari Galeri'),
+            title: Text(tr('Pilih dari Galeri', 'Choose from Gallery')),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
         ]),
@@ -114,7 +115,7 @@ Future<String?> pickAndUploadDoc(BuildContext context) async {
     var status = await Permission.camera.status;
     if (!status.isGranted) status = await Permission.camera.request();
     if (!status.isGranted) {
-      if (context.mounted) _snack(context, 'Izin kamera dibutuhkan untuk memindai dokumen');
+      if (context.mounted) _snack(context, tr('Izin kamera dibutuhkan untuk memindai dokumen', 'Camera permission is required to scan the document'));
       return null;
     }
   }
@@ -135,7 +136,7 @@ Future<String?> pickAndUploadDoc(BuildContext context) async {
     if (context.mounted) _snack(context, e.message);
     return null;
   } catch (_) {
-    if (context.mounted) _snack(context, 'Gagal mengunggah dokumen');
+    if (context.mounted) _snack(context, tr('Gagal mengunggah dokumen', 'Failed to upload document'));
     return null;
   }
 }

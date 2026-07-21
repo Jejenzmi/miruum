@@ -85,7 +85,7 @@ class _SettingScreenState extends State<SettingScreen> {
                 _tile(Icons.delete_outline_rounded, tr('Hapus Akun', 'Delete Account'), MC.danger, _deleteAccount),
               ])),
             const SizedBox(height: 24),
-            Center(child: Text('Miruum · Version 1.1', style: TextStyle(color: MC.inkFaint, fontSize: 12))),
+            Center(child: Text(tr('Miruum · Versi 1.1', 'Miruum · Version 1.1'), style: TextStyle(color: MC.inkFaint, fontSize: 12))),
           ],
         ),
       ),

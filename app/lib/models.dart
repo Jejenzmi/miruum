@@ -1,5 +1,6 @@
 /// Data models for Miruum OTA — mirror the backend JSON shapes.
 import 'package:equatable/equatable.dart';
+import 'l10n.dart';
 
 class AppUser extends Equatable {
   final String id, name, email;
@@ -42,7 +43,7 @@ class Review {
   Review({required this.authorName, required this.body, required this.rating, this.createdAt, this.reply,
     this.verified = false, this.photos = const [], this.scores = const {}});
   factory Review.fromJson(Map<String, dynamic> j) => Review(
-        authorName: j['authorName'] ?? 'Tamu',
+        authorName: j['authorName'] ?? tr('Tamu', 'Guest'),
         body: j['body'] ?? '',
         reply: j['reply'],
         rating: (j['rating'] ?? 0).toDouble(),
@@ -71,10 +72,10 @@ class RatePlan {
         priceDelta: j['priceDelta'] ?? 0,
       );
   String get boardLabel => switch (boardBasis) {
-        'BREAKFAST' => 'Termasuk sarapan',
-        'HALF_BOARD' => 'Sarapan + 1 makan',
-        'FULL_BOARD' => 'Semua makan',
-        _ => 'Tanpa sarapan',
+        'BREAKFAST' => tr('Termasuk sarapan', 'Breakfast included'),
+        'HALF_BOARD' => tr('Sarapan + 1 makan', 'Breakfast + 1 meal'),
+        'FULL_BOARD' => tr('Semua makan', 'All meals included'),
+        _ => tr('Tanpa sarapan', 'Room only'),
       };
 }
 
@@ -111,11 +112,15 @@ class HotelNearby {
 
 /// Human labels + icon keys for property types.
 class PropertyType {
-  static const labels = {
-    'HOTEL': 'Hotel', 'VILLA': 'Villa', 'APARTMENT': 'Apartemen', 'HOMESTAY': 'Homestay',
-    'GUESTHOUSE': 'Guesthouse', 'HOSTEL': 'Hostel', 'RESORT': 'Resort',
-  };
-  static String label(String? t) => labels[t] ?? 'Hotel';
+  static String label(String? t) => switch (t) {
+        'VILLA' => tr('Vila', 'Villa'),
+        'APARTMENT' => tr('Apartemen', 'Apartment'),
+        'HOMESTAY' => 'Homestay',
+        'GUESTHOUSE' => 'Guesthouse',
+        'HOSTEL' => 'Hostel',
+        'RESORT' => 'Resort',
+        _ => 'Hotel',
+      };
   static const all = ['HOTEL', 'VILLA', 'APARTMENT', 'HOMESTAY', 'GUESTHOUSE', 'HOSTEL', 'RESORT'];
 }
 
@@ -256,24 +261,22 @@ class HotelPackage {
   });
 
   /// Short label for the meal plan (board basis).
-  String get boardLabel => const {
-        'ROOM_ONLY': 'Tanpa Makan',
-        'BREAKFAST': 'Termasuk Sarapan',
-        'HALF_BOARD': 'Sarapan + Makan Malam',
-        'FULL_BOARD': '3x Makan (Pagi, Siang, Malam)',
-        'ALL_INCLUSIVE': 'All-Inclusive (Makan + Minuman)',
-      }[boardBasis] ??
-      'Termasuk Sarapan';
+  String get boardLabel => switch (boardBasis) {
+        'ROOM_ONLY' => tr('Tanpa Makan', 'Room only'),
+        'HALF_BOARD' => tr('Sarapan + Makan Malam', 'Breakfast + Dinner'),
+        'FULL_BOARD' => tr('3x Makan (Pagi, Siang, Malam)', '3 Meals (Breakfast, Lunch, Dinner)'),
+        'ALL_INCLUSIVE' => tr('All-Inclusive (Makan + Minuman)', 'All-Inclusive (Meals + Drinks)'),
+        _ => tr('Termasuk Sarapan', 'Breakfast included'),
+      };
 
   /// Which meals are covered — for rendering meal chips.
-  List<String> get meals => const {
-        'ROOM_ONLY': <String>[],
-        'BREAKFAST': ['Sarapan'],
-        'HALF_BOARD': ['Sarapan', 'Makan Malam'],
-        'FULL_BOARD': ['Sarapan', 'Makan Siang', 'Makan Malam'],
-        'ALL_INCLUSIVE': ['Sarapan', 'Makan Siang', 'Makan Malam', 'Minuman'],
-      }[boardBasis] ??
-      const ['Sarapan'];
+  List<String> get meals => switch (boardBasis) {
+        'ROOM_ONLY' => <String>[],
+        'HALF_BOARD' => [tr('Sarapan', 'Breakfast'), tr('Makan Malam', 'Dinner')],
+        'FULL_BOARD' => [tr('Sarapan', 'Breakfast'), tr('Makan Siang', 'Lunch'), tr('Makan Malam', 'Dinner')],
+        'ALL_INCLUSIVE' => [tr('Sarapan', 'Breakfast'), tr('Makan Siang', 'Lunch'), tr('Makan Malam', 'Dinner'), tr('Minuman', 'Drinks')],
+        _ => [tr('Sarapan', 'Breakfast')],
+      };
 
   factory HotelPackage.fromJson(Map<String, dynamic> j) => HotelPackage(
         id: j['id'], slug: j['slug'] ?? '', title: j['title'] ?? '', city: j['city'] ?? '',

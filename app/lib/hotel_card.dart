@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'bloc/auth/auth_bloc.dart';
+import 'l10n.dart';
 import 'models.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -12,7 +13,7 @@ class HotelCard extends StatelessWidget {
   final bool showBook;
   final String bookLabel;
   final VoidCallback? onBook;
-  const HotelCard(this.hotel, {super.key, this.showBook = false, this.bookLabel = 'Pesan', this.onBook});
+  const HotelCard(this.hotel, {super.key, this.showBook = false, this.bookLabel = '', this.onBook});
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +65,7 @@ class HotelCard extends StatelessWidget {
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.trending_down_rounded, size: 11, color: MC.success),
                           const SizedBox(width: 2),
-                          Text('Harga turun', style: const TextStyle(color: MC.success, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                          Text(tr('Harga turun', 'Price drop'), style: const TextStyle(color: MC.success, fontSize: 9.5, fontWeight: FontWeight.w700)),
                         ]),
                       ),
                       const SizedBox(width: 6),
@@ -80,7 +81,7 @@ class HotelCard extends StatelessWidget {
                             children: [
                               TextSpan(text: rupiah(hotel.priceFrom),
                                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: MC.primaryDark)),
-                              TextSpan(text: ' /malam', style: TextStyle(fontSize: 11, color: MC.inkFaint)),
+                              TextSpan(text: tr(' /malam', ' /night'), style: TextStyle(fontSize: 11, color: MC.inkFaint)),
                             ],
                           ),
                         ),
@@ -97,7 +98,7 @@ class HotelCard extends StatelessWidget {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                               textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                             ),
-                            child: Text(bookLabel),
+                            child: Text(bookLabel.isEmpty ? tr('Pesan', 'Book') : bookLabel),
                           ),
                         ),
                     ],
