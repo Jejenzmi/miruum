@@ -111,9 +111,16 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
             // (or tiny ones) never push text out of its container on any device.
             builder: (context, child) {
               final mq = MediaQuery.of(context);
-              return MediaQuery(
-                data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
-                child: child!,
+              // Re-key the whole navigator on language change so EVERY page
+              // (including pushed sub-pages) rebuilds and re-evaluates tr()
+              // instantly. The splash skips its animation on this rebuild
+              // (AppSettings.booted) and lands back on the last tab.
+              return KeyedSubtree(
+                key: ValueKey('locale-${locale.languageCode}'),
+                child: MediaQuery(
+                  data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
+                  child: child!,
+                ),
               );
             },
             home: const SplashScreen(),

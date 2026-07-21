@@ -20,9 +20,12 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index = widget.initialIndex;
 
+  final _tabs = const [HomeScreen(), PesananScreen(), JelajahScreen(), FavoritScreen(), ProfileScreen()];
+
   @override
   void initState() {
     super.initState();
+    AppSettings.lastTab = _index;
     // Ask for notification permission once the app is up (Android 13+ / iOS),
     // then check for an update prompt / announcement popup.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -34,17 +37,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Rebuild the tab stack when the language changes so every cached tab
-      // (Home/Orders/Explore/Saved/Profile) re-evaluates tr() live. Non-const
-      // instances are required — const widgets are canonicalized and would not
-      // rebuild. State (scroll, loaded data) is preserved (same type, no key).
-      body: ValueListenableBuilder<Locale>(
-        valueListenable: AppSettings.locale,
-        builder: (context, _, __) => IndexedStack(
-          index: _index,
-          children: [HomeScreen(), PesananScreen(), JelajahScreen(), FavoritScreen(), ProfileScreen()],
-        ),
-      ),
+      body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: MC.surface,
@@ -75,6 +68,7 @@ class _MainShellState extends State<MainShell> {
                   return;
                 }
                 setState(() => _index = i);
+                AppSettings.lastTab = i; // remember tab across a language-switch rebuild
               },
               destinations: [
                 NavigationDestination(icon: Icon(Icons.home_outlined, color: MC.inkFaint), selectedIcon: const Icon(Icons.home_rounded, color: MC.primaryDark), label: tr('Beranda', 'Home')),

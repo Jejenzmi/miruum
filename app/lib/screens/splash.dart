@@ -23,11 +23,15 @@ class _SplashScreenState extends State<SplashScreen> {
         if (m.isNotEmpty) AppSettings.modules.value = {...AppSettings.modules.value, ...m};
       }).catchError((_) {});
     } catch (_) {}
-    Future.delayed(const Duration(milliseconds: 1700), () async {
+    // Full splash on cold start; instant (no delay) when the navigator is
+    // rebuilt for a language switch, landing back on the last tab.
+    final firstBoot = !AppSettings.booted;
+    Future.delayed(firstBoot ? const Duration(milliseconds: 1700) : Duration.zero, () async {
+      AppSettings.booted = true;
       final onboarded = await hasOnboarded();
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(
-          builder: (_) => onboarded ? const MainShell() : const OnboardingScreen()));
+          builder: (_) => onboarded ? MainShell(initialIndex: AppSettings.lastTab) : const OnboardingScreen()));
     });
   }
 

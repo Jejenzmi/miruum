@@ -10,6 +10,14 @@ class AppSettings {
   static final themeMode = ValueNotifier<ThemeMode>(ThemeMode.system);
   static final locale = ValueNotifier<Locale>(const Locale('id'));
 
+  /// Set true after the first cold-start splash finishes. Lets the splash skip
+  /// its animation when the whole navigator is rebuilt on a language switch.
+  static bool booted = false;
+
+  /// Last selected bottom-nav tab — so a language-switch rebuild lands back on
+  /// the same tab instead of always Home.
+  static int lastTab = 0;
+
   /// Which mobile modules are enabled (toggled by admin). Default all on so the
   /// UI never hides anything before the first config fetch completes.
   static final modules = ValueNotifier<Map<String, bool>>({
