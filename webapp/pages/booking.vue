@@ -20,6 +20,62 @@
           </div>
         </div>
 
+        <!-- Pesan untuk siapa (sama seperti aplikasi) -->
+        <div class="card p-5">
+          <h2 class="font-bold text-lg mb-3">Pesanan Ini Untuk</h2>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" @click="form.forSelf = true"
+              class="flex items-center justify-center gap-2 py-3 rounded-xl border font-semibold text-[14px]"
+              :class="form.forSelf ? 'border-brand bg-brand-50 text-brand-700' : 'border-line text-ink-muted'">
+              Saya Sendiri
+            </button>
+            <button type="button" @click="form.forSelf = false"
+              class="flex items-center justify-center gap-2 py-3 rounded-xl border font-semibold text-[14px]"
+              :class="!form.forSelf ? 'border-brand bg-brand-50 text-brand-700' : 'border-line text-ink-muted'">
+              Orang Lain
+            </button>
+          </div>
+
+          <div v-if="!form.forSelf" class="mt-4 space-y-3">
+            <div v-if="savedGuests.length" class="flex flex-wrap gap-2">
+              <button v-for="g in savedGuests" :key="g.id || g.name" type="button" @click="form.guestName = g.name"
+                class="pill border"
+                :class="form.guestName === g.name ? 'border-brand bg-brand-50 text-brand-700' : 'border-line text-ink-muted'">
+                {{ g.name }}
+              </button>
+            </div>
+            <div>
+              <label class="label">Nama Tamu yang Menginap</label>
+              <input v-model="form.guestName" class="input" placeholder="Sesuai identitas tamu" />
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer text-[13px] text-ink-muted">
+              <input type="checkbox" v-model="form.saveGuest" class="accent-brand w-4 h-4" />
+              Simpan tamu ini untuk pemesanan berikutnya
+            </label>
+          </div>
+        </div>
+
+        <!-- Nama tamu per kamar (muncul bila > 1 kamar, sama seperti aplikasi) -->
+        <div v-if="rooms > 1" class="card p-5">
+          <h2 class="font-bold text-lg mb-1">Tamu per Kamar</h2>
+          <p class="text-[13px] text-ink-muted mb-3">Isi nama tamu untuk tiap kamar (opsional).</p>
+          <div class="space-y-4">
+            <div v-for="(rg, i) in form.roomGuests" :key="i" class="border border-line rounded-xl p-3">
+              <div class="font-semibold text-[13px] mb-2">Kamar {{ i + 1 }}</div>
+              <input v-model="rg.name" class="input mb-2" :placeholder="`Nama tamu kamar ${i + 1}`" />
+              <input v-model="rg.request" class="input" placeholder="Permintaan khusus (mis. lantai tinggi)" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Permintaan khusus (sama seperti aplikasi) -->
+        <div class="card p-5">
+          <h2 class="font-bold text-lg mb-1">Permintaan Khusus</h2>
+          <p class="text-[13px] text-ink-muted mb-3">Kami teruskan ke hotel (tergantung ketersediaan).</p>
+          <textarea v-model="form.specialRequest" rows="3" class="input"
+            placeholder="mis. kamar lantai tinggi, twin bed, check-in lebih awal"></textarea>
+        </div>
+
         <div class="card p-5">
           <label class="flex items-center justify-between cursor-pointer">
             <div><div class="font-semibold">Bayar di Hotel</div><div class="text-[13px] text-ink-muted">Reservasi terkonfirmasi, bayar saat check-in.</div></div>
@@ -106,7 +162,15 @@ const total = computed(() => subtotal.value + tax.value)
 const form = reactive({
   bookerName: '', bookerEmail: '', bookerPhone: '',
   payAtHotel: false, promoCode: '', usePoints: false,
+  // Parity with the mobile app's Rincian Pesanan step:
+  forSelf: true, guestName: '', saveGuest: true, specialRequest: '',
+  roomGuests: Array.from({ length: rooms }, () => ({ name: '', request: '' })),
 })
+
+// Saved guests (same list the app offers when booking for someone else).
+const { data: sgData } = await useAsyncData('bk-saved-guests',
+  () => $api('/saved-guests').catch(() => ({ guests: [] })))
+const savedGuests = computed<any[]>(() => (sgData.value as any)?.guests || [])
 watchEffect(() => {
   if (user.value) {
     form.bookerName ||= user.value.name || ''
@@ -122,18 +186,33 @@ async function submit() {
   if (!form.bookerName.trim() || !form.bookerEmail.includes('@') || form.bookerPhone.trim().length < 6) {
     err.value = 'Lengkapi nama, email & nomor HP yang valid.'; return
   }
+  if (!form.forSelf && !form.guestName.trim()) {
+    err.value = 'Isi nama tamu yang menginap.'; return
+  }
   loading.value = true
   try {
     const body: any = {
-      roomId, checkIn: new Date(checkIn).toISOString(), checkOut: new Date(checkOut).toISOString(),
-      guests, rooms, bookerName: form.bookerName.trim(), bookerEmail: form.bookerEmail.trim(),
-      bookerPhone: form.bookerPhone.trim(), forSelf: true,
+      hotelId, roomId, checkIn: new Date(checkIn).toISOString(), checkOut: new Date(checkOut).toISOString(),
+      guests, rooms,
+      bookerName: (form.forSelf ? form.bookerName : form.guestName).trim(),
+      bookerEmail: form.bookerEmail.trim(),
+      bookerPhone: form.bookerPhone.trim(),
+      forSelf: form.forSelf,
+      specialRequest: form.specialRequest.trim(),
     }
     if (planId) body.ratePlanId = planId
+    if (hotel.value?.channelId) body.channelId = hotel.value.channelId
     if (form.promoCode.trim()) body.promoCode = form.promoCode.trim().toUpperCase()
     if (form.usePoints) body.usePoints = true
     if (form.payAtHotel) body.payAtHotel = true
+    if (rooms > 1) {
+      body.roomGuests = form.roomGuests.map((g) => ({ name: g.name.trim(), request: g.request.trim() }))
+    }
     const res: any = await $api('/bookings', { method: 'POST', body })
+    // Remember the guest for next time (fire-and-forget), like the app does.
+    if (!form.forSelf && form.saveGuest && form.guestName.trim()) {
+      $api('/saved-guests', { method: 'POST', body: { name: form.guestName.trim() } }).catch(() => {})
+    }
     const bk = res.booking
     if (form.payAtHotel) await navigateTo(`/account/bookings?ok=${bk.code}`)
     else await navigateTo(`/payment/${bk.id}`)

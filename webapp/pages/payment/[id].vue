@@ -48,6 +48,11 @@
           <a :href="payment.payUrl" target="_blank" class="btn-brand">Buka Aplikasi Pembayaran</a>
         </div>
 
+        <!-- Hitung mundur kedaluwarsa (sama seperti aplikasi) -->
+        <div v-if="payment.expiresAt" class="mt-4 rounded-xl bg-brand-50 text-brand-700 py-3 text-center">
+          <div class="text-[12px] font-semibold">Selesaikan pembayaran dalam</div>
+          <div class="text-2xl font-extrabold font-mono tracking-wider">{{ countdown }}</div>
+        </div>
         <p class="text-center text-[13px] text-ink-faint mt-4">Selesaikan pembayaran sebelum kedaluwarsa. Status diperbarui otomatis.</p>
 
         <div class="mt-5 border-t border-line pt-4 text-center">
@@ -75,6 +80,22 @@ const methods = computed<any[]>(() => (mData.value as any)?.methods || [])
 const payment = ref<any>(null)
 const paying = ref(false)
 const settling = ref(false)
+
+// Expiry countdown, mirroring the app's payment-instruction screen.
+const now = ref(Date.now())
+let ticker: any = null
+onMounted(() => { ticker = setInterval(() => (now.value = Date.now()), 1000) })
+onBeforeUnmount(() => { if (ticker) clearInterval(ticker) })
+const countdown = computed(() => {
+  const exp = payment.value?.expiresAt ? new Date(payment.value.expiresAt).getTime() : 0
+  if (!exp) return ''
+  const ms = Math.max(0, exp - now.value)
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  const p = (n: number) => n.toString().padStart(2, '0')
+  return h > 0 ? `${p(h)}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`
+})
 const err = ref('')
 const copied = ref(false)
 
