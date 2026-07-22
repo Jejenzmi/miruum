@@ -239,6 +239,10 @@
 const route = useRoute()
 const { $api } = useNuxtApp()
 const { t } = useLang()
+const { isLoggedIn } = useAuth()
+const { isFav, toggle: favToggle, load: loadFav } = useFavorites()
+const { has: cmpHas, toggle: cmpToggle } = useCompare()
+
 const id = route.params.id as string
 
 const { data } = await useAsyncData(`hotel-${id}`, () => $api(`/hotels/${id}`).catch(() => ({ hotel: null })))
@@ -290,10 +294,7 @@ const mapUrl = computed(() => {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${lo - d}%2C${la - d}%2C${lo + d}%2C${la + d}&layer=mapnik&marker=${la}%2C${lo}`
 })
 
-// ── Favorites / compare ──
-const { isLoggedIn } = useAuth()
-const { isFav, toggle: favToggle, load: loadFav } = useFavorites()
-const { has: cmpHas, toggle: cmpToggle } = useCompare()
+// ── Favorites / compare ── (composables hoisted above the awaits)
 
 // ── Simpan ke Trip (wishlists) ──
 const tripSheet = ref(false)

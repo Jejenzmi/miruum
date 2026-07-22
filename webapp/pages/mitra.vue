@@ -7,8 +7,8 @@
       <div class="relative container-site py-16 sm:py-24 text-white">
         <div class="max-w-2xl">
           <span class="pill bg-white/15 text-white mb-4">{{ t('Miruum untuk Mitra', 'Miruum for Partners') }}</span>
-          <h1 class="text-3xl sm:text-5xl font-display font-bold leading-tight">{{ content.mitraHeadline }}</h1>
-          <p class="mt-4 text-white/90 text-lg">{{ content.mitraSub }}</p>
+          <h1 class="text-3xl sm:text-5xl font-display font-bold leading-tight">{{ resolveL(content.mitraHeadline) }}</h1>
+          <p class="mt-4 text-white/90 text-lg">{{ resolveL(content.mitraSub) }}</p>
           <div class="flex flex-wrap gap-3 mt-6">
             <a href="https://extranet.miruum.id/register" class="btn bg-white text-brand-700 hover:bg-white/90 px-6 py-3.5 font-bold shadow-pop">{{ t('Daftarkan Properti Anda →', 'List Your Property →') }}</a>
             <a href="https://extranet.miruum.id/extranet/login" class="btn border border-white/40 text-white hover:bg-white/10 px-6 py-3.5 font-semibold">{{ t('Sudah Mitra? Masuk', 'Already a partner? Sign in') }}</a>
@@ -124,7 +124,9 @@
 
 <script setup lang="ts">
 const { t, isEn } = useLang()
-const content = await useSiteContent()
+// Copy dari Back Office; `resolveL` menangani nilai lama (string) maupun baru
+// ({ id, en }) dan ikut berubah saat bahasa diganti.
+const { content, resolveL } = await useSiteCopy()
 const openFaq = ref(0)
 const BENEFIT_ICONS = [
   '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><circle cx=\'12\' cy=\'12\' r=\'9\'/><path d=\'M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18\'/></svg>',
@@ -134,11 +136,16 @@ const BENEFIT_ICONS = [
   '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M3 17l6-6 4 4 8-8M21 7v6M21 7h-6\'/></svg>',
   '<svg viewBox=\'0 0 24 24\' class=\'w-6 h-6 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\'/></svg>',
 ]
-const stats = computed(() => content.value.stats || [])
-const benefits = computed(() => (content.value.benefits || []).map((b: any, i: number) => ({ ...b, icon: BENEFIT_ICONS[i % BENEFIT_ICONS.length] })))
-const steps = computed(() => content.value.steps || [])
-const commission = computed(() => content.value.commission || [])
-const testimonials = computed(() => content.value.testimonials || [])
-const faqs = computed(() => content.value.faqs || [])
+const list = (k: string) => (Array.isArray(content.value?.[k]) ? content.value[k] : [])
+const stats = computed(() => list('stats').map((s: any) => ({ ...s, value: resolveL(s?.value), label: resolveL(s?.label) })))
+const benefits = computed(() => list('benefits').map((b: any, i: number) => ({
+  ...b, t: resolveL(b?.t), d: resolveL(b?.d), icon: BENEFIT_ICONS[i % BENEFIT_ICONS.length],
+})))
+const steps = computed(() => list('steps').map((s: any) => ({ ...s, t: resolveL(s?.t), d: resolveL(s?.d) })))
+const commission = computed(() => list('commission').map((c: any) => resolveL(c)).filter(Boolean))
+const testimonials = computed(() => list('testimonials').map((ts: any) => ({
+  ...ts, name: resolveL(ts?.name), role: resolveL(ts?.role), quote: resolveL(ts?.quote),
+})))
+const faqs = computed(() => list('faqs').map((f: any) => ({ ...f, q: resolveL(f?.q), a: resolveL(f?.a) })))
 useHead({ title: () => t('Daftarkan Properti Anda — Miruum untuk Mitra', 'List Your Property — Miruum for Partners') })
 </script>

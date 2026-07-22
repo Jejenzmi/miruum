@@ -138,11 +138,11 @@
             <ul class="mt-4 space-y-1.5 text-[12.5px] text-ink-muted">
               <li class="flex items-center gap-2">
                 <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark shrink-0" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                {{ t('Konfirmasi instan', 'Instant confirmation') }}
+                {{ sc('trustInstant', 'Konfirmasi instan', 'Instant confirmation') }}
               </li>
               <li class="flex items-center gap-2">
                 <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark shrink-0" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-                {{ t('Pembayaran aman', 'Secure payment') }}
+                {{ sc('trustSecure', 'Pembayaran aman', 'Secure payment') }}
               </li>
               <li v-if="freeCancellation" class="flex items-center gap-2">
                 <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark shrink-0" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
@@ -167,6 +167,8 @@ const route = useRoute()
 const { $api } = useNuxtApp()
 const { isLoggedIn, user } = useAuth()
 const { t } = useLang()
+// Baris jaminan dikelola dari Back Office (fallback = teks di template).
+const { sc } = await useSiteCopy()
 const fullPath = route.fullPath
 
 const hotelId = route.query.hotel as string

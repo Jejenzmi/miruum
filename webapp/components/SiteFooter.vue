@@ -38,7 +38,7 @@
     <div class="border-t border-line bg-paper/60">
       <div class="container-site py-8 grid gap-8 md:grid-cols-[1fr_auto] md:items-start">
         <div>
-          <h4 class="text-sm font-bold mb-3">{{ t('Metode Pembayaran', 'Payment Methods') }}</h4>
+          <h4 class="text-sm font-bold mb-3">{{ sc('paymentMethodsTitle', 'Metode Pembayaran', 'Payment Methods') }}</h4>
           <div class="flex flex-wrap gap-2">
             <span v-for="p in payBadges" :key="p"
                   class="inline-flex items-center rounded-lg border border-line bg-white px-3 py-1.5 text-[12px] font-bold text-ink-muted tracking-wide">
@@ -54,7 +54,7 @@
                 <rect x="4" y="10.5" width="16" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
               </svg>
             </span>
-            {{ t('Pembayaran aman & terenkripsi', 'Secure encrypted payment') }}
+            {{ sc('trustSecure', 'Pembayaran aman & terenkripsi', 'Secure encrypted payment') }}
           </li>
           <li class="flex items-center gap-2.5">
             <span class="w-7 h-7 rounded-full bg-brand-50 text-brand-700 grid place-items-center shrink-0">
@@ -62,7 +62,7 @@
                 <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" stroke-linejoin="round" />
               </svg>
             </span>
-            {{ t('Konfirmasi instan', 'Instant confirmation') }}
+            {{ sc('trustInstant', 'Konfirmasi instan', 'Instant confirmation') }}
           </li>
           <li class="flex items-center gap-2.5">
             <span class="w-7 h-7 rounded-full bg-brand-50 text-brand-700 grid place-items-center shrink-0">
@@ -71,7 +71,7 @@
                 <rect x="17.5" y="14" width="4" height="6" rx="1.5" /><path d="M19.5 20v.5a2.5 2.5 0 0 1-2.5 2.5h-3" />
               </svg>
             </span>
-            {{ t('Dukungan 24/7', '24/7 support') }}
+            {{ sc('trustSupport', 'Dukungan 24/7', '24/7 support') }}
           </li>
         </ul>
       </div>
@@ -86,6 +86,8 @@
 <script setup lang="ts">
 const { t } = useLang()
 const { $api } = useNuxtApp()
+// Judul metode pembayaran + tiga jaminan dikelola dari Back Office.
+const { sc } = await useSiteCopy()
 
 // Badge metode pembayaran diambil dari katalog gateway yang sebenarnya.
 // Teks saja (bukan logo) — CSP memblokir aset remote & kami tidak memiliki file merek.

@@ -78,7 +78,7 @@
         <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-none stroke-current shrink-0" stroke-width="2">
           <path d="M12 3 4.5 6v5.5c0 4.4 3.1 8.2 7.5 9.5 4.4-1.3 7.5-5.1 7.5-9.5V6L12 3Z" stroke-linejoin="round" />
         </svg>
-        <span>{{ t('Konfirmasi instan · Pembayaran aman · Batal gratis di properti terpilih', 'Instant confirmation · Secure payment · Free cancellation on selected properties') }}</span>
+        <span>{{ sc('trustStrip', 'Konfirmasi instan · Pembayaran aman · Batal gratis di properti terpilih', 'Instant confirmation · Secure payment · Free cancellation on selected properties') }}</span>
       </div>
     </div>
   </header>
@@ -88,6 +88,8 @@
 const { $api } = useNuxtApp()
 const { isLoggedIn, user, logout } = useAuth()
 const { t, isEn, setLang } = useLang()
+// Copy strip kepercayaan dikelola dari Back Office (fallback = teks di bawah).
+const { sc } = await useSiteCopy()
 const open = ref(false)
 const notifOpen = ref(false)
 const avatar = computed(() => user.value?.photoUrl || user.value?.avatarUrl || '')

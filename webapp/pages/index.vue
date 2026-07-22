@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Hero slider -->
-    <HeroSlider :banners="banners" :fallback="{ title: content.homeHeadline, subtitle: content.homeSub }" />
+    <HeroSlider :banners="banners" :fallback="{ title: resolveL(content.homeHeadline), subtitle: resolveL(content.homeSub) }" />
     <div class="container-site -mt-24 relative z-10">
       <SearchWidget />
     </div>
@@ -16,7 +16,7 @@
 
     <!-- Popular destinations -->
     <section v-if="cities.length" class="container-site mt-10">
-      <h2 class="text-2xl font-bold mb-4">{{ t('Destinasi Populer', 'Popular Destinations') }}</h2>
+      <h2 class="text-2xl font-bold mb-4">{{ sc('destinationsTitle', 'Destinasi Populer', 'Popular Destinations') }}</h2>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <NuxtLink v-for="c in cities" :key="c.name" :to="`/search?q=${encodeURIComponent(c.name)}`"
                   class="group relative rounded-xl overflow-hidden aspect-[4/5]">
@@ -118,9 +118,9 @@
 
     <!-- Social proof: real aggregate numbers + genuine guest reviews -->
     <section v-if="statTiles.length || topReviews.length" class="container-site mt-14">
-      <h2 class="text-2xl font-bold">{{ t('Apa kata tamu kami', 'What our guests say') }}</h2>
+      <h2 class="text-2xl font-bold">{{ sc('socialTitle', 'Apa kata tamu kami', 'What our guests say') }}</h2>
       <p class="text-ink-muted text-sm mt-0.5">
-        {{ t('Angka dan ulasan di bawah diambil langsung dari data Miruum.', 'The numbers and reviews below come straight from Miruum data.') }}
+        {{ sc('socialSub', 'Angka dan ulasan di bawah diambil langsung dari data Miruum.', 'The numbers and reviews below come straight from Miruum data.') }}
       </p>
 
       <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-5">
@@ -154,8 +154,8 @@
         <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
         <div class="relative flex flex-col flex-1">
           <span class="pill bg-white/20 text-white w-fit mb-2">{{ t('Untuk Mitra Properti', 'For Property Partners') }}</span>
-          <h2 class="text-2xl font-display font-bold">{{ content.ctaPropertyTitle }}</h2>
-          <p class="mt-2 text-white/90 text-[15px] flex-1">{{ content.ctaPropertyText }}</p>
+          <h2 class="text-2xl font-display font-bold">{{ resolveL(content.ctaPropertyTitle) }}</h2>
+          <p class="mt-2 text-white/90 text-[15px] flex-1">{{ resolveL(content.ctaPropertyText) }}</p>
           <NuxtLink to="/mitra" class="btn bg-white text-brand-700 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">{{ t('Pelajari & Daftar', 'Learn More & Register') }} →</NuxtLink>
         </div>
       </div>
@@ -164,8 +164,8 @@
         <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
         <div class="relative flex flex-col flex-1">
           <span class="pill bg-white/20 text-white w-fit mb-2">Corporate & Government</span>
-          <h2 class="text-2xl font-display font-bold">{{ content.ctaCorpTitle }}</h2>
-          <p class="mt-2 text-white/90 text-[15px] flex-1">{{ content.ctaCorpText }}</p>
+          <h2 class="text-2xl font-display font-bold">{{ resolveL(content.ctaCorpTitle) }}</h2>
+          <p class="mt-2 text-white/90 text-[15px] flex-1">{{ resolveL(content.ctaCorpText) }}</p>
           <a href="https://corporate.miruum.id/corporate/register" class="btn bg-white text-slate-800 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">{{ t('Ajukan Akun', 'Request an Account') }} →</a>
         </div>
       </div>
@@ -216,7 +216,9 @@ const articles = computed(() => arr(art.value, 'articles').slice(0, 6))
 const banners = computed(() => arr(ban.value, 'banners'))
 const packages = computed(() => arr(pkg.value, 'packages'))
 
-const content = await useSiteContent()
+// Copy dari Back Office; `sc`/`resolveL` menangani nilai lama (string) maupun
+// baru ({ id, en }) dan ikut berubah saat bahasa diganti.
+const { content, sc, resolveL } = await useSiteCopy()
 const propTypes = computed(() => Object.entries(propertyTypeLabels()).map(([key, label]) => ({ key, label })))
 
 // Popular destinations — real per-city counts and "from" prices from the API.
@@ -257,5 +259,10 @@ const FEATURE_ICONS = [
   '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z\'/></svg>',
   '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z\'/></svg>',
 ]
-const features = computed(() => (content.value.features || []).map((f: any, i: number) => ({ ...f, icon: FEATURE_ICONS[i % FEATURE_ICONS.length] })))
+const features = computed(() => (content.value.features || []).map((f: any, i: number) => ({
+  ...f,
+  t: resolveL(f?.t),
+  d: resolveL(f?.d),
+  icon: FEATURE_ICONS[i % FEATURE_ICONS.length],
+})))
 </script>

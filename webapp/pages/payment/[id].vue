@@ -23,7 +23,7 @@
             </svg>
           </span>
           <p class="text-[13px] text-ink-muted leading-relaxed">
-            {{ t('Pembayaran diproses dengan aman. Data kartu/rekening tidak kami simpan.', 'Payments are processed securely. We do not store your card or bank account details.') }}
+            {{ sc('paySecureNote', 'Pembayaran diproses dengan aman. Data kartu/rekening tidak kami simpan.', 'Payments are processed securely. We do not store your card or bank account details.') }}
           </p>
         </div>
 
@@ -71,13 +71,13 @@
         <div class="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-[12.5px] text-ink-muted">
           <span class="inline-flex items-center gap-1.5">
             <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
-            {{ t('Konfirmasi instan setelah pembayaran terverifikasi.', 'Instant confirmation once your payment is verified.') }}
+            {{ sc('payInstantNote', 'Konfirmasi instan setelah pembayaran terverifikasi.', 'Instant confirmation once your payment is verified.') }}
           </span>
           <span class="inline-flex items-center gap-1.5">
             <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark" stroke-width="2">
               <rect x="4" y="10.5" width="16" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
             </svg>
-            {{ t('Pembayaran aman & terenkripsi', 'Secure encrypted payment') }}
+            {{ sc('trustSecure', 'Pembayaran aman & terenkripsi', 'Secure encrypted payment') }}
           </span>
         </div>
 
@@ -97,6 +97,8 @@ definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const { $api } = useNuxtApp()
 const { t } = useLang()
+// Catatan keamanan & konfirmasi instan dikelola dari Back Office.
+const { sc } = await useSiteCopy()
 const id = route.params.id as string
 
 const { data: bkData, refresh } = await useAsyncData(`pay-${id}`, () => $api(`/bookings/${id}`).catch(() => ({ booking: null })))
