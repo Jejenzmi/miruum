@@ -25,6 +25,9 @@
           <div class="absolute bottom-0 p-3 text-white">
             <div class="font-bold text-[15px]">{{ c.name }}</div>
             <div class="text-[11px] text-white/80">{{ c.count }} {{ t('properti', 'properties') }}</div>
+            <div v-if="c.priceFrom" class="text-[11px] font-semibold text-white mt-0.5">
+              {{ t('mulai dari', 'from') }} {{ rupiah(c.priceFrom) }}
+            </div>
           </div>
         </NuxtLink>
       </div>
@@ -113,6 +116,38 @@
       </div>
     </section>
 
+    <!-- Social proof: real aggregate numbers + genuine guest reviews -->
+    <section v-if="statTiles.length || topReviews.length" class="container-site mt-14">
+      <h2 class="text-2xl font-bold">{{ t('Apa kata tamu kami', 'What our guests say') }}</h2>
+      <p class="text-ink-muted text-sm mt-0.5">
+        {{ t('Angka dan ulasan di bawah diambil langsung dari data Miruum.', 'The numbers and reviews below come straight from Miruum data.') }}
+      </p>
+
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-5">
+        <div v-for="s in statTiles" :key="s.label" class="card p-4">
+          <div class="text-2xl font-bold text-brand-700">{{ s.value }}</div>
+          <div class="text-[13px] text-ink-muted mt-0.5">{{ s.label }}</div>
+        </div>
+      </div>
+
+      <div v-if="topReviews.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-5">
+        <figure v-for="r in topReviews" :key="r.id" class="card p-5 flex flex-col">
+          <div class="flex items-center gap-2">
+            <span class="pill bg-brand-50 text-brand-700 font-bold">{{ r.rating }}/10</span>
+            <span class="text-[13px] text-ink-muted">{{ ratingLabel(Number(r.rating) || 0) }}</span>
+          </div>
+          <blockquote class="text-[14px] text-ink mt-3 line-clamp-3 flex-1">{{ r.body }}</blockquote>
+          <figcaption class="mt-3 pt-3 border-t border-line">
+            <div class="font-semibold text-[13px]">{{ r.authorName || t('Tamu Miruum', 'Miruum guest') }}</div>
+            <div class="text-[12px] text-ink-faint">
+              {{ r.hotel?.name || '' }}<template v-if="r.hotel?.city"> · {{ r.hotel.city }}</template>
+            </div>
+            <div v-if="r.createdAt" class="text-[12px] text-ink-faint">{{ fmtDate(r.createdAt) }}</div>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
     <!-- Business CTAs: property partners + corporate/government -->
     <section class="container-site mt-14 grid gap-5 lg:grid-cols-2">
       <div class="rounded-xl2 overflow-hidden relative bg-gradient-to-br from-brand-700 to-brand text-white p-8 min-h-[220px] flex flex-col">
@@ -184,16 +219,38 @@ const packages = computed(() => arr(pkg.value, 'packages'))
 const content = await useSiteContent()
 const propTypes = computed(() => Object.entries(propertyTypeLabels()).map(([key, label]) => ({ key, label })))
 
-// Popular destinations derived from available hotels (city + a representative image).
-const cities = computed(() => {
-  const pool = [...recommended.value, ...promo.value]
-  const map: Record<string, { name: string; img: string; count: number }> = {}
-  for (const h of pool) {
-    if (!h.city) continue
-    if (!map[h.city]) map[h.city] = { name: h.city, img: h.imageUrl, count: 0 }
-    map[h.city].count++
-  }
-  return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 6)
+// Popular destinations — real per-city counts and "from" prices from the API.
+const { data: dest } = await useAsyncData('destinations', () =>
+  $api('/destinations').catch(() => ({ destinations: [] })))
+const cities = computed(() =>
+  (Array.isArray((dest.value as any)?.destinations) ? (dest.value as any).destinations : [])
+    .filter((d: any) => d?.name)
+    .slice(0, 6)
+    .map((d: any) => ({
+      name: d.name as string,
+      img: d.imageUrl || '',
+      count: Number(d.count) || 0,
+      priceFrom: Number(d.priceFrom) || 0,
+    })))
+
+// Social proof — aggregates + genuine reviews. Only real numbers, never padded.
+const { data: statData } = await useAsyncData('site-stats', () =>
+  $api('/site-stats').catch(() => null))
+const stats = computed(() => (statData.value && typeof statData.value === 'object' ? (statData.value as any) : null))
+const topReviews = computed(() => {
+  const list = stats.value?.topReviews
+  return (Array.isArray(list) ? list : []).filter((r: any) => r?.body).slice(0, 4)
+})
+const statTiles = computed(() => {
+  const s = stats.value
+  if (!s) return []
+  const tiles: { value: string; label: string }[] = []
+  if (s.hotels) tiles.push({ value: String(s.hotels), label: t('properti', 'properties') })
+  if (s.cities) tiles.push({ value: String(s.cities), label: t('kota', 'cities') })
+  if (s.reviews) tiles.push({ value: String(s.reviews), label: t('ulasan tamu', 'guest reviews') })
+  if (s.avgRating) tiles.push({ value: `${s.avgRating}/10`, label: t('rata-rata penilaian', 'average rating') })
+  if (s.bookings) tiles.push({ value: String(s.bookings), label: t('pesanan dibayar', 'paid bookings') })
+  return tiles
 })
 const FEATURE_ICONS = [
   '<svg viewBox=\'0 0 24 24\' class=\'w-5 h-5 fill-none stroke-current\' stroke-width=\'2\'><path d=\'M20 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 000 4h4v-4z\'/></svg>',

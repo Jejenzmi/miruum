@@ -78,6 +78,27 @@ const BOARD_BASIS_EN_MAP: Record<string, string> = {
 export const boardBasisLabel = (k?: string | null): string =>
   pick(BOARD_BASIS_ID, BOARD_BASIS_EN_MAP)[k || 'ROOM_ONLY'] || pick('Tanpa Sarapan', 'Room Only')
 
+/**
+ * Normalise an image URL for crisp rendering.
+ * Unsplash serves whatever `w`/`q` you ask for, and the seeded URLs are often
+ * tiny/low quality — rewrite them to the width we actually render at, q=80.
+ * Any other host is returned untouched. Never returns undefined (SSR-safe).
+ */
+export const img = (url?: string | null, w = 800): string => {
+  if (!url || typeof url !== 'string') return ''
+  try {
+    const u = new URL(url)
+    if (!/(^|\.)unsplash\.com$/.test(u.hostname)) return url
+    u.searchParams.set('w', String(w))
+    u.searchParams.set('q', '80')
+    if (!u.searchParams.has('auto')) u.searchParams.set('auto', 'format')
+    if (!u.searchParams.has('fit')) u.searchParams.set('fit', 'crop')
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
 // Kept for existing callers (Indonesian map). Prefer propertyTypes()/boardBasisLabel().
 export const PROPERTY_TYPES = PROPERTY_TYPES_ID
 export const BOARD_BASIS = BOARD_BASIS_ID

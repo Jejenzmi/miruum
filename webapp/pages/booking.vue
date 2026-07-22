@@ -134,7 +134,22 @@
               <span class="font-semibold">{{ t('Total', 'Total') }}</span>
               <span class="text-xl font-extrabold text-brand-700">{{ rupiah(total) }}</span>
             </div>
-            <button @click="submit" :disabled="loading" class="btn-brand w-full mt-4">
+            <!-- Jaminan singkat sebelum tombol pesan -->
+            <ul class="mt-4 space-y-1.5 text-[12.5px] text-ink-muted">
+              <li class="flex items-center gap-2">
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark shrink-0" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+                {{ t('Konfirmasi instan', 'Instant confirmation') }}
+              </li>
+              <li class="flex items-center gap-2">
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark shrink-0" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+                {{ t('Pembayaran aman', 'Secure payment') }}
+              </li>
+              <li v-if="freeCancellation" class="flex items-center gap-2">
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark shrink-0" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+                {{ t('Batal gratis', 'Free cancellation') }}
+              </li>
+            </ul>
+            <button @click="submit" :disabled="loading" class="btn-brand w-full mt-3">
               {{ loading ? t('Memproses…', 'Processing…') : (form.payAtHotel ? t('Konfirmasi Reservasi', 'Confirm Reservation') : t('Pesan Sekarang', 'Book Now')) }}
             </button>
             <p v-if="err" class="text-red-600 text-[13px] mt-2 text-center">{{ err }}</p>
@@ -169,6 +184,13 @@ const hotel = computed<any>(() => (data.value as any)?.hotel || null)
 const room = computed<any>(() => (hotel.value?.rooms || []).find((r: any) => r.id === roomId) || null)
 const plan = computed<any>(() => (room.value?.ratePlans || []).find((p: any) => p.id === planId) || null)
 const taxPct = computed(() => Number((cfg.value as any)?.taxPct || 11))
+
+// "Batal gratis" hanya ditampilkan bila datanya memang begitu: rate plan yang
+// dipilih menang atas kebijakan kamar; tanpa data → jangan diklaim.
+const freeCancellation = computed(() => {
+  if (planId && plan.value) return plan.value.freeCancellation === true
+  return room.value?.freeCancellation === true
+})
 
 const unit = computed(() => (room.value ? Number(room.value.price) + Number(plan.value?.priceDelta || 0) : 0))
 const subtotal = computed(() => unit.value * nights * rooms)

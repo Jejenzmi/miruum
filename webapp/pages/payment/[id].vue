@@ -15,6 +15,18 @@
     <template v-else-if="booking">
       <!-- Choose method -->
       <div v-if="!payment" class="space-y-5">
+        <!-- Catatan keamanan pembayaran, tepat di atas pemilih metode -->
+        <div class="flex items-start gap-3 rounded-xl border border-line bg-paper px-4 py-3">
+          <span class="w-8 h-8 rounded-full bg-leaf-soft text-leaf-dark grid place-items-center shrink-0">
+            <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2">
+              <rect x="4" y="10.5" width="16" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+            </svg>
+          </span>
+          <p class="text-[13px] text-ink-muted leading-relaxed">
+            {{ t('Pembayaran diproses dengan aman. Data kartu/rekening tidak kami simpan.', 'Payments are processed securely. We do not store your card or bank account details.') }}
+          </p>
+        </div>
+
         <div v-for="grp in methods" :key="grp.group" class="card p-5">
           <h3 class="font-bold mb-3">{{ grp.group }}</h3>
           <div class="grid sm:grid-cols-2 gap-2">
@@ -54,6 +66,20 @@
           <div class="text-2xl font-extrabold font-mono tracking-wider">{{ countdown }}</div>
         </div>
         <p class="text-center text-[13px] text-ink-faint mt-4">{{ t('Selesaikan pembayaran sebelum kedaluwarsa. Status diperbarui otomatis.', 'Complete the payment before it expires. The status updates automatically.') }}</p>
+
+        <!-- Penenang: konfirmasi instan + pembayaran aman -->
+        <div class="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-[12.5px] text-ink-muted">
+          <span class="inline-flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark" stroke-width="2.5"><path d="M20 6 9 17l-5-5" /></svg>
+            {{ t('Konfirmasi instan setelah pembayaran terverifikasi.', 'Instant confirmation once your payment is verified.') }}
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-leaf-dark" stroke-width="2">
+              <rect x="4" y="10.5" width="16" height="10" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+            </svg>
+            {{ t('Pembayaran aman & terenkripsi', 'Secure encrypted payment') }}
+          </span>
+        </div>
 
         <div class="mt-5 border-t border-line pt-4 text-center">
           <p class="text-[13px] text-ink-muted mb-2">{{ t('Mode demo — simulasikan pembayaran berhasil:', 'Demo mode — simulate a successful payment:') }}</p>

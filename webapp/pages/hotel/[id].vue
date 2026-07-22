@@ -4,10 +4,10 @@
     <section class="container-site pt-5">
       <div class="grid gap-2 sm:grid-cols-4 sm:grid-rows-2 rounded-xl2 overflow-hidden h-[300px] sm:h-[380px]">
         <div class="sm:col-span-2 sm:row-span-2 bg-line">
-          <img :src="gallery[0]" :alt="hotel.name" class="w-full h-full object-cover" />
+          <img :src="img(gallery[0], 1600)" :alt="hotel.name" fetchpriority="high" class="w-full h-full object-cover" />
         </div>
         <div v-for="(g,i) in gallery.slice(1,5)" :key="i" class="hidden sm:block bg-line">
-          <img :src="g" :alt="hotel.name" class="w-full h-full object-cover" />
+          <img :src="img(g, 800)" :alt="hotel.name" loading="lazy" decoding="async" class="w-full h-full object-cover" />
         </div>
       </div>
     </section>

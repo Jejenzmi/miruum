@@ -449,6 +449,9 @@ const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
   reviewCount: true, priceFrom: true, priceBefore: true, starRating: true, imageUrl: true,
   isPromo: true, promoLabel: true, propertyType: true, lat: true, lng: true,
+  // A few facility chips so list cards can show what the property offers
+  // (richer cards convert better — same as the big OTAs).
+  facilities: { take: 3, select: { facility: { select: { name: true, icon: true } } } },
   channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
 
@@ -736,6 +739,68 @@ function moduleFlags(s: Record<string, string>) {
 app.get("/api/config", async (_req, res) => {
   const s = await getSettings();
   res.json({ taxPct: Number(s.taxPct), currency: s.currency, appName: s.appName, modules: moduleFlags(s) });
+});
+
+// Popular destinations with a real "from" price + property count per city.
+app.get("/api/destinations", async (_req, res) => {
+  const destinations = await cached("miruum:destinations", 300, async () => {
+    const grouped = await prisma.hotel.groupBy({
+      by: ["city"],
+      _count: { _all: true },
+      _min: { priceFrom: true },
+      orderBy: { _count: { city: "desc" } },
+      take: 8,
+    });
+    // One representative image per city (cheapest property).
+    const out = [];
+    for (const g of grouped) {
+      if (!g.city) continue;
+      const h = await prisma.hotel.findFirst({
+        where: { city: g.city },
+        orderBy: { priceFrom: "asc" },
+        select: { imageUrl: true },
+      });
+      out.push({
+        name: g.city,
+        count: g._count._all,
+        priceFrom: g._min.priceFrom ?? 0,
+        imageUrl: h?.imageUrl ?? null,
+      });
+    }
+    return out;
+  });
+  res.json({ destinations });
+});
+
+// Real, non-fabricated social proof: aggregate counts + genuine guest reviews.
+app.get("/api/site-stats", async (_req, res) => {
+  const stats = await cached("miruum:site-stats", 300, async () => {
+    const [hotels, cityGroups, reviewCount, ratingAgg, completed] = await Promise.all([
+      prisma.hotel.count(),
+      prisma.hotel.groupBy({ by: ["city"] }),
+      prisma.review.count(),
+      prisma.review.aggregate({ _avg: { rating: true } }),
+      prisma.booking.count({ where: { status: { in: ["PAID", "COMPLETED"] } } }),
+    ]);
+    const top = await prisma.review.findMany({
+      where: { rating: { gte: 8.5 }, body: { not: "" } },
+      orderBy: [{ rating: "desc" }, { createdAt: "desc" }],
+      take: 6,
+      select: {
+        id: true, authorName: true, rating: true, body: true, createdAt: true,
+        hotel: { select: { name: true, city: true } },
+      },
+    });
+    return {
+      hotels,
+      cities: cityGroups.length,
+      reviews: reviewCount,
+      avgRating: Number((ratingAgg._avg.rating ?? 0).toFixed(1)),
+      bookings: completed,
+      topReviews: top,
+    };
+  });
+  res.json(stats);
 });
 
 // Validate a promo code against an amount → returns the discount.

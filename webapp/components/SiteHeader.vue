@@ -71,6 +71,16 @@
         </template>
       </div>
     </div>
+
+    <!-- Strip kepercayaan tipis — hanya di layar md ke atas agar nav tetap lega -->
+    <div class="hidden md:block border-t border-line/70 bg-paper/50">
+      <div class="container-site py-1.5 flex items-center gap-2 text-[12px] text-ink-faint">
+        <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-none stroke-current shrink-0" stroke-width="2">
+          <path d="M12 3 4.5 6v5.5c0 4.4 3.1 8.2 7.5 9.5 4.4-1.3 7.5-5.1 7.5-9.5V6L12 3Z" stroke-linejoin="round" />
+        </svg>
+        <span>{{ t('Konfirmasi instan · Pembayaran aman · Batal gratis di properti terpilih', 'Instant confirmation · Secure payment · Free cancellation on selected properties') }}</span>
+      </div>
+    </div>
   </header>
 </template>
 
