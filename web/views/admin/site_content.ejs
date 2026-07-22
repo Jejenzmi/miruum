@@ -82,6 +82,12 @@
     <div class="row2">
       <div>
         <label>Judul Destinasi Populer</label>
+        <label>Aplikasi Mobile — URL tombol unduh (Google Play)</label>
+        <input name="appStoreUrl" value="<%= typeof content.appStoreUrl === 'string' ? content.appStoreUrl : '' %>" placeholder="https://play.google.com/store/apps/details?id=id.gokar.miruum">
+        <label>Aplikasi Mobile — teks tombol</label>
+        <label class="lang">Indonesia</label><input name="appStoreLabel[id]" value="<%= L(content.appStoreLabel,'id') %>">
+        <label class="lang">English</label><input name="appStoreLabel[en]" value="<%= L(content.appStoreLabel,'en') %>">
+
         <label class="lang">Indonesia</label><input name="destinationsTitle[id]" value="<%= L(content.destinationsTitle,'id') %>">
         <label class="lang">English</label><input name="destinationsTitle[en]" value="<%= L(content.destinationsTitle,'en') %>">
       </div>

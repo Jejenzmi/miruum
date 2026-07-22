@@ -462,8 +462,7 @@ const SITE_TEXT_KEYS = [
   "homeHeadline", "homeSub", "ctaPropertyTitle", "ctaPropertyText", "ctaCorpTitle", "ctaCorpText",
   "mitraHeadline", "mitraSub",
   "trustStrip", "trustSecure", "trustInstant", "trustSupport", "paymentMethodsTitle",
-  "paySecureNote", "payInstantNote", "destinationsTitle", "socialTitle", "socialSub",
-];
+  "paySecureNote", "payInstantNote", "destinationsTitle", "socialTitle", "socialSub", 'appStoreLabel', 'appStoreUrl'];
 app.post("/admin/site-content", adminGuard, async (req, res) => {
   const body = {};
   SITE_TEXT_KEYS.forEach((k) => {

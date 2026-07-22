@@ -31,7 +31,11 @@
           <li><a href="https://corporate.miruum.id/corporate/register" class="hover:text-brand-600">Corporate & Government</a></li>
         </ul>
         <h4 class="text-sm font-bold mb-2">{{ t('Aplikasi Mobile', 'Mobile App') }}</h4>
-        <a href="/ota.apk" class="btn-brand btn-sm">{{ t('Unduh APK Android', 'Download Android APK') }}</a>
+        <a :href="sc('appStoreUrl', 'https://play.google.com/store/apps/details?id=id.gokar.miruum')"
+           target="_blank" rel="noopener" class="btn-brand btn-sm inline-flex items-center gap-2">
+          <svg viewBox="0 0 24 24" class="w-4 h-4 fill-current" aria-hidden="true"><path d="M3.6 2.3 13 12 3.6 21.7a1.6 1.6 0 0 1-.6-1.3V3.6c0-.5.2-1 .6-1.3zM14.4 13.4l2.5 2.5-9.6 5.5zM14.4 10.6 7.3 2.6l9.6 5.5zM18.3 9.1l2.6 1.5c.8.5.8 1.9 0 2.4l-2.6 1.5-2.9-2.7z"/></svg>
+          {{ sc('appStoreLabel', 'Unduh di Google Play', 'Get it on Google Play') }}
+        </a>
       </div>
     </div>
     <!-- Blok kepercayaan: metode pembayaran + jaminan layanan -->

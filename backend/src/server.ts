@@ -4706,6 +4706,9 @@ const DEFAULT_SITE_CONTENT: any = {
     id: "Konfirmasi instan setelah pembayaran terverifikasi.",
     en: "Instant confirmation once your payment is verified.",
   },
+  // Where the "Mobile App" button in the web footer points (a URL — not translated).
+  appStoreUrl: "https://play.google.com/store/apps/details?id=id.gokar.miruum",
+  appStoreLabel: { id: "Unduh di Google Play", en: "Get it on Google Play" },
   destinationsTitle: { id: "Destinasi Populer", en: "Popular Destinations" },
   socialTitle: { id: "Apa kata tamu kami", en: "What our guests say" },
   socialSub: {
