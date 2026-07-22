@@ -34,6 +34,15 @@
           <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="freeCancellation" class="accent-brand w-4 h-4" /> Bisa refund / batal gratis</label>
           <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="refundable" class="accent-brand w-4 h-4" /> Refundable</label>
         </div>
+        <div v-if="facilities.length" class="card p-4">
+          <h3 class="font-bold mb-3">Fasilitas</h3>
+          <div class="max-h-64 overflow-y-auto pr-1">
+            <label v-for="f in facilities" :key="f.id" class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer">
+              <input type="checkbox" :value="f.id" v-model="facilityIds" class="accent-brand w-4 h-4" />
+              {{ f.name }}
+            </label>
+          </div>
+        </div>
       </aside>
 
       <!-- Results -->
@@ -74,6 +83,11 @@ const star = ref(0)
 const breakfast = ref(false)
 const freeCancellation = ref(false)
 const refundable = ref(false)
+const facilityIds = ref<string[]>([])
+
+// Hotel facilities list (same source the app's filter screen uses).
+const { data: facData } = await useAsyncData('facilities', () => $api('/facilities').catch(() => ({ facilities: [] })))
+const facilities = computed<any[]>(() => (facData.value as any)?.facilities || [])
 
 const query = computed(() => {
   const p: Record<string, any> = { sort: sort.value }
@@ -83,6 +97,8 @@ const query = computed(() => {
   if (breakfast.value) p.breakfast = 1
   if (freeCancellation.value) p.freeCancellation = 1
   if (refundable.value) p.refundable = 1
+  // The backend (and the app's FilterResult.toQuery) expects a comma-joined `facilities` param.
+  if (facilityIds.value.length) p.facilities = facilityIds.value.join(',')
   return p
 })
 

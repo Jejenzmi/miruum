@@ -52,6 +52,10 @@
               <div><label class="label !mb-0.5">Check-in</label><input v-model="checkIn" type="date" :min="todayStr" class="input !py-2 !text-sm" /></div>
               <div><label class="label !mb-0.5">Check-out</label><input v-model="checkOut" type="date" :min="checkIn" class="input !py-2 !text-sm" /></div>
               <div class="w-20"><label class="label !mb-0.5">Tamu</label><select v-model.number="guests" class="input !py-2 !text-sm !px-2"><option v-for="n in 8" :key="n" :value="n">{{ n }}</option></select></div>
+              <button type="button" @click="calOpen = true" class="btn-ghost btn-sm whitespace-nowrap">
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                Lihat Kalender Harga
+              </button>
             </div>
           </div>
 
@@ -174,7 +178,9 @@
             <button @click="favToggle(hotel.id)" class="btn-ghost btn-sm flex-1" :class="{ '!text-red-600 !border-red-200': isFav(hotel.id) }">{{ isFav(hotel.id) ? '♥ Favorit' : '♡ Simpan' }}</button>
             <button @click="cmpToggle(hotel)" class="btn-ghost btn-sm flex-1" :class="{ 'chip-on': cmpHas(hotel.id) }">{{ cmpHas(hotel.id) ? '✓ Banding' : '+ Banding' }}</button>
           </div>
+          <button @click="openSaveToTrip" class="btn-ghost btn-sm w-full mt-2">🧳 Simpan ke Trip</button>
           <button @click="togglePriceAlert" class="btn-ghost btn-sm w-full mt-2" :class="{ 'chip-on': watching }">{{ watching ? '🔔 Memantau harga turun' : 'Pantau Harga Turun' }}</button>
+          <p v-if="tripMsg" class="text-[13px] mt-2" :class="tripOk ? 'text-leaf-dark' : 'text-red-600'">{{ tripMsg }}</p>
         </div>
       </aside>
     </div>
@@ -183,6 +189,47 @@
     <RailSection v-if="similar.length" title="Properti Serupa" more="/search">
       <HotelCard v-for="h in similar" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px]" />
     </RailSection>
+
+    <!-- Simpan ke Trip -->
+    <div v-if="tripSheet" class="fixed inset-0 z-50 grid place-items-end sm:place-items-center bg-ink/40" @click.self="tripSheet = false">
+      <div class="bg-white w-full sm:max-w-sm rounded-t-xl2 sm:rounded-xl2 shadow-pop p-5 max-h-[80vh] overflow-y-auto">
+        <h3 class="font-bold text-lg mb-3">Simpan ke Trip</h3>
+
+        <template v-if="!tripCreating">
+          <div v-if="myTrips.length" class="divide-y divide-line mb-2">
+            <button v-for="t in myTrips" :key="t.id" @click="saveToTrip(t)" :disabled="!!tripBusy"
+              class="w-full flex items-center gap-2 py-3 text-left">
+              <span class="text-brand">🧳</span>
+              <span class="font-semibold text-[14px] flex-1 truncate">{{ t.name }}</span>
+              <span class="text-[12px] text-ink-faint">{{ (t.items || []).length }} item</span>
+              <span class="text-brand text-lg leading-none">+</span>
+            </button>
+          </div>
+          <p v-else class="text-[13px] text-ink-muted mb-2">Belum ada trip. Buat trip pertamamu.</p>
+          <button @click="tripCreating = true; tripName = ''" class="btn-ghost btn-sm w-full">+ Buat trip baru</button>
+        </template>
+
+        <template v-else>
+          <label class="label">Nama trip</label>
+          <input v-model="tripName" class="input" placeholder="Contoh: Liburan Bali" @keyup.enter="createAndSave" />
+          <div class="flex justify-end gap-2 mt-4">
+            <button @click="tripCreating = false" class="btn-ghost btn-sm">Batal</button>
+            <button @click="createAndSave" :disabled="!!tripBusy" class="btn-brand btn-sm">{{ tripBusy ? '…' : 'Buat' }}</button>
+          </div>
+        </template>
+
+        <button @click="tripSheet = false" class="btn-ghost btn-sm w-full mt-3">Tutup</button>
+      </div>
+    </div>
+
+    <!-- Kalender Harga -->
+    <PriceCalendar
+      v-if="calOpen"
+      :hotel-id="hotel.id"
+      :initial-check-in="checkIn"
+      :initial-check-out="checkOut"
+      @close="calOpen = false"
+      @apply="applyCalendar" />
   </div>
 
   <div v-else class="container-site py-24 text-center text-ink-muted">Hotel tidak ditemukan.</div>
@@ -212,6 +259,14 @@ const checkIn = ref((route.query.checkIn as string) || todayStr)
 const checkOut = ref((route.query.checkOut as string) || isoDate(new Date(Date.now() + 86400000)))
 const guests = ref(Number(route.query.guests) || 2)
 
+// ── Kalender harga ──
+const calOpen = ref(false)
+function applyCalendar(r: { checkIn: string; checkOut: string }) {
+  checkIn.value = r.checkIn
+  checkOut.value = r.checkOut
+  calOpen.value = false
+}
+
 function ratePlansOf(room: any) {
   const plans = (room.ratePlans || []).filter((p: any) => p.active !== false)
   return plans.length ? plans : [{ id: null, name: 'Harga Standar', boardBasis: room.breakfast ? 'BREAKFAST' : 'ROOM_ONLY', priceDelta: 0, freeCancellation: room.freeCancellation }]
@@ -237,6 +292,60 @@ const mapUrl = computed(() => {
 const { isLoggedIn } = useAuth()
 const { isFav, toggle: favToggle, load: loadFav } = useFavorites()
 const { has: cmpHas, toggle: cmpToggle } = useCompare()
+
+// ── Simpan ke Trip (wishlists) ──
+const tripSheet = ref(false)
+const tripCreating = ref(false)
+const tripName = ref('')
+const tripBusy = ref(false)
+const tripMsg = ref('')
+const tripOk = ref(true)
+const myTrips = ref<any[]>([])
+
+function tripItem() {
+  return {
+    kind: 'HOTEL',
+    refId: id,
+    title: hotel.value?.name || '',
+    imageUrl: hotel.value?.imageUrl || gallery.value?.[0] || null,
+    subtitle: hotel.value?.city || hotel.value?.address || '',
+    price: Number(hotel.value?.priceFrom) || 0,
+  }
+}
+
+async function openSaveToTrip() {
+  if (!isLoggedIn.value) return navigateTo(`/login?redirect=/hotel/${id}`)
+  tripMsg.value = ''
+  tripCreating.value = false
+  tripSheet.value = true
+  const r: any = await $api('/wishlists').catch(() => ({ wishlists: [] }))
+  myTrips.value = r?.wishlists || []
+}
+
+async function saveToTrip(t: any) {
+  tripBusy.value = true
+  try {
+    await $api(`/wishlists/${t.id}/items`, { method: 'POST', body: tripItem() })
+    tripOk.value = true; tripMsg.value = `Disimpan ke "${t.name}".`
+    tripSheet.value = false
+  } catch {
+    tripOk.value = false; tripMsg.value = 'Gagal menyimpan. Coba lagi.'
+  } finally { tripBusy.value = false }
+}
+
+async function createAndSave() {
+  const name = tripName.value.trim(); if (!name) return
+  tripBusy.value = true
+  try {
+    const r: any = await $api('/wishlists', { method: 'POST', body: { name } })
+    const w = r?.wishlist || r
+    await $api(`/wishlists/${w.id}/items`, { method: 'POST', body: tripItem() })
+    tripOk.value = true; tripMsg.value = `Disimpan ke "${name}".`
+    tripSheet.value = false; tripCreating.value = false
+  } catch {
+    tripOk.value = false; tripMsg.value = 'Gagal menyimpan. Coba lagi.'
+  } finally { tripBusy.value = false }
+}
 
 // ── Price alert ──
 const watching = ref(false)

@@ -87,7 +87,18 @@
           <h2 class="font-bold text-lg">Promo & Poin</h2>
           <div>
             <label class="label">Kode Promo (opsional)</label>
-            <input v-model="form.promoCode" class="input uppercase" placeholder="mis. MIRUUM10" />
+            <div class="flex gap-2">
+              <input v-model="form.promoCode" class="input uppercase flex-1" placeholder="mis. MIRUUM30"
+                     @keyup.enter="applyPromo" @input="resetPromo" />
+              <button type="button" class="btn-brand btn-sm shrink-0 px-5"
+                      :disabled="checkingPromo || !form.promoCode.trim()" @click="applyPromo">
+                {{ checkingPromo ? 'Mengecek…' : (appliedPromo ? 'Terapkan' : 'Cek') }}
+              </button>
+            </div>
+            <p v-if="appliedPromo" class="text-[12.5px] font-semibold text-emerald-600 mt-2">
+              ✓ {{ appliedPromo }} diterapkan — hemat {{ rupiah(discount) }}
+            </p>
+            <p v-else-if="promoErr" class="text-[12.5px] font-semibold text-red-600 mt-2">{{ promoErr }}</p>
           </div>
           <label v-if="(user?.loyaltyPoints || 0) > 0" class="flex items-center justify-between cursor-pointer pt-1">
             <div><div class="font-semibold">Gunakan Poin Miruum</div><div class="text-[13px] text-ink-muted">{{ user?.loyaltyPoints }} poin tersedia</div></div>
@@ -113,6 +124,10 @@
             <div class="text-[14px] space-y-1.5">
               <div class="flex justify-between"><span class="text-ink-muted">Harga kamar</span><span>{{ rupiah(subtotal) }}</span></div>
               <div class="flex justify-between"><span class="text-ink-muted">Pajak & layanan ({{ taxPct }}%)</span><span>{{ rupiah(tax) }}</span></div>
+              <div v-if="discount > 0" class="flex justify-between text-emerald-600 font-semibold">
+                <span>Diskon promo{{ appliedPromo ? ` (${appliedPromo})` : '' }}</span>
+                <span>- {{ rupiah(discount) }}</span>
+              </div>
             </div>
             <hr class="my-3 border-line" />
             <div class="flex justify-between items-center">
@@ -157,7 +172,14 @@ const taxPct = computed(() => Number((cfg.value as any)?.taxPct || 11))
 const unit = computed(() => (room.value ? Number(room.value.price) + Number(plan.value?.priceDelta || 0) : 0))
 const subtotal = computed(() => unit.value * nights * rooms)
 const tax = computed(() => Math.round(subtotal.value * taxPct.value / 100))
-const total = computed(() => subtotal.value + tax.value)
+
+// Promo validation preview (same flow as the app's Rincian Pesanan screen).
+const appliedPromo = ref<string | null>(null)
+const discount = ref(0)
+const checkingPromo = ref(false)
+const promoErr = ref('')
+
+const total = computed(() => Math.max(0, subtotal.value + tax.value - discount.value))
 
 const form = reactive({
   bookerName: '', bookerEmail: '', bookerPhone: '',
@@ -178,6 +200,28 @@ watchEffect(() => {
     form.bookerPhone ||= user.value.phone || ''
   }
 })
+
+function resetPromo() {
+  if (appliedPromo.value || promoErr.value) { appliedPromo.value = null; discount.value = 0; promoErr.value = '' }
+}
+
+async function applyPromo() {
+  const code = form.promoCode.trim().toUpperCase()
+  if (!code || checkingPromo.value) return
+  checkingPromo.value = true
+  promoErr.value = ''
+  try {
+    const r: any = await $api('/promos/validate', { method: 'POST', body: { code, amount: subtotal.value } })
+    discount.value = Number(r?.discount || 0)
+    appliedPromo.value = r?.code || code
+  } catch (e: any) {
+    appliedPromo.value = null
+    discount.value = 0
+    promoErr.value = e?.data?.error || 'Kode promo tidak valid.'
+  } finally {
+    checkingPromo.value = false
+  }
+}
 
 const loading = ref(false)
 const err = ref('')
@@ -202,7 +246,7 @@ async function submit() {
     }
     if (planId) body.ratePlanId = planId
     if (hotel.value?.channelId) body.channelId = hotel.value.channelId
-    if (form.promoCode.trim()) body.promoCode = form.promoCode.trim().toUpperCase()
+    if (appliedPromo.value) body.promoCode = appliedPromo.value
     if (form.usePoints) body.usePoints = true
     if (form.payAtHotel) body.payAtHotel = true
     if (rooms > 1) {

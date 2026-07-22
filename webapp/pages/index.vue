@@ -57,6 +57,27 @@
       <HotelCard v-for="h in promo" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
     </RailSection>
 
+    <!-- Program rails: Promo & Kampanye (sama seperti aplikasi) -->
+    <section v-for="rail in programRails" :key="rail.type" class="container-site mt-12">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="pill" :class="rail.type === 'CAMPAIGN' ? 'bg-sky-50 text-sky-700' : 'bg-brand-50 text-brand-700'">
+          {{ rail.type === 'CAMPAIGN' ? 'KAMPANYE' : 'PROMO' }}
+        </span>
+        <h2 class="text-2xl font-bold">{{ rail.title }}</h2>
+      </div>
+      <div v-for="p in rail.programs" :key="p.id" class="mt-4">
+        <div class="flex items-center gap-2">
+          <h3 class="font-bold text-[15px]">{{ p.title }}</h3>
+          <span v-if="p.discountPct > 0" class="pill bg-red-500 text-white">-{{ p.discountPct }}%</span>
+        </div>
+        <p v-if="p.description" class="text-ink-muted text-sm line-clamp-2 mt-0.5">{{ p.description }}</p>
+        <div class="flex gap-4 overflow-x-auto no-scrollbar pt-3 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <HotelCard v-for="h in p.hotels" :key="h.id" :hotel="h"
+                     class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
+        </div>
+      </div>
+    </section>
+
     <!-- Packages -->
     <section v-if="packages.length" class="container-site mt-12">
       <div class="flex items-end justify-between mb-4">
@@ -139,6 +160,17 @@ const [{ data: rec }, { data: pro }, { data: ban }, { data: pkg }] = await Promi
 const arr = (d: any, k: string) => (d?.[k] || d || []) as any[]
 const recommended = computed(() => arr(rec.value, 'hotels').slice(0, 10))
 const promo = computed(() => arr(pro.value, 'hotels').slice(0, 10))
+
+// Program (PROMO / CAMPAIGN) rails — mirrors the app's _ProgramRail.
+const [{ data: progPromo }, { data: progCampaign }] = await Promise.all([
+  useAsyncData('prog-promo', () => $api('/programs', { query: { type: 'PROMO' } }).catch(() => ({ programs: [] }))),
+  useAsyncData('prog-campaign', () => $api('/programs', { query: { type: 'CAMPAIGN' } }).catch(() => ({ programs: [] }))),
+])
+const withHotels = (d: any) => arr(d, 'programs').filter((p: any) => (p.hotels || []).length > 0)
+const programRails = computed(() => [
+  { type: 'PROMO', title: 'Promo Spesial', programs: withHotels(progPromo.value) },
+  { type: 'CAMPAIGN', title: 'Kampanye', programs: withHotels(progCampaign.value) },
+].filter((r) => r.programs.length > 0))
 
 const { data: rv } = await useAsyncData('recent', () => $api('/recently-viewed').catch(() => ({ hotels: [] })))
 const recentlyViewed = computed(() => arr(rv.value, 'hotels').slice(0, 10))
