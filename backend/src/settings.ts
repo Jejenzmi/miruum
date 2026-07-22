@@ -11,6 +11,8 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   refundFullPct: "100",     // refund % for free-cancellation rooms within the window
   refundPartialPct: "50",   // refund % for refundable (non-free) rooms within the window
   // Mobile app update prompt (shown by the app on launch).
+  // Which payment methods to offer (comma-separated codes). Empty = all.
+  payment_methods_enabled: "",
   app_latest_version: "", // e.g. "1.1.0" — newer than this → optional update popup
   app_min_version: "",     // e.g. "1.1.0" — older than this → forced update popup
   app_update_url: "https://api.miruum.id/ota.apk",

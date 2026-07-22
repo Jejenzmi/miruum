@@ -46,4 +46,29 @@
   </form>
 </div>
 
+<div class="card" style="max-width:560px;margin-top:18px">
+  <h3>Metode Pembayaran</h3>
+  <p class="muted" style="font-size:11.5px;margin:0 0 12px">Centang metode yang ingin ditawarkan ke tamu saat pembayaran. <b>Bila tidak ada yang dicentang, semua metode ditawarkan.</b></p>
+  <% var pmOn = {}; payEnabled.forEach(function(c){ pmOn[c] = true; }); var pmAllOn = payEnabled.length === 0; %>
+  <% if (!payAll.length) { %>
+    <p class="muted empty" style="padding:22px">Katalog metode pembayaran tidak tersedia.</p>
+  <% } else { %>
+    <form method="post" action="/admin/payment-methods"
+          data-confirm="Metode yang tidak dicentang tidak akan muncul di aplikasi & web pelanggan. Simpan perubahan?"
+          data-confirm-title="Simpan Metode Pembayaran" data-confirm-ok="Ya, simpan">
+      <% var groups = {}; payAll.forEach(function(m){ (groups[m.group] = groups[m.group] || []).push(m); }); %>
+      <% Object.keys(groups).forEach(function(g){ %>
+        <label style="margin-top:14px"><%= g %></label>
+        <div class="fac-checks">
+          <% groups[g].forEach(function(m){ %>
+            <label class="fac-item"><input type="checkbox" name="codes" value="<%= m.code %>" <%= (pmAllOn || pmOn[m.code]) ? 'checked' : '' %>> <%= m.name %></label>
+          <% }) %>
+        </div>
+      <% }) %>
+      <p class="muted" style="font-size:11.5px;margin:14px 0 0">Saat ini: <b><%= pmAllOn ? 'semua metode ditawarkan' : payEnabled.length + ' metode aktif' %></b>.</p>
+      <div style="margin-top:14px"><button class="btn">Simpan Metode Pembayaran</button></div>
+    </form>
+  <% } %>
+</div>
+
 <%- include('../partials/bottom') %>

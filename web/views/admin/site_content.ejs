@@ -5,37 +5,138 @@
 
 <p class="muted" style="margin:-4px 0 18px">Semua teks pemasaran di situs pelanggan <b>miruum.id</b> & halaman <b>/mitra</b> diatur di sini — tidak hardcode. Bagian berupa <b>daftar</b> (benefit, testimoni, FAQ, dll) memakai format <b>JSON</b>; ubah teks di dalam tanda kutip.</p>
 
-<% function j(v){ return JSON.stringify(v, null, 2); } %>
+<p class="muted" style="margin:-8px 0 18px">Situs pelanggan kini <b>dwibahasa</b>. Setiap teks punya dua kotak: <b>Indonesia</b> & <b>English</b>. Bila kotak English dikosongkan, situs memakai teks Indonesia sebagai cadangan.</p>
+
+<%
+  function j(v){ return JSON.stringify(v, null, 2); }
+  // Site-content values may be a legacy plain string (dipakai untuk kedua bahasa)
+  // atau objek { id, en }. Baca dengan aman ke dalam kotak per-bahasa.
+  function L(v, lang){ return v && typeof v === 'object' ? (v[lang] || '') : (lang === 'id' ? (v || '') : ''); }
+%>
 
 <form method="post" action="/admin/site-content">
   <div class="card">
     <h2>Beranda</h2>
     <label style="margin-top:0">Headline (fallback bila tak ada banner)</label>
-    <input name="homeHeadline" value="<%= content.homeHeadline %>">
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><input name="homeHeadline[id]" value="<%= L(content.homeHeadline,'id') %>"></div>
+      <div><label class="lang" style="margin-top:0">English</label><input name="homeHeadline[en]" value="<%= L(content.homeHeadline,'en') %>"></div>
+    </div>
     <label>Sub-headline</label>
-    <input name="homeSub" value="<%= content.homeSub %>">
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><input name="homeSub[id]" value="<%= L(content.homeSub,'id') %>"></div>
+      <div><label class="lang" style="margin-top:0">English</label><input name="homeSub[en]" value="<%= L(content.homeSub,'en') %>"></div>
+    </div>
     <label>Fitur / Keunggulan (JSON: [{"t":"judul","d":"deskripsi"}])</label>
     <textarea name="features" rows="6" style="font-family:monospace;font-size:12px"><%= j(content.features) %></textarea>
   </div>
 
   <div class="card">
+    <h2>Teks Kepercayaan & Jaminan</h2>
+    <p class="muted" style="margin-top:-8px">Dipakai di strip atas beranda, blok metode pembayaran, dan halaman pemesanan.</p>
+
+    <label style="margin-top:0">Strip Kepercayaan (baris teks di bawah pencarian)</label>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="trustStrip[id]" rows="2"><%= L(content.trustStrip,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="trustStrip[en]" rows="2"><%= L(content.trustStrip,'en') %></textarea></div>
+    </div>
+
+    <div class="row2">
+      <div>
+        <label>Jaminan — Pembayaran Aman</label>
+        <label class="lang">Indonesia</label><input name="trustSecure[id]" value="<%= L(content.trustSecure,'id') %>">
+        <label class="lang">English</label><input name="trustSecure[en]" value="<%= L(content.trustSecure,'en') %>">
+      </div>
+      <div>
+        <label>Jaminan — Konfirmasi Instan</label>
+        <label class="lang">Indonesia</label><input name="trustInstant[id]" value="<%= L(content.trustInstant,'id') %>">
+        <label class="lang">English</label><input name="trustInstant[en]" value="<%= L(content.trustInstant,'en') %>">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div>
+        <label>Jaminan — Dukungan</label>
+        <label class="lang">Indonesia</label><input name="trustSupport[id]" value="<%= L(content.trustSupport,'id') %>">
+        <label class="lang">English</label><input name="trustSupport[en]" value="<%= L(content.trustSupport,'en') %>">
+      </div>
+      <div>
+        <label>Judul Blok Metode Pembayaran</label>
+        <label class="lang">Indonesia</label><input name="paymentMethodsTitle[id]" value="<%= L(content.paymentMethodsTitle,'id') %>">
+        <label class="lang">English</label><input name="paymentMethodsTitle[en]" value="<%= L(content.paymentMethodsTitle,'en') %>">
+      </div>
+    </div>
+
+    <label>Catatan Keamanan Pembayaran</label>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="paySecureNote[id]" rows="2"><%= L(content.paySecureNote,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="paySecureNote[en]" rows="2"><%= L(content.paySecureNote,'en') %></textarea></div>
+    </div>
+
+    <label>Catatan Konfirmasi Instan</label>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="payInstantNote[id]" rows="2"><%= L(content.payInstantNote,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="payInstantNote[en]" rows="2"><%= L(content.payInstantNote,'en') %></textarea></div>
+    </div>
+
+    <div class="row2">
+      <div>
+        <label>Judul Destinasi Populer</label>
+        <label class="lang">Indonesia</label><input name="destinationsTitle[id]" value="<%= L(content.destinationsTitle,'id') %>">
+        <label class="lang">English</label><input name="destinationsTitle[en]" value="<%= L(content.destinationsTitle,'en') %>">
+      </div>
+      <div>
+        <label>Judul Bukti Sosial / Ulasan</label>
+        <label class="lang">Indonesia</label><input name="socialTitle[id]" value="<%= L(content.socialTitle,'id') %>">
+        <label class="lang">English</label><input name="socialTitle[en]" value="<%= L(content.socialTitle,'en') %>">
+      </div>
+    </div>
+
+    <label>Sub-teks Bukti Sosial / Ulasan</label>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="socialSub[id]" rows="2"><%= L(content.socialSub,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="socialSub[en]" rows="2"><%= L(content.socialSub,'en') %></textarea></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Ajakan (CTA) Bisnis</h2>
     <div class="row2">
-      <div><label style="margin-top:0">Judul CTA Properti</label><input name="ctaPropertyTitle" value="<%= content.ctaPropertyTitle %>"></div>
-      <div><label style="margin-top:0">Judul CTA Corporate/Gov</label><input name="ctaCorpTitle" value="<%= content.ctaCorpTitle %>"></div>
+      <div>
+        <label style="margin-top:0">Judul CTA Properti</label>
+        <label class="lang">Indonesia</label><input name="ctaPropertyTitle[id]" value="<%= L(content.ctaPropertyTitle,'id') %>">
+        <label class="lang">English</label><input name="ctaPropertyTitle[en]" value="<%= L(content.ctaPropertyTitle,'en') %>">
+      </div>
+      <div>
+        <label style="margin-top:0">Judul CTA Corporate/Gov</label>
+        <label class="lang">Indonesia</label><input name="ctaCorpTitle[id]" value="<%= L(content.ctaCorpTitle,'id') %>">
+        <label class="lang">English</label><input name="ctaCorpTitle[en]" value="<%= L(content.ctaCorpTitle,'en') %>">
+      </div>
     </div>
     <label>Teks CTA Properti</label>
-    <textarea name="ctaPropertyText" rows="2"><%= content.ctaPropertyText %></textarea>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="ctaPropertyText[id]" rows="2"><%= L(content.ctaPropertyText,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="ctaPropertyText[en]" rows="2"><%= L(content.ctaPropertyText,'en') %></textarea></div>
+    </div>
     <label>Teks CTA Corporate/Gov</label>
-    <textarea name="ctaCorpText" rows="2"><%= content.ctaCorpText %></textarea>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="ctaCorpText[id]" rows="2"><%= L(content.ctaCorpText,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="ctaCorpText[en]" rows="2"><%= L(content.ctaCorpText,'en') %></textarea></div>
+    </div>
   </div>
 
   <div class="card">
     <h2>Halaman Mitra (/mitra)</h2>
     <label style="margin-top:0">Headline</label>
-    <input name="mitraHeadline" value="<%= content.mitraHeadline %>">
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><input name="mitraHeadline[id]" value="<%= L(content.mitraHeadline,'id') %>"></div>
+      <div><label class="lang" style="margin-top:0">English</label><input name="mitraHeadline[en]" value="<%= L(content.mitraHeadline,'en') %>"></div>
+    </div>
     <label>Sub-headline</label>
-    <textarea name="mitraSub" rows="2"><%= content.mitraSub %></textarea>
+    <div class="row2">
+      <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="mitraSub[id]" rows="2"><%= L(content.mitraSub,'id') %></textarea></div>
+      <div><label class="lang" style="margin-top:0">English</label><textarea name="mitraSub[en]" rows="2"><%= L(content.mitraSub,'en') %></textarea></div>
+    </div>
     <div class="row2">
       <div><label>Statistik (JSON)</label><textarea name="stats" rows="7" style="font-family:monospace;font-size:12px"><%= j(content.stats) %></textarea></div>
       <div><label>Cara Kerja / Langkah (JSON)</label><textarea name="steps" rows="7" style="font-family:monospace;font-size:12px"><%= j(content.steps) %></textarea></div>
@@ -52,5 +153,9 @@
 
   <div style="margin:16px 0 40px"><button class="btn">Simpan Konten Web</button></div>
 </form>
+
+<style>
+  label.lang{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:8px}
+</style>
 
 <%- include('../partials/bottom') %>

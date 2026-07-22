@@ -455,9 +455,25 @@ app.get("/admin/site-content", adminGuard, async (req, res) => {
   const { content } = await api("/admin/site-content", { token: res.locals.token });
   res.render("admin/site_content", { content, active: "site-content", saved: req.query.saved });
 });
+// Text keys are bilingual: the form posts `key[id]` / `key[en]`, which
+// express.urlencoded({ extended:true }) parses into { id, en }. Legacy plain
+// strings are still accepted and passed through unchanged.
+const SITE_TEXT_KEYS = [
+  "homeHeadline", "homeSub", "ctaPropertyTitle", "ctaPropertyText", "ctaCorpTitle", "ctaCorpText",
+  "mitraHeadline", "mitraSub",
+  "trustStrip", "trustSecure", "trustInstant", "trustSupport", "paymentMethodsTitle",
+  "paySecureNote", "payInstantNote", "destinationsTitle", "socialTitle", "socialSub",
+];
 app.post("/admin/site-content", adminGuard, async (req, res) => {
   const body = {};
-  ["homeHeadline", "homeSub", "ctaPropertyTitle", "ctaPropertyText", "ctaCorpTitle", "ctaCorpText", "mitraHeadline", "mitraSub"].forEach((k) => { if (req.body[k] != null) body[k] = req.body[k]; });
+  SITE_TEXT_KEYS.forEach((k) => {
+    const v = req.body[k];
+    if (v == null) return;
+    if (typeof v === "object") {
+      const id = (v.id || "").trim(), en = (v.en || "").trim();
+      body[k] = { id, en }; // keep the nested shape intact for the API
+    } else body[k] = v;
+  });
   ["features", "benefits", "stats", "steps", "commission", "testimonials", "faqs"].forEach((k) => {
     try { const v = JSON.parse(req.body[k] || "null"); if (v) body[k] = v; } catch (_) {}
   });
@@ -645,11 +661,27 @@ app.post("/admin/packages/:id/delete", adminGuard, async (req, res) => {
 
 // ── Pengaturan ──
 app.get("/admin/settings", adminGuard, async (req, res) => {
-  const { settings, defaults } = await api("/admin/settings", { token: res.locals.token });
-  res.render("admin/settings", { settings, defaults, active: "settings", saved: req.query.saved });
+  const [{ settings, defaults }, pm] = await Promise.all([
+    api("/admin/settings", { token: res.locals.token }),
+    api("/admin/payment-methods", { token: res.locals.token }).catch(() => ({ all: [], enabled: [] })),
+  ]);
+  res.render("admin/settings", {
+    settings, defaults, active: "settings", saved: req.query.saved,
+    payAll: pm.all || [], payEnabled: pm.enabled || [],
+  });
 });
 app.post("/admin/settings", adminGuard, async (req, res) => {
   await api("/admin/settings", { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/settings?saved=1");
+});
+// Metode pembayaran yang ditawarkan — disimpan lewat endpoint settings
+// sebagai daftar kode dipisah koma. Kosong = tawarkan semua metode.
+app.post("/admin/payment-methods", adminGuard, async (req, res) => {
+  const raw = req.body.codes;
+  const codes = (Array.isArray(raw) ? raw : raw ? [raw] : []).map((c) => String(c).trim()).filter(Boolean);
+  try {
+    await api("/admin/settings", { method: "PUT", token: res.locals.token, body: { payment_methods_enabled: codes.join(",") } });
+    res.redirect("/admin/settings?saved=1");
+  } catch (e) { res.redirect("/admin/settings?saved=err"); }
 });
 
 // ── Pop-up & Update aplikasi ──

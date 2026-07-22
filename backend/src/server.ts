@@ -814,11 +814,27 @@ app.post("/api/promos/validate", async (req, res) => {
   res.json({ valid: true, code: promo.code, title: promo.title, discountPct: promo.discountPct, discount });
 });
 
-app.get("/api/payment-methods", (_req, res) => {
-  // Group the gateway's method catalog for the app's picker.
+app.get("/api/payment-methods", async (_req, res) => {
+  // Group the gateway's method catalog for the app's picker. Which methods are
+  // offered is admin-controlled (Back Office → Pengaturan): a comma-separated
+  // list of method codes; empty means "offer everything".
+  const s = await getSettings();
+  const enabled = String(s.payment_methods_enabled || "")
+    .split(",").map((c) => c.trim()).filter(Boolean);
+  const list = enabled.length ? PAYMENT_METHODS.filter((m) => enabled.includes(m.code)) : PAYMENT_METHODS;
   const groups: Record<string, any[]> = {};
-  for (const m of PAYMENT_METHODS) (groups[m.group] ??= []).push({ code: m.code, name: m.label, type: m.type });
+  for (const m of list) (groups[m.group] ??= []).push({ code: m.code, name: m.label, type: m.type });
   res.json({ methods: Object.entries(groups).map(([group, items]) => ({ group, items })) });
+});
+
+// Admin: the full catalog + which codes are currently enabled.
+app.get("/api/admin/payment-methods", requireRole("ADMIN"), async (_req, res) => {
+  const s = await getSettings();
+  const enabled = String(s.payment_methods_enabled || "").split(",").map((c) => c.trim()).filter(Boolean);
+  res.json({
+    all: PAYMENT_METHODS.map((m) => ({ code: m.code, name: m.label, group: m.group, type: m.type })),
+    enabled,
+  });
 });
 
 // ─────────────────────────── Favorites ───────────────────────────
@@ -4628,18 +4644,18 @@ const DEFAULT_SITE_CONTENT: any = {
   homeHeadline: "Dari hotel mewah sampai budget, semua ada di Miruum",
   homeSub: "Harga terbaik dijamin — pesan mudah, bayar aman.",
   ctaPropertyTitle: "Punya hotel atau properti?",
-  ctaPropertyText: "Daftarkan properti Anda — jangkau jutaan tamu, kelola harga & pesanan lewat Extranet. Gratis mulai.",
+  ctaPropertyText: "Daftarkan properti Anda — tampil di aplikasi & web Miruum, kelola harga & pesanan lewat Extranet. Gratis untuk memulai.",
   ctaCorpTitle: "Perusahaan atau Corporate?",
   ctaCorpText: "Kelola perjalanan dinas karyawan/pegawai dengan tagihan & laporan terpusat. Ajukan akun Corporate/Government.",
   mitraHeadline: "Kembangkan bisnis properti Anda bersama Miruum",
-  mitraSub: "Jangkau jutaan tamu di aplikasi & web Miruum. Kelola kamar, harga, dan pesanan dari satu Extranet — gratis untuk memulai.",
+  mitraSub: "Tampil di aplikasi & web Miruum. Kelola kamar, harga, dan pesanan dari satu Extranet — gratis untuk memulai.",
   features: [
     { t: "Harga Terbaik", d: "Bandingkan & dapatkan harga termurah otomatis." },
     { t: "Pembayaran Aman", d: "VA bank, e-wallet & QRIS — terenkripsi." },
     { t: "Bantuan 24/7", d: "Tim CS siap membantu kapan saja." },
   ],
   benefits: [
-    { t: "Jangkauan Luas", d: "Properti Anda tampil di aplikasi & web Miruum, dilihat jutaan calon tamu." },
+    { t: "Jangkauan Luas", d: "Properti Anda tampil di aplikasi & web Miruum — dilihat calon tamu dari berbagai kota." },
     { t: "Extranet Lengkap", d: "Atur kamar, rate plan, foto, promo, kalender allotment & campaign dari satu dasbor." },
     { t: "Channel Manager", d: "Distribusikan satu inventaris ke banyak OTA host-to-host — anti overbooking." },
     { t: "Pembayaran Aman", d: "Dana pesanan dibayarkan tepat waktu & aman langsung ke rekening Anda." },
@@ -4647,7 +4663,7 @@ const DEFAULT_SITE_CONTENT: any = {
     { t: "Dukungan Mitra", d: "Tim Miruum & live chat siap membantu Anda kapan saja." },
   ],
   stats: [
-    { value: "Jutaan", label: "Tamu aktif" }, { value: "100%", label: "Gratis mendaftar" },
+    { value: "Gratis", label: "Mulai tanpa biaya" }, { value: "100%", label: "Gratis mendaftar" },
     { value: "24/7", label: "Dukungan mitra" }, { value: "Real-time", label: "Kelola harga & stok" },
   ],
   steps: [
@@ -4671,6 +4687,31 @@ const DEFAULT_SITE_CONTENT: any = {
     { q: "Bagaimana saya menerima pembayaran?", a: "Dana pesanan dibayarkan ke rekening bank Anda secara berkala melalui menu Pencairan / Invoice di Extranet." },
     { q: "Tipe properti apa saja yang bisa didaftarkan?", a: "Hotel, villa, apartemen, homestay, guest house, hostel, dan resort — semuanya bisa." },
   ],
+
+  // ── Trust & assurance copy (header strip, footer, booking & payment pages) ──
+  // Values may be a plain string (same for both languages) or { id, en }.
+  trustStrip: {
+    id: "Konfirmasi instan · Pembayaran aman · Batal gratis di properti terpilih",
+    en: "Instant confirmation · Secure payment · Free cancellation at selected properties",
+  },
+  trustSecure: { id: "Pembayaran aman & terenkripsi", en: "Secure, encrypted payment" },
+  trustInstant: { id: "Konfirmasi instan", en: "Instant confirmation" },
+  trustSupport: { id: "Dukungan 24/7", en: "24/7 support" },
+  paymentMethodsTitle: { id: "Metode Pembayaran", en: "Payment Methods" },
+  paySecureNote: {
+    id: "Pembayaran diproses dengan aman. Data kartu/rekening tidak kami simpan.",
+    en: "Payments are processed securely. We never store your card or bank details.",
+  },
+  payInstantNote: {
+    id: "Konfirmasi instan setelah pembayaran terverifikasi.",
+    en: "Instant confirmation once your payment is verified.",
+  },
+  destinationsTitle: { id: "Destinasi Populer", en: "Popular Destinations" },
+  socialTitle: { id: "Apa kata tamu kami", en: "What our guests say" },
+  socialSub: {
+    id: "Angka dan ulasan di bawah diambil langsung dari data Miruum.",
+    en: "The numbers and reviews below come straight from Miruum data.",
+  },
 };
 app.get("/api/site-content", async (_req, res) => {
   const s = await getSettings();
