@@ -1,6 +1,6 @@
 <template>
   <div class="container-site py-6 max-w-3xl">
-    <NuxtLink to="/account/bookings" class="text-brand-600 text-sm font-semibold">← Pesanan Saya</NuxtLink>
+    <NuxtLink to="/account/bookings" class="text-brand-600 text-sm font-semibold">← {{ t('Pesanan Saya', 'My Bookings') }}</NuxtLink>
     <div v-if="b" class="mt-3">
       <div class="card p-5">
         <div class="flex items-center justify-between">
@@ -9,60 +9,60 @@
         </div>
         <h1 class="text-2xl font-bold mt-2">{{ b.hotel?.name || b.packageTitle }}</h1>
         <div class="text-[14px] text-ink-muted mt-3 space-y-1.5">
-          <div class="flex justify-between"><span>Kamar</span><b class="text-ink">{{ b.rooms }}× {{ b.room?.name || '-' }}</b></div>
-          <div class="flex justify-between"><span>Check-in</span><b class="text-ink">{{ fmtDate(b.checkIn, true) }}</b></div>
-          <div class="flex justify-between"><span>Check-out</span><b class="text-ink">{{ fmtDate(b.checkOut, true) }}</b></div>
-          <div class="flex justify-between"><span>Tamu</span><b class="text-ink">{{ b.guests }} · {{ b.nights }} malam</b></div>
-          <div class="flex justify-between"><span>Total</span><b class="text-brand-700">{{ rupiah(b.totalPrice) }}</b></div>
+          <div class="flex justify-between"><span>{{ t('Kamar', 'Room') }}</span><b class="text-ink">{{ b.rooms }}× {{ b.room?.name || '-' }}</b></div>
+          <div class="flex justify-between"><span>{{ t('Check-in', 'Check-in') }}</span><b class="text-ink">{{ fmtDate(b.checkIn, true) }}</b></div>
+          <div class="flex justify-between"><span>{{ t('Check-out', 'Check-out') }}</span><b class="text-ink">{{ fmtDate(b.checkOut, true) }}</b></div>
+          <div class="flex justify-between"><span>{{ t('Tamu', 'Guests') }}</span><b class="text-ink">{{ b.guests }} · {{ b.nights }} {{ t('malam', b.nights > 1 ? 'nights' : 'night') }}</b></div>
+          <div class="flex justify-between"><span>{{ t('Total', 'Total') }}</span><b class="text-brand-700">{{ rupiah(b.totalPrice) }}</b></div>
         </div>
         <div class="flex flex-wrap gap-2 mt-4">
-          <a v-if="isPaid" :href="`/api/vouchers/${b.code}`" target="_blank" class="btn-ghost btn-sm">E-Voucher</a>
-          <a v-if="isPaid" :href="`/api/invoices/${b.code}`" target="_blank" class="btn-ghost btn-sm">Invoice</a>
-          <NuxtLink v-if="b.status==='PENDING'" :to="`/payment/${b.id}`" class="btn-brand btn-sm">Bayar Sekarang</NuxtLink>
+          <a v-if="isPaid" :href="`/api/vouchers/${b.code}`" target="_blank" class="btn-ghost btn-sm">{{ t('E-Voucher', 'E-Voucher') }}</a>
+          <a v-if="isPaid" :href="`/api/invoices/${b.code}`" target="_blank" class="btn-ghost btn-sm">{{ t('Invoice', 'Invoice') }}</a>
+          <NuxtLink v-if="b.status==='PENDING'" :to="`/payment/${b.id}`" class="btn-brand btn-sm">{{ t('Bayar Sekarang', 'Pay Now') }}</NuxtLink>
         </div>
       </div>
 
       <!-- Digital check-in -->
       <div v-if="isPaid && !b.onlineCheckedIn" class="card p-5 mt-4">
-        <h2 class="font-bold text-lg mb-1">Check-in Online</h2>
-        <p class="text-[13px] text-ink-muted mb-3">Lakukan check-in lebih awal & dapatkan kode akses kamar.</p>
-        <button @click="doCheckin" :disabled="busy==='ci'" class="btn-brand btn-sm">{{ busy==='ci' ? '…' : 'Check-in Online' }}</button>
+        <h2 class="font-bold text-lg mb-1">{{ t('Check-in Online', 'Online Check-in') }}</h2>
+        <p class="text-[13px] text-ink-muted mb-3">{{ t('Lakukan check-in lebih awal & dapatkan kode akses kamar.', 'Check in early & get your room access code.') }}</p>
+        <button @click="doCheckin" :disabled="busy==='ci'" class="btn-brand btn-sm">{{ busy==='ci' ? '…' : t('Check-in Online', 'Online Check-in') }}</button>
       </div>
       <div v-else-if="b.onlineCheckedIn && (b.keyCode || keyCode)" class="card p-5 mt-4 text-center bg-leaf-soft border-leaf/30">
-        <div class="text-[13px] text-leaf-dark">Kode Akses Kamar</div>
+        <div class="text-[13px] text-leaf-dark">{{ t('Kode Akses Kamar', 'Room Access Code') }}</div>
         <div class="text-3xl font-mono font-bold text-leaf-dark my-1">{{ b.keyCode || keyCode }}</div>
-        <div class="text-[12px] text-ink-muted">Tunjukkan saat check-in di resepsionis.</div>
+        <div class="text-[12px] text-ink-muted">{{ t('Tunjukkan saat check-in di resepsionis.', 'Show this at the reception when checking in.') }}</div>
       </div>
 
       <!-- Reschedule (PENDING only) -->
       <div v-if="b.status==='PENDING'" class="card p-5 mt-4">
-        <h2 class="font-bold text-lg mb-2">Ubah Tanggal</h2>
+        <h2 class="font-bold text-lg mb-2">{{ t('Ubah Tanggal', 'Change Dates') }}</h2>
         <div class="flex items-end gap-2 flex-wrap">
-          <div><label class="label">Check-in</label><input v-model="rs.ci" type="date" :min="todayStr" class="input !py-2 !text-sm" /></div>
-          <div><label class="label">Check-out</label><input v-model="rs.co" type="date" :min="rs.ci" class="input !py-2 !text-sm" /></div>
-          <button @click="quoteRe" class="btn-ghost btn-sm">Cek Selisih</button>
-          <button v-if="rs.quote?.allowed" @click="applyRe" :disabled="busy==='rs'" class="btn-brand btn-sm">Terapkan</button>
+          <div><label class="label">{{ t('Check-in', 'Check-in') }}</label><input v-model="rs.ci" type="date" :min="todayStr" class="input !py-2 !text-sm" /></div>
+          <div><label class="label">{{ t('Check-out', 'Check-out') }}</label><input v-model="rs.co" type="date" :min="rs.ci" class="input !py-2 !text-sm" /></div>
+          <button @click="quoteRe" class="btn-ghost btn-sm">{{ t('Cek Selisih', 'Check Difference') }}</button>
+          <button v-if="rs.quote?.allowed" @click="applyRe" :disabled="busy==='rs'" class="btn-brand btn-sm">{{ t('Terapkan', 'Apply') }}</button>
         </div>
         <p v-if="rs.quote" class="text-[13px] mt-2" :class="rs.quote.allowed ? 'text-ink-muted' : 'text-red-600'">
-          <template v-if="rs.quote.allowed">Total baru {{ rupiah(rs.quote.newTotal) }} · selisih {{ rupiah(rs.quote.diff) }}</template>
-          <template v-else>{{ rs.quote.reason || 'Tidak bisa reschedule.' }}</template>
+          <template v-if="rs.quote.allowed">{{ t('Total baru', 'New total') }} {{ rupiah(rs.quote.newTotal) }} · {{ t('selisih', 'difference') }} {{ rupiah(rs.quote.diff) }}</template>
+          <template v-else>{{ rs.quote.reason || t('Tidak bisa reschedule.', 'Rescheduling is not possible.') }}</template>
         </p>
       </div>
 
       <!-- Cancel / refund -->
       <div v-if="canCancel" class="card p-5 mt-4">
-        <h2 class="font-bold text-lg mb-2">Batalkan Pesanan</h2>
-        <button @click="quoteRefund" class="btn-ghost btn-sm">Cek Estimasi Refund</button>
+        <h2 class="font-bold text-lg mb-2">{{ t('Batalkan Pesanan', 'Cancel Booking') }}</h2>
+        <button @click="quoteRefund" class="btn-ghost btn-sm">{{ t('Cek Estimasi Refund', 'Check Refund Estimate') }}</button>
         <div v-if="refund" class="mt-3 text-[14px]">
           <p class="text-ink-muted">{{ refund.note }}</p>
           <div v-if="refund.cancellable" class="mt-2">
             <div v-if="refund.refundAmount > 0" class="grid sm:grid-cols-3 gap-2 mb-2">
-              <input v-model="bank.bankName" class="input !py-2 !text-sm" placeholder="Bank" />
-              <input v-model="bank.bankAccount" class="input !py-2 !text-sm" placeholder="No. Rekening" />
-              <input v-model="bank.accountHolder" class="input !py-2 !text-sm" placeholder="Atas Nama" />
+              <input v-model="bank.bankName" class="input !py-2 !text-sm" :placeholder="t('Bank', 'Bank')" />
+              <input v-model="bank.bankAccount" class="input !py-2 !text-sm" :placeholder="t('No. Rekening', 'Account Number')" />
+              <input v-model="bank.accountHolder" class="input !py-2 !text-sm" :placeholder="t('Atas Nama', 'Account Holder')" />
             </div>
             <button @click="doCancel" :disabled="busy==='cx'" class="btn-brand btn-sm !bg-red-600 hover:!bg-red-700">
-              {{ busy==='cx' ? '…' : (refund.refundAmount > 0 ? `Batalkan & Refund ${rupiah(refund.refundAmount)}` : 'Batalkan Pesanan') }}
+              {{ busy==='cx' ? '…' : (refund.refundAmount > 0 ? t(`Batalkan & Refund ${rupiah(refund.refundAmount)}`, `Cancel & Refund ${rupiah(refund.refundAmount)}`) : t('Batalkan Pesanan', 'Cancel Booking')) }}
             </button>
           </div>
         </div>
@@ -70,15 +70,15 @@
 
       <!-- Write review (after checkout) -->
       <div v-if="isPaid && past" class="card p-5 mt-4">
-        <h2 class="font-bold text-lg mb-2">Beri Ulasan</h2>
+        <h2 class="font-bold text-lg mb-2">{{ t('Beri Ulasan', 'Write a Review') }}</h2>
         <div class="flex items-center gap-1 mb-2">
           <button v-for="n in 10" :key="n" @click="rev.rating = n" class="w-6 h-6 rounded" :class="n <= rev.rating ? 'bg-leaf text-white' : 'bg-line text-ink-faint'">{{ n }}</button>
         </div>
-        <textarea v-model="rev.body" rows="3" class="input" placeholder="Bagaimana pengalaman menginapmu?"></textarea>
-        <button @click="submitReview" :disabled="busy==='rv'" class="btn-brand btn-sm mt-2">{{ busy==='rv' ? '…' : (rev.done ? 'Terkirim ✓' : 'Kirim Ulasan') }}</button>
+        <textarea v-model="rev.body" rows="3" class="input" :placeholder="t('Bagaimana pengalaman menginapmu?', 'How was your stay?')"></textarea>
+        <button @click="submitReview" :disabled="busy==='rv'" class="btn-brand btn-sm mt-2">{{ busy==='rv' ? '…' : (rev.done ? t('Terkirim ✓', 'Sent ✓') : t('Kirim Ulasan', 'Submit Review')) }}</button>
       </div>
     </div>
-    <div v-else class="card p-12 text-center text-ink-muted mt-4">Pesanan tidak ditemukan.</div>
+    <div v-else class="card p-12 text-center text-ink-muted mt-4">{{ t('Pesanan tidak ditemukan.', 'Booking not found.') }}</div>
   </div>
 </template>
 
@@ -86,6 +86,7 @@
 definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const { $api } = useNuxtApp()
+const { t } = useLang()
 const id = route.params.id as string
 const todayStr = isoDate(new Date())
 
@@ -120,7 +121,13 @@ async function submitReview() {
   try { await $api(`/hotels/${b.value.hotel?.id || b.value.hotelId}/reviews`, { method: 'POST', body: { rating: rev.rating, body: rev.body.trim() } }); rev.done = true } catch {} finally { busy.value = '' }
 }
 
-const statusLabel = (s: string) => ({ PENDING: 'Menunggu Bayar', PAID: 'Terbayar', COMPLETED: 'Selesai', CANCELLED: 'Dibatalkan', REFUNDED: 'Refund' } as any)[s] || s
+const statusLabel = (s: string) => ({
+  PENDING: t('Menunggu Bayar', 'Awaiting Payment'),
+  PAID: t('Terbayar', 'Paid'),
+  COMPLETED: t('Selesai', 'Completed'),
+  CANCELLED: t('Dibatalkan', 'Cancelled'),
+  REFUNDED: t('Refund', 'Refunded'),
+} as any)[s] || s
 const statusClass = (s: string) => ({ PENDING: 'bg-brand-50 text-brand-700', PAID: 'bg-leaf-soft text-leaf-dark', COMPLETED: 'bg-blue-50 text-blue-600', CANCELLED: 'bg-red-50 text-red-600', REFUNDED: 'bg-paper text-ink-muted' } as any)[s] || 'bg-paper text-ink-muted'
-useHead({ title: 'Detail Pesanan · Miruum' })
+useHead(() => ({ title: t('Detail Pesanan · Miruum', 'Booking Details · Miruum') }))
 </script>

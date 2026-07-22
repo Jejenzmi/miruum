@@ -11,19 +11,24 @@
         <RatingBadge :rating="pkg.rating" :show-label="false" />
       </div>
       <h3 class="font-bold text-[15px] leading-snug line-clamp-2 group-hover:text-brand-600 min-h-[42px]">{{ pkg.title }}</h3>
-      <p class="text-[12.5px] text-ink-faint mt-1">{{ pkg.nights }} malam · {{ pkg.guests }} tamu · {{ boardBasis }}</p>
+      <p class="text-[12.5px] text-ink-faint mt-1">{{ pkg.nights }} {{ t('malam', 'nights') }} · {{ pkg.guests }} {{ t('tamu', 'guests') }} · {{ boardBasis }}</p>
       <div class="mt-2 flex items-end justify-between">
         <div>
           <div v-if="pkg.originalPrice > pkg.price" class="text-[12px] text-ink-faint line-through">{{ rupiah(pkg.originalPrice) }}</div>
           <div class="text-brand-700 font-extrabold text-[17px]">{{ rupiah(pkg.price) }}</div>
         </div>
-        <span class="text-[12px] text-ink-faint self-end">/paket</span>
+        <span class="text-[12px] text-ink-faint self-end">{{ t('/paket', '/package') }}</span>
       </div>
     </div>
   </NuxtLink>
 </template>
 
 <script setup lang="ts">
+const { t } = useLang()
 const props = defineProps<{ pkg: any }>()
-const boardBasis = computed(() => BOARD_BASIS[props.pkg.boardBasis] || 'Termasuk Sarapan')
+const BOARD_BASIS_EN: Record<string, string> = {
+  ROOM_ONLY: 'Room Only', BREAKFAST: 'Breakfast Included', HALF_BOARD: 'Half Board',
+  FULL_BOARD: 'Full Board', ALL_INCLUSIVE: 'All Inclusive',
+}
+const boardBasis = computed(() => t(BOARD_BASIS[props.pkg.boardBasis] || 'Termasuk Sarapan', BOARD_BASIS_EN[props.pkg.boardBasis] || 'Breakfast Included'))
 </script>

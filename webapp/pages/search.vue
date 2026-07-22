@@ -6,36 +6,36 @@
       <!-- Filters -->
       <aside class="space-y-5">
         <div class="card p-4">
-          <h3 class="font-bold mb-3">Urutkan</h3>
+          <h3 class="font-bold mb-3">{{ t('Urutkan', 'Sort by') }}</h3>
           <select v-model="sort" class="input">
-            <option value="popular">Paling Populer</option>
-            <option value="price_asc">Harga Termurah</option>
-            <option value="price_desc">Harga Tertinggi</option>
-            <option value="rating">Rating Tertinggi</option>
+            <option value="popular">{{ t('Paling Populer', 'Most Popular') }}</option>
+            <option value="price_asc">{{ t('Harga Termurah', 'Lowest Price') }}</option>
+            <option value="price_desc">{{ t('Harga Tertinggi', 'Highest Price') }}</option>
+            <option value="rating">{{ t('Rating Tertinggi', 'Highest Rating') }}</option>
           </select>
         </div>
         <div class="card p-4">
-          <h3 class="font-bold mb-3">Tipe Properti</h3>
+          <h3 class="font-bold mb-3">{{ t('Tipe Properti', 'Property Type') }}</h3>
           <div class="flex flex-wrap gap-2">
             <span v-for="(label,key) in propertyTypes" :key="key" @click="propType = propType===key ? '' : key"
                   class="chip" :class="{ 'chip-on': propType===key }">{{ label }}</span>
           </div>
         </div>
         <div class="card p-4">
-          <h3 class="font-bold mb-3">Bintang</h3>
+          <h3 class="font-bold mb-3">{{ t('Bintang', 'Star Rating') }}</h3>
           <div class="flex gap-2">
             <span v-for="s in [5,4,3,2]" :key="s" @click="star = star===s ? 0 : s"
                   class="chip" :class="{ 'chip-on': star===s }">{{ s }}★</span>
           </div>
         </div>
         <div class="card p-4">
-          <h3 class="font-bold mb-3">Fasilitas & Kebijakan</h3>
-          <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="breakfast" class="accent-brand w-4 h-4" /> Termasuk sarapan</label>
-          <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="freeCancellation" class="accent-brand w-4 h-4" /> Bisa refund / batal gratis</label>
-          <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="refundable" class="accent-brand w-4 h-4" /> Refundable</label>
+          <h3 class="font-bold mb-3">{{ t('Fasilitas & Kebijakan', 'Facilities & Policies') }}</h3>
+          <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="breakfast" class="accent-brand w-4 h-4" /> {{ t('Termasuk sarapan', 'Breakfast included') }}</label>
+          <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="freeCancellation" class="accent-brand w-4 h-4" /> {{ t('Bisa refund / batal gratis', 'Refundable / free cancellation') }}</label>
+          <label class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer"><input type="checkbox" v-model="refundable" class="accent-brand w-4 h-4" /> {{ t('Refundable', 'Refundable') }}</label>
         </div>
         <div v-if="facilities.length" class="card p-4">
-          <h3 class="font-bold mb-3">Fasilitas</h3>
+          <h3 class="font-bold mb-3">{{ t('Fasilitas', 'Facilities') }}</h3>
           <div class="max-h-64 overflow-y-auto pr-1">
             <label v-for="f in facilities" :key="f.id" class="flex items-center gap-2 py-1.5 text-[15px] cursor-pointer">
               <input type="checkbox" :value="f.id" v-model="facilityIds" class="accent-brand w-4 h-4" />
@@ -49,8 +49,8 @@
       <div>
         <div class="flex items-center justify-between mb-4">
           <h1 class="text-xl font-bold">
-            {{ q ? `Hasil untuk “${q}”` : 'Semua Properti' }}
-            <span class="text-ink-faint font-normal text-base">· {{ hotels.length }} properti</span>
+            {{ q ? `${t('Hasil untuk', 'Results for')} “${q}”` : t('Semua Properti', 'All Properties') }}
+            <span class="text-ink-faint font-normal text-base">· {{ hotels.length }} {{ t('properti', 'properties') }}</span>
           </h1>
         </div>
 
@@ -63,8 +63,8 @@
         </div>
 
         <div v-else class="card p-12 text-center text-ink-muted">
-          <p class="text-lg font-semibold mb-1">Tidak ada properti ditemukan</p>
-          <p class="text-sm">Coba ubah kata kunci atau filter pencarian.</p>
+          <p class="text-lg font-semibold mb-1">{{ t('Tidak ada properti ditemukan', 'No properties found') }}</p>
+          <p class="text-sm">{{ t('Coba ubah kata kunci atau filter pencarian.', 'Try changing your keywords or search filters.') }}</p>
         </div>
       </div>
     </div>
@@ -74,7 +74,8 @@
 <script setup lang="ts">
 const route = useRoute()
 const { $api } = useNuxtApp()
-const propertyTypes = PROPERTY_TYPES
+const { t } = useLang()
+const propertyTypes = computed(() => propertyTypeLabels())
 
 const q = computed(() => (route.query.q as string) || '')
 const sort = ref((route.query.sort as string) || 'popular')
@@ -109,5 +110,5 @@ const { data, pending } = await useAsyncData(
 )
 const hotels = computed<any[]>(() => ((data.value as any)?.hotels || (data.value as any) || []))
 
-useHead({ title: () => (q.value ? `${q.value} — Cari Hotel · Miruum` : 'Cari Hotel · Miruum') })
+useHead({ title: () => (q.value ? `${q.value} — ${t('Cari Hotel', 'Search Hotels')} · Miruum` : `${t('Cari Hotel', 'Search Hotels')} · Miruum`) })
 </script>

@@ -3,28 +3,28 @@
     <!-- Step 1 — create the account -->
     <div v-if="!otpStep" class="card p-7">
       <img src="/logo.png" alt="Miruum" class="h-9 w-auto mb-4" />
-      <h1 class="text-2xl font-bold mb-5">Daftar</h1>
+      <h1 class="text-2xl font-bold mb-5">{{ t('Daftar', 'Sign Up') }}</h1>
       <form @submit.prevent="submit" class="space-y-4">
-        <div><label class="label">Nama Lengkap</label><input v-model="f.name" class="input" required /></div>
-        <div><label class="label">Email</label><input v-model="f.email" type="email" class="input" required /></div>
-        <div><label class="label">Nomor HP</label><input v-model="f.phone" class="input" placeholder="08xxxx" /></div>
-        <div><label class="label">Kata Sandi</label><input v-model="f.password" type="password" class="input" placeholder="Min. 6 karakter" required /></div>
+        <div><label class="label">{{ t('Nama Lengkap', 'Full Name') }}</label><input v-model="f.name" class="input" required /></div>
+        <div><label class="label">{{ t('Email', 'Email') }}</label><input v-model="f.email" type="email" class="input" required /></div>
+        <div><label class="label">{{ t('Nomor HP', 'Phone Number') }}</label><input v-model="f.phone" class="input" placeholder="08xxxx" /></div>
+        <div><label class="label">{{ t('Kata Sandi', 'Password') }}</label><input v-model="f.password" type="password" class="input" :placeholder="t('Min. 6 karakter', 'Min. 6 characters')" required /></div>
         <p v-if="err" class="text-red-600 text-[13px]">{{ err }}</p>
-        <button :disabled="loading" class="btn-brand w-full">{{ loading ? 'Memproses…' : 'Buat Akun' }}</button>
+        <button :disabled="loading" class="btn-brand w-full">{{ loading ? t('Memproses…', 'Processing…') : t('Buat Akun', 'Create Account') }}</button>
       </form>
       <ClientOnly><GoogleButton /></ClientOnly>
-      <p class="text-center mt-4 text-[14px] text-ink-muted">Sudah punya akun? <NuxtLink to="/login" class="text-brand-600 font-semibold">Masuk</NuxtLink></p>
+      <p class="text-center mt-4 text-[14px] text-ink-muted">{{ t('Sudah punya akun?', 'Already have an account?') }} <NuxtLink to="/login" class="text-brand-600 font-semibold">{{ t('Masuk', 'Sign In') }}</NuxtLink></p>
     </div>
 
     <!-- Step 2 — verify the 4-digit OTP -->
     <div v-else class="card p-7">
       <img src="/logo.png" alt="Miruum" class="h-9 w-auto mb-4" />
-      <h1 class="text-2xl font-bold mb-2">Cek Email Anda</h1>
-      <p class="text-ink-muted text-[13px]">Masukan 4 digit kode yang dikirim ke email {{ f.email }}</p>
+      <h1 class="text-2xl font-bold mb-2">{{ t('Cek Email Anda', 'Check Your Email') }}</h1>
+      <p class="text-ink-muted text-[13px]">{{ t('Masukan 4 digit kode yang dikirim ke email', 'Enter the 4-digit code sent to') }} {{ f.email }}</p>
 
-      <p v-if="devCode" class="text-brand-600 text-[12px] font-semibold mt-2">Kode Anda: {{ devCode }}</p>
+      <p v-if="devCode" class="text-brand-600 text-[12px] font-semibold mt-2">{{ t('Kode Anda:', 'Your code:') }} {{ devCode }}</p>
       <button v-else type="button" @click="requestOtp" :disabled="sending" class="text-brand-600 text-[12px] font-semibold mt-2">
-        {{ sending ? 'Mengirim…' : 'Kirim ulang kode' }}
+        {{ sending ? t('Mengirim…', 'Sending…') : t('Kirim ulang kode', 'Resend code') }}
       </button>
 
       <form @submit.prevent="confirm" class="mt-6">
@@ -44,7 +44,7 @@
           />
         </div>
         <p v-if="otpErr" class="text-red-600 text-[13px] mt-3">{{ otpErr }}</p>
-        <button :disabled="verifying" class="btn-brand w-full mt-6">{{ verifying ? 'Memproses…' : 'Konfirmasi' }}</button>
+        <button :disabled="verifying" class="btn-brand w-full mt-6">{{ verifying ? t('Memproses…', 'Processing…') : t('Konfirmasi', 'Confirm') }}</button>
       </form>
     </div>
   </div>
@@ -52,6 +52,7 @@
 
 <script setup lang="ts">
 const route = useRoute()
+const { t } = useLang()
 const { $api } = useNuxtApp()
 const { register } = useAuth()
 
@@ -74,7 +75,7 @@ async function submit() {
   try {
     await register({ name: f.name.trim(), email: f.email.trim(), password: f.password, phone: f.phone.trim() || undefined })
   } catch (e: any) {
-    err.value = e?.data?.error || 'Gagal mendaftar. Email mungkin sudah terpakai.'
+    err.value = e?.data?.error || t('Gagal mendaftar. Email mungkin sudah terpakai.', 'Registration failed. The email may already be in use.')
     loading.value = false
     return
   }
@@ -119,14 +120,14 @@ function onPaste(e: ClipboardEvent) {
 
 async function confirm() {
   const code = digits.value.join('')
-  if (code.length < 4) { otpErr.value = 'Masukkan 4 digit kode'; return }
+  if (code.length < 4) { otpErr.value = t('Masukkan 4 digit kode', 'Enter the 4-digit code'); return }
   verifying.value = true; otpErr.value = ''
   const ok = await $api('/auth/otp/verify', { method: 'POST', body: { code } })
     .then(() => true)
-    .catch((e: any) => { otpErr.value = e?.data?.error || 'Kode OTP salah atau kedaluwarsa'; return false })
+    .catch((e: any) => { otpErr.value = e?.data?.error || t('Kode OTP salah atau kedaluwarsa', 'The OTP code is wrong or has expired'); return false })
   verifying.value = false
   if (ok) await navigateTo((route.query.redirect as string) || '/')
 }
 
-useHead({ title: 'Daftar · Miruum' })
+useHead({ title: () => t('Daftar · Miruum', 'Sign Up · Miruum') })
 </script>

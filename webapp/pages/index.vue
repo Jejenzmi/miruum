@@ -16,7 +16,7 @@
 
     <!-- Popular destinations -->
     <section v-if="cities.length" class="container-site mt-10">
-      <h2 class="text-2xl font-bold mb-4">Destinasi Populer</h2>
+      <h2 class="text-2xl font-bold mb-4">{{ t('Destinasi Populer', 'Popular Destinations') }}</h2>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <NuxtLink v-for="c in cities" :key="c.name" :to="`/search?q=${encodeURIComponent(c.name)}`"
                   class="group relative rounded-xl overflow-hidden aspect-[4/5]">
@@ -24,7 +24,7 @@
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
           <div class="absolute bottom-0 p-3 text-white">
             <div class="font-bold text-[15px]">{{ c.name }}</div>
-            <div class="text-[11px] text-white/80">{{ c.count }} properti</div>
+            <div class="text-[11px] text-white/80">{{ c.count }} {{ t('properti', 'properties') }}</div>
           </div>
         </NuxtLink>
       </div>
@@ -45,15 +45,15 @@
       </div>
     </section>
 
-    <RailSection v-if="recentlyViewed.length" title="Baru Dilihat" subtitle="Lanjutkan dari tempat kamu berhenti">
+    <RailSection v-if="recentlyViewed.length" :title="t('Baru Dilihat', 'Recently Viewed')" :subtitle="t('Lanjutkan dari tempat kamu berhenti', 'Pick up where you left off')">
       <HotelCard v-for="h in recentlyViewed" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
     </RailSection>
 
-    <RailSection title="Rekomendasi untukmu" subtitle="Hotel pilihan dengan ulasan terbaik" more="/search">
+    <RailSection :title="t('Rekomendasi untukmu', 'Recommended for you')" :subtitle="t('Hotel pilihan dengan ulasan terbaik', 'Handpicked hotels with the best reviews')" more="/search">
       <HotelCard v-for="h in recommended" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
     </RailSection>
 
-    <RailSection v-if="promo.length" title="Promo & Harga Turun" subtitle="Penawaran terbatas — pesan sekarang" more="/search">
+    <RailSection v-if="promo.length" :title="t('Promo & Harga Turun', 'Deals & Price Drops')" :subtitle="t('Penawaran terbatas — pesan sekarang', 'Limited-time offers — book now')" more="/search">
       <HotelCard v-for="h in promo" :key="h.id" :hotel="h" class="min-w-[240px] w-[240px] sm:min-w-[260px] sm:w-[260px]" />
     </RailSection>
 
@@ -61,7 +61,7 @@
     <section v-for="rail in programRails" :key="rail.type" class="container-site mt-12">
       <div class="flex items-center gap-2 mb-1">
         <span class="pill" :class="rail.type === 'CAMPAIGN' ? 'bg-sky-50 text-sky-700' : 'bg-brand-50 text-brand-700'">
-          {{ rail.type === 'CAMPAIGN' ? 'KAMPANYE' : 'PROMO' }}
+          {{ rail.type === 'CAMPAIGN' ? t('KAMPANYE', 'CAMPAIGN') : t('PROMO', 'DEALS') }}
         </span>
         <h2 class="text-2xl font-bold">{{ rail.title }}</h2>
       </div>
@@ -82,10 +82,10 @@
     <section v-if="packages.length" class="container-site mt-12">
       <div class="flex items-end justify-between mb-4">
         <div>
-          <h2 class="text-2xl font-bold">Paket Menginap</h2>
-          <p class="text-ink-muted text-sm">Bundel hemat: kamar + sarapan + benefit</p>
+          <h2 class="text-2xl font-bold">{{ t('Paket Menginap', 'Stay Packages') }}</h2>
+          <p class="text-ink-muted text-sm">{{ t('Bundel hemat: kamar + sarapan + benefit', 'Value bundles: room + breakfast + perks') }}</p>
         </div>
-        <NuxtLink to="/packages" class="text-brand-600 font-semibold text-sm hover:underline">Lihat semua →</NuxtLink>
+        <NuxtLink to="/packages" class="text-brand-600 font-semibold text-sm hover:underline">{{ t('Lihat semua', 'See all') }} →</NuxtLink>
       </div>
       <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <PackageCard v-for="p in packages.slice(0,4)" :key="p.id" :pkg="p" />
@@ -96,10 +96,10 @@
     <section v-if="articles.length" class="container-site mt-12">
       <div class="flex items-end justify-between mb-4">
         <div>
-          <h2 class="text-2xl font-bold">Artikel & Inspirasi</h2>
-          <p class="text-ink-muted text-sm">Tips & panduan untuk perjalananmu</p>
+          <h2 class="text-2xl font-bold">{{ t('Artikel & Inspirasi', 'Articles & Inspiration') }}</h2>
+          <p class="text-ink-muted text-sm">{{ t('Tips & panduan untuk perjalananmu', 'Tips & guides for your travels') }}</p>
         </div>
-        <NuxtLink to="/articles" class="text-brand-600 font-semibold text-sm hover:underline shrink-0">Lihat semua →</NuxtLink>
+        <NuxtLink to="/articles" class="text-brand-600 font-semibold text-sm hover:underline shrink-0">{{ t('Lihat semua', 'See all') }} →</NuxtLink>
       </div>
       <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <NuxtLink v-for="a in articles.slice(0,3)" :key="a.id" :to="`/articles/${a.slug}`" class="group card overflow-hidden hover:shadow-cardhover hover:-translate-y-0.5 transition-all">
@@ -118,10 +118,10 @@
       <div class="rounded-xl2 overflow-hidden relative bg-gradient-to-br from-brand-700 to-brand text-white p-8 min-h-[220px] flex flex-col">
         <div class="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=60')] bg-cover bg-center"></div>
         <div class="relative flex flex-col flex-1">
-          <span class="pill bg-white/20 text-white w-fit mb-2">Untuk Mitra Properti</span>
+          <span class="pill bg-white/20 text-white w-fit mb-2">{{ t('Untuk Mitra Properti', 'For Property Partners') }}</span>
           <h2 class="text-2xl font-display font-bold">{{ content.ctaPropertyTitle }}</h2>
           <p class="mt-2 text-white/90 text-[15px] flex-1">{{ content.ctaPropertyText }}</p>
-          <NuxtLink to="/mitra" class="btn bg-white text-brand-700 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">Pelajari & Daftar →</NuxtLink>
+          <NuxtLink to="/mitra" class="btn bg-white text-brand-700 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">{{ t('Pelajari & Daftar', 'Learn More & Register') }} →</NuxtLink>
         </div>
       </div>
 
@@ -131,7 +131,7 @@
           <span class="pill bg-white/20 text-white w-fit mb-2">Corporate & Government</span>
           <h2 class="text-2xl font-display font-bold">{{ content.ctaCorpTitle }}</h2>
           <p class="mt-2 text-white/90 text-[15px] flex-1">{{ content.ctaCorpText }}</p>
-          <a href="https://corporate.miruum.id/corporate/register" class="btn bg-white text-slate-800 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">Ajukan Akun →</a>
+          <a href="https://corporate.miruum.id/corporate/register" class="btn bg-white text-slate-800 hover:bg-white/90 px-5 py-2.5 mt-4 font-bold w-fit">{{ t('Ajukan Akun', 'Request an Account') }} →</a>
         </div>
       </div>
     </section>
@@ -151,6 +151,7 @@
 
 <script setup lang="ts">
 const { $api } = useNuxtApp()
+const { t } = useLang()
 const [{ data: rec }, { data: pro }, { data: ban }, { data: pkg }] = await Promise.all([
   useAsyncData('rec', () => $api('/hotels/recommended').catch(() => ({ hotels: [] }))),
   useAsyncData('promo', () => $api('/hotels/promo').catch(() => ({ hotels: [] }))),
@@ -168,8 +169,8 @@ const [{ data: progPromo }, { data: progCampaign }] = await Promise.all([
 ])
 const withHotels = (d: any) => arr(d, 'programs').filter((p: any) => (p.hotels || []).length > 0)
 const programRails = computed(() => [
-  { type: 'PROMO', title: 'Promo Spesial', programs: withHotels(progPromo.value) },
-  { type: 'CAMPAIGN', title: 'Kampanye', programs: withHotels(progCampaign.value) },
+  { type: 'PROMO', title: t('Promo Spesial', 'Special Deals'), programs: withHotels(progPromo.value) },
+  { type: 'CAMPAIGN', title: t('Kampanye', 'Campaigns'), programs: withHotels(progCampaign.value) },
 ].filter((r) => r.programs.length > 0))
 
 const { data: rv } = await useAsyncData('recent', () => $api('/recently-viewed').catch(() => ({ hotels: [] })))
@@ -181,7 +182,7 @@ const banners = computed(() => arr(ban.value, 'banners'))
 const packages = computed(() => arr(pkg.value, 'packages'))
 
 const content = await useSiteContent()
-const propTypes = Object.entries(PROPERTY_TYPES).map(([key, label]) => ({ key, label }))
+const propTypes = computed(() => Object.entries(propertyTypeLabels()).map(([key, label]) => ({ key, label })))
 
 // Popular destinations derived from available hotels (city + a representative image).
 const cities = computed(() => {

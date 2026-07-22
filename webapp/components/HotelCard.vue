@@ -7,8 +7,8 @@
         {{ hotel.promoLabel || 'Promo' }}
       </span>
       <span v-if="hotel.priceBefore && hotel.priceBefore > hotel.priceFrom"
-            class="absolute top-3 right-12 pill bg-leaf text-white shadow">Harga turun</span>
-      <button @click.prevent.stop="toggle(hotel.id)" :aria-label="fav ? 'Hapus favorit' : 'Tambah favorit'"
+            class="absolute top-3 right-12 pill bg-leaf text-white shadow">{{ t('Harga turun', 'Price drop') }}</span>
+      <button @click.prevent.stop="toggle(hotel.id)" :aria-label="fav ? t('Hapus favorit', 'Remove from favorites') : t('Tambah favorit', 'Add to favorites')"
               class="absolute top-2.5 right-2.5 w-9 h-9 rounded-full bg-white/90 backdrop-blur grid place-items-center shadow hover:scale-110 transition">
         <svg viewBox="0 0 24 24" class="w-5 h-5 transition-colors" :class="fav ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-ink-muted'" stroke-width="2">
           <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>
@@ -30,7 +30,7 @@
         <div class="text-right">
           <div v-if="hotel.priceBefore && hotel.priceBefore > hotel.priceFrom" class="text-[12px] text-ink-faint line-through">{{ rupiah(hotel.priceBefore) }}</div>
           <div class="text-brand-700 font-extrabold text-[17px] leading-none">{{ rupiah(hotel.priceFrom) }}</div>
-          <div class="text-[11px] text-ink-faint">/malam</div>
+          <div class="text-[11px] text-ink-faint">{{ t('/malam', '/night') }}</div>
         </div>
       </div>
     </div>
@@ -39,7 +39,8 @@
 
 <script setup lang="ts">
 const props = defineProps<{ hotel: any }>()
-const propType = computed(() => PROPERTY_TYPES[props.hotel.propertyType] || 'Hotel')
+const { t } = useLang()
+const propType = computed(() => propertyTypeLabel(props.hotel.propertyType))
 const { isFav, toggle, load } = useFavorites()
 onMounted(load)
 const fav = computed(() => isFav(props.hotel.id))

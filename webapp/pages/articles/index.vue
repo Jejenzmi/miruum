@@ -1,7 +1,7 @@
 <template>
   <div class="container-site py-8">
-    <h1 class="text-3xl font-display font-bold mb-1">Artikel & Inspirasi</h1>
-    <p class="text-ink-muted mb-6">Tips perjalanan, panduan destinasi, dan inspirasi liburanmu berikutnya.</p>
+    <h1 class="text-3xl font-display font-bold mb-1">{{ t('Artikel & Inspirasi', 'Articles & Inspiration') }}</h1>
+    <p class="text-ink-muted mb-6">{{ t('Tips perjalanan, panduan destinasi, dan inspirasi liburanmu berikutnya.', 'Travel tips, destination guides, and inspiration for your next holiday.') }}</p>
 
     <div v-if="articles.length" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <NuxtLink v-for="a in articles" :key="a.id" :to="`/articles/${a.slug}`" class="group card overflow-hidden hover:shadow-cardhover hover:-translate-y-0.5 transition-all">
@@ -16,13 +16,14 @@
         </div>
       </NuxtLink>
     </div>
-    <div v-else class="card p-12 text-center text-ink-muted">Belum ada artikel.</div>
+    <div v-else class="card p-12 text-center text-ink-muted">{{ t('Belum ada artikel.', 'No articles yet.') }}</div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { t } = useLang()
 const { $api } = useNuxtApp()
 const { data } = await useAsyncData('articles', () => $api('/articles').catch(() => ({ articles: [] })))
 const articles = computed<any[]>(() => (data.value as any)?.articles || [])
-useHead({ title: 'Artikel & Inspirasi · Miruum' })
+useHead({ title: () => t('Artikel & Inspirasi · Miruum', 'Articles & Inspiration · Miruum') })
 </script>

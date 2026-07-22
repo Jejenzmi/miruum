@@ -1,38 +1,38 @@
 <template>
   <div class="container-site py-6 max-w-5xl">
-    <h1 class="text-2xl font-bold mb-5">Rincian Pesanan</h1>
+    <h1 class="text-2xl font-bold mb-5">{{ t('Rincian Pesanan', 'Booking Details') }}</h1>
 
     <div v-if="!isLoggedIn" class="card p-8 text-center">
-      <p class="text-lg font-semibold mb-1">Masuk untuk melanjutkan pemesanan</p>
-      <p class="text-ink-muted text-sm mb-4">Kamu perlu masuk agar pesanan tersimpan di akunmu.</p>
-      <NuxtLink :to="`/login?redirect=${encodeURIComponent(fullPath)}`" class="btn-brand">Masuk / Daftar</NuxtLink>
+      <p class="text-lg font-semibold mb-1">{{ t('Masuk untuk melanjutkan pemesanan', 'Sign in to continue booking') }}</p>
+      <p class="text-ink-muted text-sm mb-4">{{ t('Kamu perlu masuk agar pesanan tersimpan di akunmu.', 'You need to sign in so your booking is saved to your account.') }}</p>
+      <NuxtLink :to="`/login?redirect=${encodeURIComponent(fullPath)}`" class="btn-brand">{{ t('Masuk / Daftar', 'Sign In / Register') }}</NuxtLink>
     </div>
 
     <div v-else-if="hotel && room" class="grid lg:grid-cols-[1fr_360px] gap-6">
       <!-- Form -->
       <div class="space-y-5">
         <div class="card p-5">
-          <h2 class="font-bold text-lg mb-3">Data Pemesan</h2>
+          <h2 class="font-bold text-lg mb-3">{{ t('Data Pemesan', 'Booker Details') }}</h2>
           <div class="grid sm:grid-cols-2 gap-3">
-            <div><label class="label">Nama Lengkap</label><input v-model="form.bookerName" class="input" placeholder="Sesuai identitas" /></div>
-            <div><label class="label">Nomor HP</label><input v-model="form.bookerPhone" class="input" placeholder="08xxxx" /></div>
-            <div class="sm:col-span-2"><label class="label">Email</label><input v-model="form.bookerEmail" type="email" class="input" placeholder="email@contoh.com" /></div>
+            <div><label class="label">{{ t('Nama Lengkap', 'Full Name') }}</label><input v-model="form.bookerName" class="input" :placeholder="t('Sesuai identitas', 'As on your ID')" /></div>
+            <div><label class="label">{{ t('Nomor HP', 'Phone Number') }}</label><input v-model="form.bookerPhone" class="input" placeholder="08xxxx" /></div>
+            <div class="sm:col-span-2"><label class="label">{{ t('Email', 'Email') }}</label><input v-model="form.bookerEmail" type="email" class="input" :placeholder="t('email@contoh.com', 'email@example.com')" /></div>
           </div>
         </div>
 
         <!-- Pesan untuk siapa (sama seperti aplikasi) -->
         <div class="card p-5">
-          <h2 class="font-bold text-lg mb-3">Pesanan Ini Untuk</h2>
+          <h2 class="font-bold text-lg mb-3">{{ t('Pesanan Ini Untuk', 'This Booking Is For') }}</h2>
           <div class="grid grid-cols-2 gap-2.5">
             <button type="button" @click="form.forSelf = true"
               class="flex items-center justify-center gap-2 py-3 rounded-xl border font-semibold text-[14px]"
               :class="form.forSelf ? 'border-brand bg-brand-50 text-brand-700' : 'border-line text-ink-muted'">
-              Saya Sendiri
+              {{ t('Saya Sendiri', 'Myself') }}
             </button>
             <button type="button" @click="form.forSelf = false"
               class="flex items-center justify-center gap-2 py-3 rounded-xl border font-semibold text-[14px]"
               :class="!form.forSelf ? 'border-brand bg-brand-50 text-brand-700' : 'border-line text-ink-muted'">
-              Orang Lain
+              {{ t('Orang Lain', 'Someone Else') }}
             </button>
           </div>
 
@@ -45,63 +45,63 @@
               </button>
             </div>
             <div>
-              <label class="label">Nama Tamu yang Menginap</label>
-              <input v-model="form.guestName" class="input" placeholder="Sesuai identitas tamu" />
+              <label class="label">{{ t('Nama Tamu yang Menginap', "Staying Guest's Name") }}</label>
+              <input v-model="form.guestName" class="input" :placeholder="t('Sesuai identitas tamu', 'As on the guest ID')" />
             </div>
             <label class="flex items-center gap-2 cursor-pointer text-[13px] text-ink-muted">
               <input type="checkbox" v-model="form.saveGuest" class="accent-brand w-4 h-4" />
-              Simpan tamu ini untuk pemesanan berikutnya
+              {{ t('Simpan tamu ini untuk pemesanan berikutnya', 'Save this guest for future bookings') }}
             </label>
           </div>
         </div>
 
         <!-- Nama tamu per kamar (muncul bila > 1 kamar, sama seperti aplikasi) -->
         <div v-if="rooms > 1" class="card p-5">
-          <h2 class="font-bold text-lg mb-1">Tamu per Kamar</h2>
-          <p class="text-[13px] text-ink-muted mb-3">Isi nama tamu untuk tiap kamar (opsional).</p>
+          <h2 class="font-bold text-lg mb-1">{{ t('Tamu per Kamar', 'Guests per Room') }}</h2>
+          <p class="text-[13px] text-ink-muted mb-3">{{ t('Isi nama tamu untuk tiap kamar (opsional).', 'Enter the guest name for each room (optional).') }}</p>
           <div class="space-y-4">
             <div v-for="(rg, i) in form.roomGuests" :key="i" class="border border-line rounded-xl p-3">
-              <div class="font-semibold text-[13px] mb-2">Kamar {{ i + 1 }}</div>
-              <input v-model="rg.name" class="input mb-2" :placeholder="`Nama tamu kamar ${i + 1}`" />
-              <input v-model="rg.request" class="input" placeholder="Permintaan khusus (mis. lantai tinggi)" />
+              <div class="font-semibold text-[13px] mb-2">{{ t('Kamar', 'Room') }} {{ i + 1 }}</div>
+              <input v-model="rg.name" class="input mb-2" :placeholder="t(`Nama tamu kamar ${i + 1}`, `Guest name for room ${i + 1}`)" />
+              <input v-model="rg.request" class="input" :placeholder="t('Permintaan khusus (mis. lantai tinggi)', 'Special request (e.g. high floor)')" />
             </div>
           </div>
         </div>
 
         <!-- Permintaan khusus (sama seperti aplikasi) -->
         <div class="card p-5">
-          <h2 class="font-bold text-lg mb-1">Permintaan Khusus</h2>
-          <p class="text-[13px] text-ink-muted mb-3">Kami teruskan ke hotel (tergantung ketersediaan).</p>
+          <h2 class="font-bold text-lg mb-1">{{ t('Permintaan Khusus', 'Special Request') }}</h2>
+          <p class="text-[13px] text-ink-muted mb-3">{{ t('Kami teruskan ke hotel (tergantung ketersediaan).', 'We will forward it to the hotel (subject to availability).') }}</p>
           <textarea v-model="form.specialRequest" rows="3" class="input"
-            placeholder="mis. kamar lantai tinggi, twin bed, check-in lebih awal"></textarea>
+            :placeholder="t('mis. kamar lantai tinggi, twin bed, check-in lebih awal', 'e.g. high floor room, twin bed, early check-in')"></textarea>
         </div>
 
         <div class="card p-5">
           <label class="flex items-center justify-between cursor-pointer">
-            <div><div class="font-semibold">Bayar di Hotel</div><div class="text-[13px] text-ink-muted">Reservasi terkonfirmasi, bayar saat check-in.</div></div>
+            <div><div class="font-semibold">{{ t('Bayar di Hotel', 'Pay at Hotel') }}</div><div class="text-[13px] text-ink-muted">{{ t('Reservasi terkonfirmasi, bayar saat check-in.', 'Reservation confirmed, pay at check-in.') }}</div></div>
             <input type="checkbox" v-model="form.payAtHotel" class="accent-brand w-5 h-5" />
           </label>
         </div>
 
         <div class="card p-5 space-y-3">
-          <h2 class="font-bold text-lg">Promo & Poin</h2>
+          <h2 class="font-bold text-lg">{{ t('Promo & Poin', 'Promo & Points') }}</h2>
           <div>
-            <label class="label">Kode Promo (opsional)</label>
+            <label class="label">{{ t('Kode Promo (opsional)', 'Promo Code (optional)') }}</label>
             <div class="flex gap-2">
-              <input v-model="form.promoCode" class="input uppercase flex-1" placeholder="mis. MIRUUM30"
+              <input v-model="form.promoCode" class="input uppercase flex-1" :placeholder="t('mis. MIRUUM30', 'e.g. MIRUUM30')"
                      @keyup.enter="applyPromo" @input="resetPromo" />
               <button type="button" class="btn-brand btn-sm shrink-0 px-5"
                       :disabled="checkingPromo || !form.promoCode.trim()" @click="applyPromo">
-                {{ checkingPromo ? 'Mengecek…' : (appliedPromo ? 'Terapkan' : 'Cek') }}
+                {{ checkingPromo ? t('Mengecek…', 'Checking…') : (appliedPromo ? t('Terapkan', 'Apply') : t('Cek', 'Check')) }}
               </button>
             </div>
             <p v-if="appliedPromo" class="text-[12.5px] font-semibold text-emerald-600 mt-2">
-              ✓ {{ appliedPromo }} diterapkan — hemat {{ rupiah(discount) }}
+              ✓ {{ appliedPromo }} {{ t('diterapkan — hemat', 'applied — you save') }} {{ rupiah(discount) }}
             </p>
             <p v-else-if="promoErr" class="text-[12.5px] font-semibold text-red-600 mt-2">{{ promoErr }}</p>
           </div>
           <label v-if="(user?.loyaltyPoints || 0) > 0" class="flex items-center justify-between cursor-pointer pt-1">
-            <div><div class="font-semibold">Gunakan Poin Miruum</div><div class="text-[13px] text-ink-muted">{{ user?.loyaltyPoints }} poin tersedia</div></div>
+            <div><div class="font-semibold">{{ t('Gunakan Poin Miruum', 'Use Miruum Points') }}</div><div class="text-[13px] text-ink-muted">{{ user?.loyaltyPoints }} {{ t('poin tersedia', 'points available') }}</div></div>
             <input type="checkbox" v-model="form.usePoints" class="accent-brand w-5 h-5" />
           </label>
         </div>
@@ -115,27 +115,27 @@
             <div class="font-bold">{{ hotel.name }}</div>
             <div class="text-[13px] text-ink-faint mb-3">{{ hotel.city }}</div>
             <div class="text-[14px] space-y-1.5">
-              <div class="flex justify-between"><span class="text-ink-muted">Kamar</span><b>{{ rooms }}× {{ room.name }}</b></div>
-              <div class="flex justify-between"><span class="text-ink-muted">Check-in</span><b>{{ fmtDate(checkIn, true) }}</b></div>
-              <div class="flex justify-between"><span class="text-ink-muted">Check-out</span><b>{{ fmtDate(checkOut, true) }}</b></div>
-              <div class="flex justify-between"><span class="text-ink-muted">Durasi</span><b>{{ nights }} malam · {{ guests }} tamu</b></div>
+              <div class="flex justify-between"><span class="text-ink-muted">{{ t('Kamar', 'Room') }}</span><b>{{ rooms }}× {{ room.name }}</b></div>
+              <div class="flex justify-between"><span class="text-ink-muted">{{ t('Check-in', 'Check-in') }}</span><b>{{ fmtDate(checkIn, true) }}</b></div>
+              <div class="flex justify-between"><span class="text-ink-muted">{{ t('Check-out', 'Check-out') }}</span><b>{{ fmtDate(checkOut, true) }}</b></div>
+              <div class="flex justify-between"><span class="text-ink-muted">{{ t('Durasi', 'Duration') }}</span><b>{{ nights }} {{ t('malam', nights > 1 ? 'nights' : 'night') }} · {{ guests }} {{ t('tamu', guests > 1 ? 'guests' : 'guest') }}</b></div>
             </div>
             <hr class="my-3 border-line" />
             <div class="text-[14px] space-y-1.5">
-              <div class="flex justify-between"><span class="text-ink-muted">Harga kamar</span><span>{{ rupiah(subtotal) }}</span></div>
-              <div class="flex justify-between"><span class="text-ink-muted">Pajak & layanan ({{ taxPct }}%)</span><span>{{ rupiah(tax) }}</span></div>
+              <div class="flex justify-between"><span class="text-ink-muted">{{ t('Harga kamar', 'Room price') }}</span><span>{{ rupiah(subtotal) }}</span></div>
+              <div class="flex justify-between"><span class="text-ink-muted">{{ t('Pajak & layanan', 'Tax & service') }} ({{ taxPct }}%)</span><span>{{ rupiah(tax) }}</span></div>
               <div v-if="discount > 0" class="flex justify-between text-emerald-600 font-semibold">
-                <span>Diskon promo{{ appliedPromo ? ` (${appliedPromo})` : '' }}</span>
+                <span>{{ t('Diskon promo', 'Promo discount') }}{{ appliedPromo ? ` (${appliedPromo})` : '' }}</span>
                 <span>- {{ rupiah(discount) }}</span>
               </div>
             </div>
             <hr class="my-3 border-line" />
             <div class="flex justify-between items-center">
-              <span class="font-semibold">Total</span>
+              <span class="font-semibold">{{ t('Total', 'Total') }}</span>
               <span class="text-xl font-extrabold text-brand-700">{{ rupiah(total) }}</span>
             </div>
             <button @click="submit" :disabled="loading" class="btn-brand w-full mt-4">
-              {{ loading ? 'Memproses…' : (form.payAtHotel ? 'Konfirmasi Reservasi' : 'Pesan Sekarang') }}
+              {{ loading ? t('Memproses…', 'Processing…') : (form.payAtHotel ? t('Konfirmasi Reservasi', 'Confirm Reservation') : t('Pesan Sekarang', 'Book Now')) }}
             </button>
             <p v-if="err" class="text-red-600 text-[13px] mt-2 text-center">{{ err }}</p>
           </div>
@@ -143,7 +143,7 @@
       </aside>
     </div>
 
-    <div v-else class="card p-12 text-center text-ink-muted">Memuat data pesanan…</div>
+    <div v-else class="card p-12 text-center text-ink-muted">{{ t('Memuat data pesanan…', 'Loading booking details…') }}</div>
   </div>
 </template>
 
@@ -151,6 +151,7 @@
 const route = useRoute()
 const { $api } = useNuxtApp()
 const { isLoggedIn, user } = useAuth()
+const { t } = useLang()
 const fullPath = route.fullPath
 
 const hotelId = route.query.hotel as string
@@ -217,7 +218,7 @@ async function applyPromo() {
   } catch (e: any) {
     appliedPromo.value = null
     discount.value = 0
-    promoErr.value = e?.data?.error || 'Kode promo tidak valid.'
+    promoErr.value = e?.data?.error || t('Kode promo tidak valid.', 'Promo code is not valid.')
   } finally {
     checkingPromo.value = false
   }
@@ -228,10 +229,10 @@ const err = ref('')
 async function submit() {
   err.value = ''
   if (!form.bookerName.trim() || !form.bookerEmail.includes('@') || form.bookerPhone.trim().length < 6) {
-    err.value = 'Lengkapi nama, email & nomor HP yang valid.'; return
+    err.value = t('Lengkapi nama, email & nomor HP yang valid.', 'Please enter a valid name, email & phone number.'); return
   }
   if (!form.forSelf && !form.guestName.trim()) {
-    err.value = 'Isi nama tamu yang menginap.'; return
+    err.value = t('Isi nama tamu yang menginap.', "Please enter the staying guest's name."); return
   }
   loading.value = true
   try {
@@ -261,9 +262,9 @@ async function submit() {
     if (form.payAtHotel) await navigateTo(`/account/bookings?ok=${bk.code}`)
     else await navigateTo(`/payment/${bk.id}`)
   } catch (e: any) {
-    err.value = e?.data?.error || 'Gagal membuat pesanan. Coba lagi.'
+    err.value = e?.data?.error || t('Gagal membuat pesanan. Coba lagi.', 'Failed to create the booking. Please try again.')
   } finally { loading.value = false }
 }
 
-useHead({ title: 'Rincian Pesanan · Miruum' })
+useHead(() => ({ title: t('Rincian Pesanan · Miruum', 'Booking Details · Miruum') }))
 </script>

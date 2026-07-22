@@ -18,26 +18,27 @@
 
       <div class="mt-10 card p-6 bg-brand-50 border-brand-100 flex flex-col sm:flex-row items-center gap-4">
         <div class="flex-1 text-center sm:text-left">
-          <div class="font-bold text-lg">Siap liburan?</div>
-          <div class="text-ink-muted text-sm">Temukan hotel terbaik dengan harga termurah di Miruum.</div>
+          <div class="font-bold text-lg">{{ t('Siap liburan?', 'Ready for a getaway?') }}</div>
+          <div class="text-ink-muted text-sm">{{ t('Temukan hotel terbaik dengan harga termurah di Miruum.', 'Find the best hotels at the lowest prices on Miruum.') }}</div>
         </div>
-        <NuxtLink to="/search" class="btn-brand shrink-0">Cari Hotel</NuxtLink>
+        <NuxtLink to="/search" class="btn-brand shrink-0">{{ t('Cari Hotel', 'Find Hotels') }}</NuxtLink>
       </div>
 
-      <NuxtLink to="/articles" class="inline-block mt-8 text-brand-600 font-semibold hover:underline">← Semua Artikel</NuxtLink>
+      <NuxtLink to="/articles" class="inline-block mt-8 text-brand-600 font-semibold hover:underline">← {{ t('Semua Artikel', 'All Articles') }}</NuxtLink>
     </div>
   </article>
-  <div v-else class="container-site py-24 text-center text-ink-muted">Artikel tidak ditemukan.</div>
+  <div v-else class="container-site py-24 text-center text-ink-muted">{{ t('Artikel tidak ditemukan.', 'Article not found.') }}</div>
 </template>
 
 <script setup lang="ts">
+const { t } = useLang()
 const route = useRoute()
 const { $api } = useNuxtApp()
 const slug = route.params.slug as string
 const { data } = await useAsyncData(`article-${slug}`, () => $api(`/articles/${slug}`).catch(() => null))
 const a = computed<any>(() => (data.value as any)?.article || null)
 useHead(() => ({
-  title: a.value ? `${a.value.title} · Miruum` : 'Artikel · Miruum',
+  title: a.value ? `${a.value.title} · Miruum` : t('Artikel · Miruum', 'Article · Miruum'),
   meta: a.value ? [{ name: 'description', content: a.value.excerpt }, { property: 'og:image', content: a.value.coverImage }] : [],
 }))
 </script>

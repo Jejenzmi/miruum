@@ -1,15 +1,15 @@
 <template>
   <div class="container-site py-6 max-w-3xl">
-    <h1 class="text-2xl font-bold mb-1">Pembayaran</h1>
-    <p v-if="booking" class="text-ink-muted text-sm mb-5">Pesanan <b>{{ booking.code }}</b> · Total <b class="text-brand-700">{{ rupiah(booking.totalPrice) }}</b></p>
+    <h1 class="text-2xl font-bold mb-1">{{ t('Pembayaran', 'Payment') }}</h1>
+    <p v-if="booking" class="text-ink-muted text-sm mb-5">{{ t('Pesanan', 'Booking') }} <b>{{ booking.code }}</b> · {{ t('Total', 'Total') }} <b class="text-brand-700">{{ rupiah(booking.totalPrice) }}</b></p>
 
     <div v-if="booking && (booking.status==='PAID' || booking.status==='COMPLETED')" class="card p-8 text-center">
       <div class="w-14 h-14 rounded-full bg-leaf-soft text-leaf-dark grid place-items-center mx-auto mb-3">
         <svg viewBox="0 0 24 24" class="w-7 h-7 fill-none stroke-current" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
       </div>
-      <h2 class="text-xl font-bold">Pembayaran Berhasil</h2>
-      <p class="text-ink-muted text-sm mt-1 mb-4">Pesananmu dikonfirmasi. E-voucher tersedia di Pesanan Saya.</p>
-      <NuxtLink :to="`/account/bookings?ok=${booking.code}`" class="btn-brand">Lihat Pesanan</NuxtLink>
+      <h2 class="text-xl font-bold">{{ t('Pembayaran Berhasil', 'Payment Successful') }}</h2>
+      <p class="text-ink-muted text-sm mt-1 mb-4">{{ t('Pesananmu dikonfirmasi. E-voucher tersedia di Pesanan Saya.', 'Your booking is confirmed. The e-voucher is available in My Bookings.') }}</p>
+      <NuxtLink :to="`/account/bookings?ok=${booking.code}`" class="btn-brand">{{ t('Lihat Pesanan', 'View Booking') }}</NuxtLink>
     </div>
 
     <template v-else-if="booking">
@@ -36,33 +36,33 @@
         </div>
 
         <div v-if="payment.vaNumber" class="bg-paper rounded-xl p-4 text-center">
-          <div class="text-[13px] text-ink-muted">Nomor Virtual Account</div>
+          <div class="text-[13px] text-ink-muted">{{ t('Nomor Virtual Account', 'Virtual Account Number') }}</div>
           <div class="text-2xl font-mono font-bold tracking-wide my-1">{{ payment.vaNumber }}</div>
-          <button @click="copy(payment.vaNumber)" class="btn-ghost btn-sm">{{ copied ? 'Tersalin ✓' : 'Salin Nomor' }}</button>
+          <button @click="copy(payment.vaNumber)" class="btn-ghost btn-sm">{{ copied ? t('Tersalin ✓', 'Copied ✓') : t('Salin Nomor', 'Copy Number') }}</button>
         </div>
         <div v-else-if="payment.qrString" class="text-center">
           <img :src="qrImg(payment.qrString)" alt="QRIS" class="mx-auto w-52 h-52 rounded-xl border border-line" />
-          <p class="text-[13px] text-ink-muted mt-2">Pindai dengan aplikasi e-wallet / m-banking (QRIS).</p>
+          <p class="text-[13px] text-ink-muted mt-2">{{ t('Pindai dengan aplikasi e-wallet / m-banking (QRIS).', 'Scan with your e-wallet / m-banking app (QRIS).') }}</p>
         </div>
         <div v-else-if="payment.payUrl" class="text-center">
-          <a :href="payment.payUrl" target="_blank" class="btn-brand">Buka Aplikasi Pembayaran</a>
+          <a :href="payment.payUrl" target="_blank" class="btn-brand">{{ t('Buka Aplikasi Pembayaran', 'Open Payment App') }}</a>
         </div>
 
         <!-- Hitung mundur kedaluwarsa (sama seperti aplikasi) -->
         <div v-if="payment.expiresAt" class="mt-4 rounded-xl bg-brand-50 text-brand-700 py-3 text-center">
-          <div class="text-[12px] font-semibold">Selesaikan pembayaran dalam</div>
+          <div class="text-[12px] font-semibold">{{ t('Selesaikan pembayaran dalam', 'Complete payment within') }}</div>
           <div class="text-2xl font-extrabold font-mono tracking-wider">{{ countdown }}</div>
         </div>
-        <p class="text-center text-[13px] text-ink-faint mt-4">Selesaikan pembayaran sebelum kedaluwarsa. Status diperbarui otomatis.</p>
+        <p class="text-center text-[13px] text-ink-faint mt-4">{{ t('Selesaikan pembayaran sebelum kedaluwarsa. Status diperbarui otomatis.', 'Complete the payment before it expires. The status updates automatically.') }}</p>
 
         <div class="mt-5 border-t border-line pt-4 text-center">
-          <p class="text-[13px] text-ink-muted mb-2">Mode demo — simulasikan pembayaran berhasil:</p>
-          <button @click="settle" :disabled="settling" class="btn-brand">{{ settling ? 'Memproses…' : 'Saya Sudah Bayar (Simulasi)' }}</button>
+          <p class="text-[13px] text-ink-muted mb-2">{{ t('Mode demo — simulasikan pembayaran berhasil:', 'Demo mode — simulate a successful payment:') }}</p>
+          <button @click="settle" :disabled="settling" class="btn-brand">{{ settling ? t('Memproses…', 'Processing…') : t('Saya Sudah Bayar (Simulasi)', "I've Paid (Simulation)") }}</button>
         </div>
       </div>
     </template>
 
-    <div v-else class="card p-12 text-center text-ink-muted">Pesanan tidak ditemukan.</div>
+    <div v-else class="card p-12 text-center text-ink-muted">{{ t('Pesanan tidak ditemukan.', 'Booking not found.') }}</div>
   </div>
 </template>
 
@@ -70,6 +70,7 @@
 definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const { $api } = useNuxtApp()
+const { t } = useLang()
 const id = route.params.id as string
 
 const { data: bkData, refresh } = await useAsyncData(`pay-${id}`, () => $api(`/bookings/${id}`).catch(() => ({ booking: null })))
@@ -105,7 +106,7 @@ async function pay(method: string) {
     const res: any = await $api(`/bookings/${id}/pay`, { method: 'POST', body: { method } })
     payment.value = res.payment
     startPolling()
-  } catch (e: any) { err.value = e?.data?.error || 'Gagal membuat pembayaran.' }
+  } catch (e: any) { err.value = e?.data?.error || t('Gagal membuat pembayaran.', 'Failed to create the payment.') }
   finally { paying.value = false }
 }
 
@@ -124,14 +125,14 @@ function stopPolling() { if (poll) { clearInterval(poll); poll = null } }
 async function settle() {
   settling.value = true
   try { await $api(`/payments/${payment.value.id}/settle`, { method: 'POST', body: {} }); await done() }
-  catch (e: any) { err.value = e?.data?.error || 'Gagal.' }
+  catch (e: any) { err.value = e?.data?.error || t('Gagal.', 'Failed.') }
   finally { settling.value = false }
 }
 async function done() { stopPolling(); await refresh() }
 onBeforeUnmount(stopPolling)
 
-function copy(t: string) { navigator.clipboard?.writeText(t); copied.value = true; setTimeout(() => copied.value = false, 1500) }
+function copy(v: string) { navigator.clipboard?.writeText(v); copied.value = true; setTimeout(() => copied.value = false, 1500) }
 const qrImg = (s: string) => `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(s)}`
 
-useHead({ title: 'Pembayaran · Miruum' })
+useHead(() => ({ title: t('Pembayaran · Miruum', 'Payment · Miruum') }))
 </script>

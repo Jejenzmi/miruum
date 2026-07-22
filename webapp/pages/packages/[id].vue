@@ -10,10 +10,10 @@
           <RatingBadge :rating="pkg.rating" :count="pkg.reviewCount" />
         </div>
         <h1 class="text-2xl font-bold">{{ pkg.title }}</h1>
-        <p class="text-ink-muted text-sm mt-1">{{ pkg.city }} · {{ pkg.nights }} malam / {{ pkg.days }} hari · {{ pkg.guests }} tamu · {{ boardBasis }}</p>
+        <p class="text-ink-muted text-sm mt-1">{{ pkg.city }} · {{ pkg.nights }} {{ t('malam', 'nights') }} / {{ pkg.days }} {{ t('hari', 'days') }} · {{ pkg.guests }} {{ t('tamu', 'guests') }} · {{ boardBasis }}</p>
 
         <div v-if="pkg.inclusions?.length" class="card p-5 mt-5">
-          <h2 class="font-bold text-lg mb-3">Termasuk dalam Paket</h2>
+          <h2 class="font-bold text-lg mb-3">{{ t('Termasuk dalam Paket', 'Included in the Package') }}</h2>
           <ul class="space-y-2">
             <li v-for="(inc,i) in pkg.inclusions" :key="i" class="flex items-start gap-2 text-[15px] text-ink-muted">
               <svg viewBox="0 0 24 24" class="w-5 h-5 fill-none stroke-leaf-dark shrink-0 mt-0.5" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
@@ -26,25 +26,26 @@
       <aside class="lg:sticky lg:top-20 h-fit">
         <div class="card p-5">
           <div v-if="pkg.originalPrice > pkg.price" class="text-[13px] text-ink-faint line-through">{{ rupiah(pkg.originalPrice) }}</div>
-          <div class="text-3xl font-extrabold text-brand-700">{{ rupiah(pkg.price) }}<span class="text-sm font-normal text-ink-faint">/paket</span></div>
+          <div class="text-3xl font-extrabold text-brand-700">{{ rupiah(pkg.price) }}<span class="text-sm font-normal text-ink-faint">{{ t('/paket', '/package') }}</span></div>
 
           <div v-if="isLoggedIn" class="mt-4 space-y-3">
-            <div><label class="label">Tanggal Mulai</label><input v-model="checkIn" type="date" :min="todayStr" class="input" /></div>
-            <div><label class="label">Nama Pemesan</label><input v-model="f.name" class="input" /></div>
-            <div><label class="label">Nomor HP</label><input v-model="f.phone" class="input" /></div>
-            <div><label class="label">Email</label><input v-model="f.email" type="email" class="input" /></div>
-            <button @click="book" :disabled="loading" class="btn-brand w-full">{{ loading ? 'Memproses…' : 'Pesan Paket' }}</button>
+            <div><label class="label">{{ t('Tanggal Mulai', 'Start Date') }}</label><input v-model="checkIn" type="date" :min="todayStr" class="input" /></div>
+            <div><label class="label">{{ t('Nama Pemesan', 'Booker Name') }}</label><input v-model="f.name" class="input" /></div>
+            <div><label class="label">{{ t('Nomor HP', 'Phone Number') }}</label><input v-model="f.phone" class="input" /></div>
+            <div><label class="label">{{ t('Email', 'Email') }}</label><input v-model="f.email" type="email" class="input" /></div>
+            <button @click="book" :disabled="loading" class="btn-brand w-full">{{ loading ? t('Memproses…', 'Processing…') : t('Pesan Paket', 'Book Package') }}</button>
             <p v-if="err" class="text-red-600 text-[13px] text-center">{{ err }}</p>
           </div>
-          <NuxtLink v-else :to="`/login?redirect=/packages/${pkg.id}`" class="btn-brand w-full mt-4">Masuk untuk Memesan</NuxtLink>
+          <NuxtLink v-else :to="`/login?redirect=/packages/${pkg.id}`" class="btn-brand w-full mt-4">{{ t('Masuk untuk Memesan', 'Sign in to Book') }}</NuxtLink>
         </div>
       </aside>
     </div>
   </div>
-  <div v-else class="container-site py-24 text-center text-ink-muted">Paket tidak ditemukan.</div>
+  <div v-else class="container-site py-24 text-center text-ink-muted">{{ t('Paket tidak ditemukan.', 'Package not found.') }}</div>
 </template>
 
 <script setup lang="ts">
+const { t } = useLang()
 const route = useRoute()
 const { $api } = useNuxtApp()
 const { isLoggedIn, user } = useAuth()
@@ -53,7 +54,11 @@ const todayStr = isoDate(new Date())
 
 const { data } = await useAsyncData(`pkg-${id}`, () => $api(`/packages/${id}`).catch(() => ({ package: null })))
 const pkg = computed<any>(() => (data.value as any)?.package || (data.value as any) || null)
-const boardBasis = computed(() => BOARD_BASIS[pkg.value?.boardBasis] || 'Termasuk Sarapan')
+const BOARD_BASIS_EN: Record<string, string> = {
+  ROOM_ONLY: 'Room Only', BREAKFAST: 'Breakfast Included', HALF_BOARD: 'Half Board',
+  FULL_BOARD: 'Full Board', ALL_INCLUSIVE: 'All Inclusive',
+}
+const boardBasis = computed(() => t(BOARD_BASIS[pkg.value?.boardBasis] || 'Termasuk Sarapan', BOARD_BASIS_EN[pkg.value?.boardBasis] || 'Breakfast Included'))
 
 const checkIn = ref(isoDate(new Date(Date.now() + 86400000)))
 const f = reactive({ name: '', email: '', phone: '' })
@@ -62,7 +67,7 @@ watchEffect(() => { if (user.value) { f.name ||= user.value.name; f.email ||= us
 const loading = ref(false); const err = ref('')
 async function book() {
   err.value = ''
-  if (!f.name.trim() || !f.email.includes('@') || f.phone.trim().length < 6) { err.value = 'Lengkapi data pemesan.'; return }
+  if (!f.name.trim() || !f.email.includes('@') || f.phone.trim().length < 6) { err.value = t('Lengkapi data pemesan.', 'Please complete the booker details.'); return }
   loading.value = true
   try {
     const res: any = await $api('/bookings', { method: 'POST', body: {
@@ -71,8 +76,8 @@ async function book() {
       bookerName: f.name.trim(), bookerEmail: f.email.trim(), bookerPhone: f.phone.trim(),
     } })
     await navigateTo(`/payment/${res.booking.id}`)
-  } catch (e: any) { err.value = e?.data?.error || 'Gagal memesan paket.' }
+  } catch (e: any) { err.value = e?.data?.error || t('Gagal memesan paket.', 'Failed to book the package.') }
   finally { loading.value = false }
 }
-useHead(() => ({ title: pkg.value ? `${pkg.value.title} · Miruum` : 'Paket · Miruum' }))
+useHead(() => ({ title: pkg.value ? `${pkg.value.title} · Miruum` : t('Paket · Miruum', 'Package · Miruum') }))
 </script>

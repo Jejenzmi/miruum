@@ -2,7 +2,7 @@
   <div>
     <div class="flex items-center gap-3 my-4">
       <div class="flex-1 h-px bg-line"></div>
-      <span class="text-[12px] text-ink-faint">atau</span>
+      <span class="text-[12px] text-ink-faint">{{ t('atau', 'or') }}</span>
       <div class="flex-1 h-px bg-line"></div>
     </div>
     <div ref="btn" class="flex justify-center min-h-[44px]"></div>
@@ -13,6 +13,7 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
 const route = useRoute()
+const { t } = useLang()
 const { loginWithGoogle } = useAuth()
 const btn = ref<HTMLElement | null>(null)
 const err = ref('')
@@ -40,7 +41,7 @@ async function onCredential(resp: any) {
     await loginWithGoogle(resp.credential)
     await navigateTo((route.query.redirect as string) || '/')
   } catch (e: any) {
-    err.value = e?.data?.error || 'Login Google gagal.'
+    err.value = e?.data?.error || t('Login Google gagal.', 'Google sign-in failed.')
   }
 }
 </script>

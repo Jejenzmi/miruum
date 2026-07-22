@@ -4,14 +4,14 @@
     <transition name="page">
       <div v-if="open" class="mb-3 w-[340px] max-w-[calc(100vw-2.5rem)] card shadow-pop overflow-hidden flex flex-col" style="height:460px">
         <div class="bg-brand text-white px-4 py-3 flex items-center justify-between">
-          <div><div class="font-bold text-[15px]">Live Chat Miruum</div><div class="text-[11px] text-white/80">Kami balas secepatnya</div></div>
+          <div><div class="font-bold text-[15px]">{{ t('Live Chat Miruum', 'Miruum Live Chat') }}</div><div class="text-[11px] text-white/80">{{ t('Kami balas secepatnya', 'We reply as soon as we can') }}</div></div>
           <button @click="open = false" class="w-8 h-8 grid place-items-center rounded-full hover:bg-white/15">✕</button>
         </div>
 
         <div v-if="!isLoggedIn" class="flex-1 grid place-items-center p-6 text-center">
           <div>
-            <p class="text-ink-muted text-sm mb-3">Masuk untuk memulai obrolan dengan CS kami.</p>
-            <NuxtLink to="/login?redirect=/" class="btn-brand btn-sm">Masuk</NuxtLink>
+            <p class="text-ink-muted text-sm mb-3">{{ t('Masuk untuk memulai obrolan dengan CS kami.', 'Sign in to start chatting with our support team.') }}</p>
+            <NuxtLink to="/login?redirect=/" class="btn-brand btn-sm">{{ t('Masuk', 'Sign In') }}</NuxtLink>
           </div>
         </div>
 
@@ -20,14 +20,14 @@
             <div v-for="(m,i) in messages" :key="i" class="flex" :class="isMine(m) ? 'justify-end' : 'justify-start'">
               <div class="max-w-[80%] rounded-2xl px-3 py-2 text-[14px]"
                    :class="isMine(m) ? 'bg-brand text-white rounded-br-sm' : 'bg-white border border-line rounded-bl-sm'">
-                <div v-if="!isMine(m) && m.sender==='BOT'" class="text-[10px] font-bold text-brand-600 mb-0.5">MIRA (Bot)</div>
+                <div v-if="!isMine(m) && m.sender==='BOT'" class="text-[10px] font-bold text-brand-600 mb-0.5">{{ t('MIRA (Bot)', 'MIRA (Bot)') }}</div>
                 {{ m.body }}
               </div>
             </div>
-            <p v-if="!messages.length" class="text-center text-ink-faint text-[13px] mt-6">Ada yang bisa kami bantu? Ketik pesanmu di bawah.</p>
+            <p v-if="!messages.length" class="text-center text-ink-faint text-[13px] mt-6">{{ t('Ada yang bisa kami bantu? Ketik pesanmu di bawah.', 'How can we help? Type your message below.') }}</p>
           </div>
           <form @submit.prevent="send" class="p-2.5 border-t border-line flex gap-2">
-            <input v-model="text" class="input !py-2.5 !text-sm" placeholder="Tulis pesan…" />
+            <input v-model="text" class="input !py-2.5 !text-sm" :placeholder="t('Tulis pesan…', 'Write a message…')" />
             <button class="btn-brand btn-sm px-3" :disabled="sending">➤</button>
           </form>
         </template>
@@ -42,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useLang()
 const { $api } = useNuxtApp()
 const { isLoggedIn } = useAuth()
 const open = ref(false)
