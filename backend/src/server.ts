@@ -66,9 +66,32 @@ function flattenFacilities(node: any): any {
   }
   return node;
 }
-app.use((_req, res, next) => {
+// ── B2B price confidentiality ───────────────────────────────────────────────
+// Net rates, our markup, channel commissions and the supply-source identity are
+// commercial secrets. They must never reach customer-facing clients: every
+// endpoint below is readable by anyone with curl, so "we just don't render it"
+// is NOT protection. Only the role-guarded /api/admin and /api/partner trees
+// keep these fields.
+//
+// `channelId` deliberately STAYS: bookings route to the cheapest supply source
+// by that id, and it is an opaque identifier that reveals no pricing.
+const B2B_ONLY_KEYS = new Set(["basePrice", "markupPct", "commissionPct", "deeplink", "channel"]);
+function stripB2B(node: any): any {
+  if (Array.isArray(node)) return node.map(stripB2B);
+  if (node && typeof node === "object") {
+    for (const k of Object.keys(node)) {
+      if (B2B_ONLY_KEYS.has(k)) delete (node as any)[k];
+      else (node as any)[k] = stripB2B((node as any)[k]);
+    }
+  }
+  return node;
+}
+const PRIVILEGED_PATH = /^\/api\/(admin|partner)(\/|$)/;
+
+app.use((req, res, next) => {
   const orig = res.json.bind(res);
-  res.json = (body: any) => orig(flattenFacilities(body));
+  const privileged = PRIVILEGED_PATH.test(req.path);
+  res.json = (body: any) => orig(privileged ? flattenFacilities(body) : stripB2B(flattenFacilities(body)));
   next();
 });
 app.use(express.urlencoded({ extended: true })); // provider webhooks (form-encoded)
