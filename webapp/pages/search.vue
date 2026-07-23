@@ -47,11 +47,25 @@
 
       <!-- Results -->
       <div>
-        <div class="flex items-center justify-between mb-4">
-          <h1 class="text-xl font-bold">
-            {{ q ? `${t('Hasil untuk', 'Results for')} “${q}”` : t('Semua Properti', 'All Properties') }}
-            <span class="text-ink-faint font-normal text-base">· {{ hotels.length }} {{ t('properti', 'properties') }}</span>
-          </h1>
+        <div class="mb-4">
+          <div class="flex items-center justify-between">
+            <h1 class="text-xl font-bold">
+              {{ heading }}
+              <span class="text-ink-faint font-normal text-base">· {{ hotels.length }} {{ t('properti', 'properties') }}</span>
+            </h1>
+          </div>
+
+          <!-- Active structured area -->
+          <div v-if="regionId" class="flex flex-wrap items-center gap-2 mt-2">
+            <span class="chip chip-on !cursor-default">
+              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 fill-none stroke-current" stroke-width="2"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              {{ t('Area', 'Area') }}: {{ areaLabel }}
+              <button type="button" :aria-label="t('Hapus filter area', 'Remove area filter')"
+                      class="ml-0.5 w-4 h-4 grid place-items-center rounded-full hover:bg-brand/20" @click="clearRegion">
+                <svg viewBox="0 0 24 24" class="w-3 h-3 fill-none stroke-current" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </span>
+          </div>
         </div>
 
         <div v-if="pending" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -78,6 +92,24 @@ const { t } = useLang()
 const propertyTypes = computed(() => propertyTypeLabels())
 
 const q = computed(() => (route.query.q as string) || '')
+// Structured area search (see AreaSearchInput / SearchWidget). `regionId`
+// matches hierarchically on the backend: a province also covers its kecamatan.
+const regionId = computed(() => (route.query.regionId as string) || '')
+const regionName = computed(() => (route.query.regionName as string) || '')
+const areaLabel = computed(() => titleCaseArea(regionName.value) || t('Area terpilih', 'Selected area'))
+const heading = computed(() => {
+  if (regionId.value) {
+    const base = `${t('Properti di', 'Properties in')} ${areaLabel.value}`
+    return q.value ? `${base} · “${q.value}”` : base
+  }
+  return q.value ? `${t('Hasil untuk', 'Results for')} “${q.value}”` : t('Semua Properti', 'All Properties')
+})
+
+function clearRegion() {
+  const { regionId: _r, regionName: _n, ...rest } = route.query
+  navigateTo({ path: '/search', query: rest })
+}
+
 const sort = ref((route.query.sort as string) || 'popular')
 const propType = ref((route.query.propertyType as string) || '')
 const star = ref(0)
@@ -93,6 +125,7 @@ const facilities = computed<any[]>(() => (facData.value as any)?.facilities || [
 const query = computed(() => {
   const p: Record<string, any> = { sort: sort.value }
   if (q.value) p.q = q.value
+  if (regionId.value) p.regionId = regionId.value
   if (propType.value) p.propertyType = propType.value
   if (star.value) p.minStar = star.value
   if (breakfast.value) p.breakfast = 1
@@ -110,5 +143,10 @@ const { data, pending } = await useAsyncData(
 )
 const hotels = computed<any[]>(() => ((data.value as any)?.hotels || (data.value as any) || []))
 
-useHead({ title: () => (q.value ? `${q.value} — ${t('Cari Hotel', 'Search Hotels')} · Miruum` : `${t('Cari Hotel', 'Search Hotels')} · Miruum`) })
+useHead({
+  title: () => {
+    const where = regionId.value ? areaLabel.value : q.value
+    return where ? `${where} — ${t('Cari Hotel', 'Search Hotels')} · Miruum` : `${t('Cari Hotel', 'Search Hotels')} · Miruum`
+  },
+})
 </script>

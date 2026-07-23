@@ -99,6 +99,19 @@ export const img = (url?: string | null, w = 800): string => {
   }
 }
 
+// Administrative area names come back from the API in ALL CAPS
+// ("KABUPATEN SLEMAN", "DI YOGYAKARTA"). Render them in Title Case, keeping the
+// handful of Indonesian administrative acronyms uppercase.
+const AREA_ACRONYMS = new Set(['DI', 'DKI', 'DIY', 'KEP', 'RI', 'NTB', 'NTT'])
+export const titleCaseArea = (s?: string | null): string => {
+  if (!s || typeof s !== 'string') return ''
+  return s.toLowerCase().replace(/[^\s,./-]+/g, (w) => {
+    const up = w.toUpperCase()
+    if (AREA_ACRONYMS.has(up)) return up
+    return w.charAt(0).toUpperCase() + w.slice(1)
+  })
+}
+
 // Kept for existing callers (Indonesian map). Prefer propertyTypes()/boardBasisLabel().
 export const PROPERTY_TYPES = PROPERTY_TYPES_ID
 export const BOARD_BASIS = BOARD_BASIS_ID

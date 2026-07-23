@@ -22,14 +22,14 @@
 
     <!-- Search fields -->
     <form @submit.prevent="go" class="grid gap-2.5 lg:grid-cols-[2fr_1.2fr_1.2fr_auto] items-stretch">
-      <!-- Destination -->
-      <label class="flex items-center gap-2 border border-line rounded-xl px-3.5 py-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
-        <svg viewBox="0 0 24 24" class="w-5 h-5 fill-none stroke-ink-faint shrink-0" stroke-width="2"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-        <div class="min-w-0 flex-1">
-          <div class="text-[11px] text-ink-faint font-semibold">{{ t('Kota / Hotel', 'City / Hotel') }}</div>
-          <input v-model="q" class="w-full outline-none text-[15px] font-semibold placeholder:font-normal placeholder:text-ink-faint" :placeholder="t('Mau menginap di mana?', 'Where do you want to stay?')" />
-        </div>
-      </label>
+      <!-- Destination (structured area autocomplete + free text fallback) -->
+      <AreaSearchInput
+        v-model="q"
+        :label="t('Kota / Hotel', 'City / Hotel')"
+        :placeholder="t('Mau menginap di mana?', 'Where do you want to stay?')"
+        @select="onAreaSelect"
+        @clear="region = null"
+      />
 
       <!-- Dates -->
       <div class="grid grid-cols-2 gap-2.5">
@@ -79,18 +79,59 @@
 </template>
 
 <script setup lang="ts">
+// Same structural shape AreaSearchInput emits with `select`.
+type AreaRegion = { id: string; name: string; level?: string; path?: string; hotels?: number }
+
 const { t } = useLang()
 const route = useRoute()
 const todayStr = isoDate(new Date())
-const q = ref((route.query.q as string) || '')
+
+// A destination is either a *structured area* (regionId, picked from the
+// autocomplete) or plain free text — free text keeps behaving exactly as before.
+const regionFromRoute = (): AreaRegion | null =>
+  route.query.regionId
+    ? { id: String(route.query.regionId), name: String(route.query.regionName || '') }
+    : null
+
+const region = ref<AreaRegion | null>(regionFromRoute())
+const q = ref(region.value ? titleCaseArea(region.value.name) : (route.query.q as string) || '')
 const checkIn = ref((route.query.checkIn as string) || todayStr)
 const checkOut = ref((route.query.checkOut as string) || isoDate(new Date(Date.now() + 86400000)))
 const guests = ref(Number(route.query.guests) || 2)
 const rooms = ref(Number(route.query.rooms) || 1)
 const gOpen = ref(false)
 
+// Keep the widget in sync when the page changes the query itself (e.g. the
+// search page removing the active area chip).
+watch(
+  () => [route.query.regionId, route.query.regionName, route.query.q],
+  () => {
+    const r = regionFromRoute()
+    region.value = r
+    q.value = r ? titleCaseArea(r.name) : (route.query.q as string) || ''
+  },
+)
+
+function onAreaSelect(r: AreaRegion) {
+  region.value = r
+  q.value = titleCaseArea(r.name)
+  go()
+}
+
 function go() {
   if (checkOut.value <= checkIn.value) checkOut.value = isoDate(new Date(new Date(checkIn.value).getTime() + 86400000))
-  navigateTo({ path: '/search', query: { q: q.value || undefined, checkIn: checkIn.value, checkOut: checkOut.value, guests: guests.value, rooms: rooms.value } })
+  const query: Record<string, any> = {
+    checkIn: checkIn.value,
+    checkOut: checkOut.value,
+    guests: guests.value,
+    rooms: rooms.value,
+  }
+  if (region.value?.id) {
+    query.regionId = region.value.id
+    query.regionName = region.value.name || undefined
+  } else if (q.value) {
+    query.q = q.value
+  }
+  navigateTo({ path: '/search', query })
 }
 </script>
