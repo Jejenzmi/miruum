@@ -41,6 +41,36 @@ app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === "/api/hea
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } })); // security headers (JSON API)
 app.use(cors());
 app.use(express.json({ limit: "8mb" })); // allow base64 image uploads
+
+// ── Response shape compatibility: hotel facilities ──────────────────────────
+// The hotel-card select pulls facilities through the HotelFacility join table,
+// so Prisma nests them as [{ facility: { id, name, icon } }]. The hotel DETAIL
+// endpoint has always returned a FLAT [{ id, name, icon }], and shipped mobile
+// builds parse that flat shape with NON-NULLABLE name/icon — the nested shape
+// makes them crash. Flatten on the way out so every client keeps working
+// without needing an app update.
+function flattenFacilities(node: any): any {
+  if (Array.isArray(node)) return node.map(flattenFacilities);
+  if (node && typeof node === "object") {
+    for (const k of Object.keys(node)) {
+      const v = (node as any)[k];
+      if (k === "facilities" && Array.isArray(v)) {
+        (node as any)[k] = v.map((f: any) =>
+          f && typeof f === "object" && f.facility
+            ? { id: f.facility.id ?? "", name: f.facility.name ?? "", icon: f.facility.icon ?? "" }
+            : flattenFacilities(f));
+      } else {
+        (node as any)[k] = flattenFacilities(v);
+      }
+    }
+  }
+  return node;
+}
+app.use((_req, res, next) => {
+  const orig = res.json.bind(res);
+  res.json = (body: any) => orig(flattenFacilities(body));
+  next();
+});
 app.use(express.urlencoded({ extended: true })); // provider webhooks (form-encoded)
 
 // Shared Redis store so rate limits hold ACROSS instances & survive restarts.
@@ -451,7 +481,7 @@ const hotelCard = {
   isPromo: true, promoLabel: true, propertyType: true, lat: true, lng: true,
   // A few facility chips so list cards can show what the property offers
   // (richer cards convert better — same as the big OTAs).
-  facilities: { take: 3, select: { facility: { select: { name: true, icon: true } } } },
+  facilities: { take: 3, select: { facility: { select: { id: true, name: true, icon: true } } } },
   channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
 
