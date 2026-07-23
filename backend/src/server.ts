@@ -1934,15 +1934,81 @@ app.get("/api/corporate/overview", requireRole("CORPORATE"), async (req: AuthReq
     prisma.booking.count({ where: { corporateId: c.id, createdAt: { gte: since } } }),
     prisma.booking.findMany({ where: { corporateId: c.id }, orderBy: { createdAt: "desc" }, take: 8, include: { hotel: { select: { name: true, city: true } }, room: { select: { name: true } } } }),
   ]);
-  res.json({ corporate: c, stats: { bookings, spend: agg._sum.totalPrice ?? 0, recent30 }, recent });
+  res.json({
+    corporate: c,
+    discountPct: await corporateDiscountPct(c as any), // effective B2B rate (own or global default)
+    stats: { bookings, spend: agg._sum.totalPrice ?? 0, recent30 },
+    recent,
+  });
 });
 
-app.get("/api/corporate/rooms", requireRole("CORPORATE"), async (_req, res) => {
+// Admin: corporate accounts + their negotiated B2B rate.
+app.get("/api/admin/corporates", requireRole("ADMIN"), async (_req, res) => {
+  const corporates = await prisma.corporate.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, type: true, entityType: true, email: true, phone: true,
+      discountPct: true, creditLimit: true, active: true,
+      _count: { select: { bookings: true, users: true } },
+    },
+  });
+  res.json({
+    corporates: corporates.map((c) => ({ ...c, creditLimit: Number(c.creditLimit) })),
+    defaultDiscountPct: Number((await getSettings()).corporate_discount_pct ?? 0),
+  });
+});
+
+app.put("/api/admin/corporates/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({
+    discountPct: z.coerce.number().int().min(0).max(90).optional(),
+    creditLimit: z.coerce.number().int().min(0).optional(),
+    active: formBool.optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid (diskon 0–90%)" });
+  const data: any = {};
+  if (p.data.discountPct !== undefined) data.discountPct = p.data.discountPct;
+  if (p.data.creditLimit !== undefined) data.creditLimit = BigInt(p.data.creditLimit);
+  if (p.data.active !== undefined) data.active = p.data.active;
+  const c = await prisma.corporate.update({ where: { id: req.params.id }, data });
+  audit(req, "corporate.update", "Corporate", c.id);
+  res.json({ ok: true });
+});
+
+/**
+ * The negotiated B2B discount (%) for a corporate account: its own rate when
+ * set, otherwise the global default. B2C never gets this — it is only ever
+ * applied inside the role-guarded /api/corporate/* tree, which is also NOT
+ * Redis-cached, so a B2B price can never end up in a public cache entry.
+ */
+async function corporateDiscountPct(corp: { discountPct?: number | null } | null): Promise<number> {
+  const own = Number(corp?.discountPct ?? 0);
+  if (own > 0) return Math.min(own, 90);
+  const fallback = Number((await getSettings()).corporate_discount_pct ?? 0);
+  return Math.min(Math.max(fallback, 0), 90);
+}
+/** Apply a B2B discount to a public rate (rounded to whole rupiah). */
+const b2bPrice = (publicPrice: number, pct: number) =>
+  Math.max(0, Math.round(publicPrice * (100 - pct) / 100));
+
+app.get("/api/corporate/rooms", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const c = await corporateOf(req);
+  const pct = await corporateDiscountPct(c as any);
   const hotels = await prisma.hotel.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true, city: true, rooms: { orderBy: { price: "asc" }, select: { id: true, name: true, price: true } } },
   });
-  res.json({ hotels });
+  // `price` stays the B2B (payable) rate so existing clients keep working;
+  // `publicPrice` is the B2C rate we show struck through as the saving.
+  const out = hotels.map((h) => ({
+    ...h,
+    rooms: h.rooms.map((r) => ({
+      ...r,
+      price: b2bPrice(r.price, pct),
+      publicPrice: r.price,
+    })),
+  }));
+  res.json({ hotels: out, discountPct: pct });
 });
 
 app.post("/api/corporate/bookings", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
@@ -1959,7 +2025,11 @@ app.post("/api/corporate/bookings", requireRole("CORPORATE"), async (req: AuthRe
   if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
   const checkIn = new Date(p.data.checkIn), checkOut = new Date(p.data.checkOut);
   const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
-  const roomPrice = room.price * nights * p.data.rooms;
+  // Charge the negotiated B2B rate — must match what the portal displayed,
+  // otherwise the account sees a cheap price and gets billed the retail one.
+  const pct = await corporateDiscountPct(c as any);
+  const nightly = b2bPrice(room.price, pct);
+  const roomPrice = nightly * nights * p.data.rooms;
   const taxFee = Math.round(roomPrice * (await getNum("taxPct")) / 100); // same configurable tax as retail
   const booking = await prisma.booking.create({
     data: {
@@ -2756,7 +2826,7 @@ const formBool = z.preprocess((v) => v === true || v === "true" || v === "on" ||
 app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({
     name: z.string().min(2), city: z.string().min(2), address: z.string().min(2),
-    regionId: z.string().optional(),
+    regionId: z.string().min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
     description: z.string().default(""), priceFrom: z.coerce.number().int().default(0),
     starRating: z.coerce.number().int().min(1).max(5).default(3), rating: z.coerce.number().default(8),
     imageUrl: z.string().default(""), isPromo: formBool,
@@ -2766,7 +2836,9 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
     propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).default("HOTEL"),
   });
   const p = schema.safeParse(req.body);
-  if (!p.success) return res.status(400).json({ error: "Data hotel tidak valid", details: p.error.issues });
+  if (!p.success) {
+    return res.status(400).json({ error: p.error.issues[0]?.message || "Data hotel tidak valid", details: p.error.issues });
+  }
   const slug = p.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 9000 + 1000);
   const hotel = await prisma.hotel.create({ data: { ...p.data, slug, ownerId: p.data.ownerId || null } });
   await invalidate("miruum:");
@@ -2777,7 +2849,7 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
 app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({
     name: z.string().optional(), city: z.string().optional(), address: z.string().optional(),
-    regionId: z.string().optional(),
+    regionId: z.string().min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
     description: z.string().optional(), priceFrom: z.coerce.number().int().optional(),
     starRating: z.coerce.number().int().optional(), rating: z.coerce.number().optional(),
     imageUrl: z.string().optional(), isPromo: formBool.optional(),
@@ -2787,7 +2859,9 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
     propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).optional(),
   });
   const p = schema.safeParse(req.body);
-  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  if (!p.success) {
+    return res.status(400).json({ error: p.error.issues[0]?.message || "Data tidak valid", details: p.error.issues });
+  }
   const data: any = { ...p.data };
   if (data.ownerId === "") data.ownerId = null;
   if (data.channelId === "") data.channelId = null;
@@ -4178,6 +4252,28 @@ app.post("/api/partner/reviews/:id/reply", requireRole("PARTNER", "ADMIN"), asyn
 });
 
 // Partner: edit property content (description, check-in/out policy).
+// Partner (Extranet): set the property's structured area + street address.
+// Region is mandatory — every property must be findable by area search.
+app.put("/api/partner/hotels/:id/location", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const schema = z.object({
+    regionId: z.string().min(1, "Wilayah wajib dipilih"),
+    address: z.string().min(2, "Alamat wajib diisi").max(300),
+    city: z.string().max(120).optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || "Data lokasi tidak valid" });
+  const region = await prisma.region.findUnique({ where: { id: p.data.regionId }, select: { id: true } });
+  if (!region) return res.status(400).json({ error: "Wilayah tidak ditemukan" });
+  const hotel = await prisma.hotel.update({
+    where: { id: req.params.id },
+    data: { regionId: p.data.regionId, address: p.data.address, ...(p.data.city ? { city: p.data.city } : {}) },
+  });
+  await invalidate("miruum:");
+  audit(req, "hotel.location", "Hotel", hotel.id, { regionId: p.data.regionId });
+  res.json({ hotel });
+});
+
 app.put("/api/partner/hotels/:id/content", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
   const schema = z.object({

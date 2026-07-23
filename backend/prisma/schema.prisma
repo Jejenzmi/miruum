@@ -35,6 +35,9 @@ model Corporate {
   website     String?
   regionId    String?       // leaf region (Desa/Kelurahan) — full path derivable
   creditLimit BigInt        @default(0)
+  // Negotiated B2B discount off the public (B2C) rate, in percent. 0 = fall
+  // back to the global `corporate_discount_pct` setting.
+  discountPct Int           @default(0)
   active      Boolean       @default(true)
   createdAt   DateTime      @default(now())
   users       User[]

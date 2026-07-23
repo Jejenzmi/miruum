@@ -13,6 +13,9 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   // Mobile app update prompt (shown by the app on launch).
   // Which payment methods to offer (comma-separated codes). Empty = all.
   payment_methods_enabled: "",
+  // Default B2B discount (%) off the public rate for corporate accounts that
+  // have no negotiated rate of their own. Never applies to B2C.
+  corporate_discount_pct: "0",
   app_latest_version: "", // e.g. "1.1.0" — newer than this → optional update popup
   app_min_version: "",     // e.g. "1.1.0" — older than this → forced update popup
   app_update_url: "https://api.miruum.id/ota.apk",
