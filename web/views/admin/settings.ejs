@@ -12,6 +12,10 @@
     <input name="directCommissionPct" type="number" step="0.1" value="<%= settings.directCommissionPct %>">
     <p class="muted" style="font-size:11.5px;margin-top:4px">Komisi Miruum untuk booking hotel DIRECT (memengaruhi payout & Keuangan).</p>
 
+    <label>Tarif B2B Korporat — Diskon Default (%)</label>
+    <input name="corporate_discount_pct" type="number" min="0" max="90" step="1" value="<%= settings.corporate_discount_pct %>">
+    <p class="muted" style="font-size:11.5px;margin-top:4px">Berlaku untuk akun korporat/pemerintah yang belum punya tarif negosiasi sendiri (<a href="/admin/corporates">Akun Korporat</a>) — tidak pernah memengaruhi harga publik (B2C).</p>
+
     <label>Mata Uang</label>
     <input name="currency" value="<%= settings.currency %>">
 

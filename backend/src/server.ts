@@ -2826,7 +2826,7 @@ const formBool = z.preprocess((v) => v === true || v === "true" || v === "on" ||
 app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({
     name: z.string().min(2), city: z.string().min(2), address: z.string().min(2),
-    regionId: z.string().min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
+    regionId: z.string({ required_error: "Wilayah wajib dipilih" }).min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
     description: z.string().default(""), priceFrom: z.coerce.number().int().default(0),
     starRating: z.coerce.number().int().min(1).max(5).default(3), rating: z.coerce.number().default(8),
     imageUrl: z.string().default(""), isPromo: formBool,
@@ -2849,7 +2849,7 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
 app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({
     name: z.string().optional(), city: z.string().optional(), address: z.string().optional(),
-    regionId: z.string().min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
+    regionId: z.string({ required_error: "Wilayah wajib dipilih" }).min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
     description: z.string().optional(), priceFrom: z.coerce.number().int().optional(),
     starRating: z.coerce.number().int().optional(), rating: z.coerce.number().optional(),
     imageUrl: z.string().optional(), isPromo: formBool.optional(),
@@ -4257,7 +4257,7 @@ app.post("/api/partner/reviews/:id/reply", requireRole("PARTNER", "ADMIN"), asyn
 app.put("/api/partner/hotels/:id/location", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
   const schema = z.object({
-    regionId: z.string().min(1, "Wilayah wajib dipilih"),
+    regionId: z.string({ required_error: "Wilayah wajib dipilih" }).min(1, "Wilayah wajib dipilih"),
     address: z.string().min(2, "Alamat wajib diisi").max(300),
     city: z.string().max(120).optional(),
   });

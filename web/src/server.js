@@ -161,12 +161,15 @@ app.get("/admin/hotels", adminGuard, async (req, res) => {
 
 app.get("/admin/hotels/new", adminGuard, async (req, res) => {
   const { users } = await api("/admin/users", { token: res.locals.token });
-  res.render("admin/hotel_form", { hotel: null, users: users.filter((u) => u.role === "PARTNER"), active: "hotels" });
+  res.render("admin/hotel_form", { hotel: null, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err });
 });
 
 app.post("/admin/hotels", adminGuard, async (req, res) => {
-  await api("/admin/hotels", { method: "POST", token: res.locals.token, body: req.body });
-  res.redirect("/admin/hotels");
+  // Wilayah (regionId) wajib — surface the API message back on the form.
+  try {
+    await api("/admin/hotels", { method: "POST", token: res.locals.token, body: req.body });
+    res.redirect("/admin/hotels?added=1");
+  } catch (e) { res.redirect("/admin/hotels/new?err=" + encodeURIComponent(e.message)); }
 });
 
 app.get("/admin/hotels/:id/edit", adminGuard, async (req, res) => {
@@ -175,12 +178,15 @@ app.get("/admin/hotels/:id/edit", adminGuard, async (req, res) => {
     api("/admin/users", { token: res.locals.token }),
   ]);
   const hotel = hotels.find((h) => h.id === req.params.id);
-  res.render("admin/hotel_form", { hotel, users: users.filter((u) => u.role === "PARTNER"), active: "hotels" });
+  res.render("admin/hotel_form", { hotel, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err });
 });
 
 app.post("/admin/hotels/:id", adminGuard, async (req, res) => {
-  await api(`/admin/hotels/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body });
-  res.redirect("/admin/hotels");
+  // Wilayah (regionId) wajib — surface the API message back on the form.
+  try {
+    await api(`/admin/hotels/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body });
+    res.redirect("/admin/hotels?saved=1");
+  } catch (e) { res.redirect(`/admin/hotels/${req.params.id}/edit?err=` + encodeURIComponent(e.message)); }
 });
 
 app.post("/admin/hotels/:id/delete", adminGuard, async (req, res) => {
@@ -321,6 +327,24 @@ app.post("/admin/settlements/pay", adminGuard, async (req, res) => {
 app.get("/admin/users", adminGuard, async (req, res) => {
   const { users } = await api("/admin/users", { token: res.locals.token });
   res.render("admin/users", { users, active: "users" });
+});
+
+// ── Akun Korporat (tarif B2B negosiasi per akun) ──
+app.get("/admin/corporates", adminGuard, async (req, res) => {
+  const { corporates, defaultDiscountPct } = await api("/admin/corporates", { token: res.locals.token });
+  res.render("admin/corporates", {
+    corporates: corporates || [],
+    defaultDiscountPct: Number(defaultDiscountPct || 0),
+    active: "corporates", saved: req.query.saved,
+  });
+});
+app.post("/admin/corporates/:id", adminGuard, async (req, res) => {
+  try {
+    await api("/admin/corporates/" + req.params.id, {
+      method: "PUT", token: res.locals.token, body: { discountPct: req.body.discountPct },
+    });
+    res.redirect("/admin/corporates?saved=1");
+  } catch (e) { res.redirect("/admin/corporates?saved=err"); }
 });
 
 // ── Penagihan Korporat (Miruum → tagihan ke corporate) ──
@@ -786,7 +810,7 @@ app.get("/extranet/hotels/:id", partnerGuard, async (req, res) => {
     api(`/partner/hotels/${req.params.id}`, { token: res.locals.token }),
     api(`/facilities`),
   ]);
-  res.render("extranet/hotel", { hotel, facilities, active: "dashboard", saved: req.query.saved });
+  res.render("extranet/hotel", { hotel, facilities, active: "dashboard", saved: req.query.saved, err: req.query.err });
 });
 
 // Allotment calendar (Traveloka Tera style): month grid per room.
@@ -862,11 +886,16 @@ app.post("/corporate/register", docUpload.any(), async (req, res) => {
 
 app.get("/corporate", corporateGuard, async (req, res) => {
   const data = await api("/corporate/overview", { token: res.locals.token });
-  res.render("corporate/dashboard", { ...data, active: "dashboard" });
+  // discountPct = tarif B2B efektif (negosiasi akun, atau default global).
+  res.render("corporate/dashboard", { ...data, discountPct: Number(data.discountPct || 0), active: "dashboard" });
 });
 app.get("/corporate/book", corporateGuard, async (req, res) => {
-  const { hotels } = await api("/corporate/rooms", { token: res.locals.token });
-  res.render("corporate/book", { hotels, active: "book", booked: req.query.booked, err: req.query.err });
+  // Tiap kamar membawa `price` (tarif B2B yang dibayar) + `publicPrice` (harga publik).
+  const { hotels, discountPct } = await api("/corporate/rooms", { token: res.locals.token });
+  res.render("corporate/book", {
+    hotels, discountPct: Number(discountPct || 0),
+    active: "book", booked: req.query.booked, err: req.query.err,
+  });
 });
 app.post("/corporate/book", corporateGuard, async (req, res) => {
   try {
@@ -1071,6 +1100,15 @@ app.post("/extranet/nearby/:id/delete", partnerGuard, async (req, res) => {
 app.post("/extranet/hotels/:id/property-type", partnerGuard, async (req, res) => {
   try { await api(`/partner/hotels/${req.params.id}/property-type`, { method: "PUT", token: res.locals.token, body: { propertyType: req.body.propertyType } }); } catch (_) {}
   res.redirect(`/extranet/hotels/${req.params.id}?saved=tipe`);
+});
+
+// Lokasi & wilayah properti (wilayah wajib — dipakai pencarian area).
+app.post("/extranet/hotels/:id/location", partnerGuard, async (req, res) => {
+  try {
+    await api(`/partner/hotels/${req.params.id}/location`, { method: "PUT", token: res.locals.token, body: {
+      regionId: req.body.regionId, address: req.body.address, city: req.body.city } });
+    res.redirect(`/extranet/hotels/${req.params.id}?saved=lokasi`);
+  } catch (e) { res.redirect(`/extranet/hotels/${req.params.id}?err=` + encodeURIComponent(e.message)); }
 });
 
 // Edit property content + facilities.

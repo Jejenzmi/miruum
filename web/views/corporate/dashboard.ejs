@@ -17,6 +17,13 @@
   <div class="stat"><div class="icon" style="background:var(--green-s);color:var(--green-d)"><svg class="ci"><use href="#i-finance"/></svg></div><div class="label">Total Belanja</div><div class="value" style="font-size:19px"><%= rupiah(stats.spend) %></div></div>
   <div class="stat"><div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-trend"/></svg></div><div class="label">30 Hari Terakhir</div><div class="value"><%= stats.recent30 %></div></div>
   <div class="stat"><div class="icon" style="background:var(--primary-s);color:var(--primary-d)"><svg class="ci"><use href="#i-box"/></svg></div><div class="label">Limit Kredit</div><div class="value" style="font-size:19px"><%= rupiah(corporate.creditLimit) %></div></div>
+  <% var _disc = Number(locals.discountPct) || 0; %>
+  <div class="stat">
+    <div class="icon" style="background:var(--accent-s);color:#b8791a"><svg class="ci"><use href="#i-promos"/></svg></div>
+    <div class="label">Diskon B2B</div>
+    <div class="value" style="font-size:19px"><%= _disc > 0 ? _disc + '%' : 'Harga publik' %></div>
+    <div class="muted" style="font-size:11.5px;margin-top:4px"><%= _disc > 0 ? 'Diskon B2B ' + _disc + '% dari harga publik' : 'Belum ada diskon khusus' %></div>
+  </div>
 </div>
 
 <div class="grid-2">

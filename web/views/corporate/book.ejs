@@ -3,9 +3,18 @@
 <% if (booked) { %><div class="notice ok">Pemesanan berhasil — kode <b><%= booked %></b> ditagihkan ke corporate. <a href="/api/invoices/<%= booked %>" target="_blank">Lihat Invoice</a> · <a href="/api/vouchers/<%= booked %>" target="_blank">E-Voucher</a></div><% } %>
 <% if (err) { %><div class="notice bad">Pemesanan gagal. Periksa isian Anda.</div><% } %>
 
+<% var _disc = Number(locals.discountPct) || 0; %>
+
 <div class="card" style="max-width:640px">
   <h2>Pesanan Baru untuk Karyawan/Pegawai</h2>
   <p class="muted" style="margin-top:-8px">Pilih hotel &amp; kamar, tanggal menginap, dan nama tamu. Tagihan otomatis atas nama corporate.</p>
+  <p class="muted" style="font-size:12.5px;margin:-4px 0 12px">
+    <% if (_disc > 0) { %>
+      <span class="pill PAID">Diskon B2B <%= _disc %>%</span> Harga di bawah sudah tarif korporat — angka utama yang dibayar, harga publik dicoret.
+    <% } else { %>
+      <span class="pill REFUNDED">Harga publik</span> Akun Anda belum memiliki diskon khusus.
+    <% } %>
+  </p>
   <form method="post" action="/corporate/book">
     <label>Hotel &amp; Tipe Kamar</label>
     <select name="roomId" required>
@@ -13,7 +22,8 @@
       <% hotels.forEach(function(h){ if(h.rooms.length){ %>
         <optgroup label="<%= h.name %> · <%= h.city %>">
           <% h.rooms.forEach(function(r){ %>
-            <option value="<%= r.id %>"><%= r.name %> — <%= rupiah(r.price) %>/malam</option>
+            <% var pub = Number(r.publicPrice) || 0; %>
+            <option value="<%= r.id %>"><%= r.name %> — <%= rupiah(r.price) %>/malam<% if (pub > r.price) { %> (publik <%= rupiah(pub) %>, hemat <%= rupiah(pub - r.price) %>)<% } %></option>
           <% }) %>
         </optgroup>
       <% }}) %>
@@ -32,6 +42,29 @@
     <input name="note" placeholder="mis. Perjalanan Dinas No. 123/2026">
     <div style="margin-top:18px"><button class="btn">Pesan &amp; Tagih ke Corporate</button></div>
   </form>
+</div>
+
+<div class="card">
+  <h2>Daftar Tarif B2B</h2>
+  <p class="muted" style="margin-top:-8px;font-size:12.5px">Tarif per malam yang berlaku untuk akun Anda, dibandingkan harga publik Miruum.</p>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Hotel</th><th>Tipe Kamar</th><th>Tarif B2B / malam</th><th>Harga Publik</th><th>Hemat</th></tr></thead>
+      <tbody>
+        <% var _rows = 0; %>
+        <% hotels.forEach(function(h){ h.rooms.forEach(function(r){ _rows++; var pub = Number(r.publicPrice) || 0; %>
+          <tr>
+            <td><b><%= h.name %></b><br><span class="muted" style="font-size:11px"><%= h.city %></span></td>
+            <td><%= r.name %></td>
+            <td><b style="color:var(--primary-d)"><%= rupiah(r.price) %></b></td>
+            <td><% if (pub > r.price) { %><s class="muted"><%= rupiah(pub) %></s><% } else { %><span class="muted"><%= rupiah(pub || r.price) %></span><% } %></td>
+            <td><% if (pub > r.price) { %><span class="pill PAID">Hemat <%= rupiah(pub - r.price) %></span><% } else { %><span class="muted">—</span><% } %></td>
+          </tr>
+        <% }) }) %>
+        <% if (!_rows) { %><tr><td colspan="5" class="empty">Belum ada kamar tersedia</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <%- include('../partials/bottom') %>

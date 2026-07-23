@@ -12,6 +12,22 @@
 
 <% if (saved==='konten') { %><div class="notice ok">Konten properti tersimpan.</div><% } %>
 <% if (saved==='fasilitas') { %><div class="notice ok">Fasilitas tersimpan.</div><% } %>
+<% if (saved==='lokasi') { %><div class="notice ok">Lokasi &amp; wilayah tersimpan.</div><% } %>
+<% if (typeof err !== 'undefined' && err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="card">
+  <h2>Lokasi &amp; Wilayah</h2>
+  <p class="muted" style="margin-top:-8px">Wilayah menentukan properti Anda muncul di pencarian area (provinsi, kota, kecamatan) pada aplikasi Miruum.</p>
+  <% if (!hotel.regionId) { %>
+    <div class="notice bad">Properti ini belum punya wilayah — tidak akan muncul di pencarian area. Mohon lengkapi.</div>
+  <% } %>
+  <form id="lokasiForm" method="post" action="/extranet/hotels/<%= hotel.id %>/location">
+    <label>Kota</label>
+    <input name="city" value="<%= hotel.city || '' %>" placeholder="mis. Bandung">
+    <%- include('../partials/region_picker', { regionId: hotel.regionId || '', address: hotel.address || '' }) %>
+    <div style="margin-top:14px"><button class="btn sm">Simpan Lokasi</button></div>
+  </form>
+</div>
 
 <div class="card">
   <h2>Konten Properti</h2>
@@ -180,5 +196,20 @@
 </div>
 
 <a class="btn ghost" href="/extranet">← Kembali</a>
+
+<script>
+(function(){
+  var f=document.getElementById('lokasiForm');
+  if(!f) return;
+  f.addEventListener('submit', function(e){
+    var rid=f.querySelector('.rp-id');
+    if(rid && !rid.value){
+      e.preventDefault();
+      if(window.mToast) window.mToast('error','Wilayah wajib dipilih — properti tidak akan muncul di pencarian area.');
+      var prov=f.querySelector('.rp-prov'); if(prov){ prov.focus(); prov.scrollIntoView({behavior:'smooth',block:'center'}); }
+    }
+  });
+})();
+</script>
 
 <%- include('../partials/bottom') %>

@@ -1,0 +1,56 @@
+<%- include('../partials/top', { title:'Akun Korporat', heading:'Akun Korporat & Tarif B2B', section:'admin', active:'corporates', me }) %>
+
+<p class="muted" style="margin:-4px 0 18px">
+  Atur diskon B2B (tarif negosiasi) tiap akun korporat/pemerintah. Diskon dipotong dari harga publik dan hanya berlaku di portal korporat — harga publik (B2C) tidak pernah terpengaruh.
+</p>
+
+<div class="card">
+  <h3>Default Global</h3>
+  <p class="muted" style="font-size:12.5px;margin:0">
+    Saat ini <b><span class="pill <%= defaultDiscountPct > 0 ? 'PAID' : 'REFUNDED' %>"><%= defaultDiscountPct %>%</span></b>.
+    Akun dengan diskon <b>0</b> memakai default global ini. Ubah default di
+    <a href="/admin/settings">Pengaturan → Tarif B2B Korporat</a>.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Daftar Akun</h2>
+  <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr><th>Corporate</th><th>Jenis</th><th>Kontak</th><th>Pengguna</th><th>Pesanan</th><th>Limit Kredit</th><th>Status</th><th>Diskon B2B (%)</th></tr>
+      </thead>
+      <tbody>
+        <%
+          var ENTITY_LABELS = { SWASTA:'Perusahaan Swasta', BUMN:'BUMN', BUMD:'BUMD', PEMERINTAH:'Pemerintahan' };
+        %>
+        <% corporates.forEach(function(c){ %>
+          <% var eff = (Number(c.discountPct) || 0) > 0 ? Number(c.discountPct) : defaultDiscountPct; %>
+          <tr>
+            <td><b><%= c.name %></b><br><span class="muted" style="font-size:11px">Tarif efektif <%= eff %>%</span></td>
+            <td><span class="pill <%= c.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= ENTITY_LABELS[c.entityType] || (c.type==='GOVERNMENT'?'Pemerintah':'Korporat') %></span></td>
+            <td style="font-size:12px"><%= c.email || '—' %><br><span class="muted"><%= c.phone || '—' %></span></td>
+            <td><%= (c._count && c._count.users) || 0 %></td>
+            <td><%= (c._count && c._count.bookings) || 0 %></td>
+            <td><b><%= rupiah(c.creditLimit) %></b></td>
+            <td>
+              <% if (c.active) { %><span class="pill PAID">Aktif</span><% } else { %><span class="pill CANCELLED">Nonaktif</span><% } %>
+            </td>
+            <td>
+              <form method="post" action="/admin/corporates/<%= c.id %>" class="actions"
+                    data-confirm="Simpan diskon B2B untuk <%= c.name %>? Tarif baru langsung berlaku pada pemesanan korporat berikutnya."
+                    data-confirm-title="Simpan Tarif B2B" data-confirm-ok="Ya, simpan">
+                <input name="discountPct" type="number" min="0" max="90" step="1" value="<%= Number(c.discountPct) || 0 %>" style="max-width:90px" required>
+                <button class="btn sm">Simpan</button>
+              </form>
+              <span class="muted" style="font-size:11px">0 = memakai default global (<%= defaultDiscountPct %>%)</span>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!corporates.length) { %><tr><td colspan="8" class="empty">Belum ada akun korporat</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>
