@@ -498,6 +498,22 @@ app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
 });
 
 // ─────────────────────────── Hotels ───────────────────────────
+/**
+ * Every region id in the subtree rooted at `id` (the id itself included).
+ * Recursive CTE so one query walks Provinsi → Kab/Kota → Kecamatan → Desa;
+ * the region table holds ~88k rows, so this must not be done in JS.
+ */
+async function regionWithDescendants(id: string): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE subtree AS (
+      SELECT id FROM "Region" WHERE id = ${id}
+      UNION ALL
+      SELECT r.id FROM "Region" r JOIN subtree s ON r."parentId" = s.id
+    )
+    SELECT id FROM subtree`;
+  return rows.map((r) => r.id);
+}
+
 const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
   reviewCount: true, priceFrom: true, priceBefore: true, starRating: true, imageUrl: true,
@@ -517,6 +533,12 @@ app.get("/api/hotels", async (req, res) => {
     { address: { contains: query, mode: "insensitive" } },
   ];
   if (city) where.city = { contains: city, mode: "insensitive" };
+  // Structured area search: a regionId at ANY level matches properties in that
+  // region AND all its descendants, so picking a province/kabupaten also finds
+  // hotels linked at kecamatan/desa level.
+  if (req.query.regionId) {
+    where.regionId = { in: await regionWithDescendants(String(req.query.regionId)) };
+  }
   if (minPrice || maxPrice) where.priceFrom = {
     ...(minPrice ? { gte: Number(minPrice) } : {}),
     ...(maxPrice ? { lte: Number(maxPrice) } : {}),
@@ -792,6 +814,46 @@ function moduleFlags(s: Record<string, string>) {
 app.get("/api/config", async (_req, res) => {
   const s = await getSettings();
   res.json({ taxPct: Number(s.taxPct), currency: s.currency, appName: s.appName, modules: moduleFlags(s) });
+});
+
+// Area autocomplete for the search box: match a region by name and return it
+// with its full administrative path, plus how many properties it covers.
+app.get("/api/regions/search", async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  if (q.length < 2) return res.json({ regions: [] });
+  try {
+  const rows = await prisma.$queryRaw<
+    { id: string; name: string; level: string; path: string; hotels: bigint }[]
+  >`
+    WITH RECURSIVE match AS (
+      SELECT id, name, level, "parentId"
+      FROM "Region"
+      WHERE name ILIKE ${"%" + q + "%"}
+        AND level IN ('PROVINCE', 'CITY', 'DISTRICT')
+      ORDER BY CASE level WHEN 'CITY' THEN 0 WHEN 'DISTRICT' THEN 1 ELSE 2 END,
+               (name ILIKE ${q + "%"}) DESC, name
+      LIMIT 15
+    ),
+    subtree AS (
+      SELECT m.id AS root, r.id FROM match m JOIN "Region" r ON r.id = m.id
+      UNION ALL
+      SELECT s.root, r.id FROM "Region" r JOIN subtree s ON r."parentId" = s.id
+    )
+    SELECT m.id, m.name, m.level,
+           COALESCE(p.name, '') || CASE WHEN pp.name IS NOT NULL THEN ', ' || pp.name ELSE '' END AS path,
+           (SELECT COUNT(*) FROM "Hotel" h WHERE h."regionId" IN (SELECT id FROM subtree s WHERE s.root = m.id)) AS hotels
+    FROM match m
+    LEFT JOIN "Region" p  ON p.id  = m."parentId"
+    LEFT JOIN "Region" pp ON pp.id = p."parentId"`;
+  res.json({
+    regions: rows.map((r) => ({
+      id: r.id, name: r.name, level: r.level, path: r.path, hotels: Number(r.hotels),
+    })),
+  });
+  } catch (e: any) {
+    logger.error({ err: e?.message }, "[regions/search] failed");
+    res.json({ regions: [] }); // autocomplete must never break the search box
+  }
 });
 
 // Popular destinations with a real "from" price + property count per city.
