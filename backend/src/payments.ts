@@ -160,9 +160,13 @@ async function linkquCfg() {
 const lqNorm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const lqSign = (raw: string, key: string) => createHmac("sha256", key).update(raw).digest("hex");
 function lqExpired(hours: number): string {
-  const d = new Date(Date.now() + hours * 3600_000);
+  // LinkQu validates `expired` against its own clock in WIB (UTC+7) — a UTC
+  // string reads as "not greater than now" and the transaction is rejected.
+  // Shift by +7h and read the UTC wall-clock so this is correct regardless of
+  // the container timezone.
+  const d = new Date(Date.now() + (hours + 7) * 3600_000);
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
 }
 const linkquProvider: PaymentProvider = {
   code: "LINKQU",
