@@ -214,6 +214,31 @@ const linkquProvider: PaymentProvider = {
   },
 };
 
+// Verify a LinkQu callback is genuine. Per LinkQu docs the callback signature is
+// HMAC-SHA256(partner_reff + amount + va_number + username, serverKey). Only the
+// merchant + LinkQu know serverKey, so a forged callback can never produce a
+// valid signature — this is what stops anyone from POSTing a fake "SUCCESS" to
+// mark a booking paid. We also accept a couple of defensive field variants
+// (normalised; QRIS has no va_number) since we can't replay a real callback.
+export async function verifyLinkquCallback(body: any): Promise<boolean> {
+  const c = await linkquCfg();
+  if (!c.serverKey) return false;
+  const provided = String(body?.signature ?? "").toLowerCase();
+  const reff = String(body?.partner_reff ?? "");
+  if (!provided || !reff) return false;
+  const amount = String(body?.amount ?? "");
+  const va = String(body?.va_number ?? "");
+  const user = String(body?.username || c.username || "");
+  const raws = [
+    reff + amount + va + user,   // VA, exact per docs
+    reff + amount + user,        // QRIS (no va_number)
+  ];
+  const cands = raws.flatMap((r) => [lqSign(r, c.serverKey), lqSign(lqNorm(r), c.serverKey)]);
+  return cands.some((h) => h.toLowerCase() === provided);
+}
+/** LinkQu's callback source IP (from the docs) — a second, softer check. */
+export const LINKQU_CALLBACK_IP = "34.101.73.158";
+
 const PROVIDERS: Record<string, PaymentProvider> = { MOCK: mockProvider, FLIP: flipProvider, LINKQU: linkquProvider };
 
 // Provider selection is admin-managed (Setting `payment_provider`), falling back

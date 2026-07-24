@@ -16,7 +16,7 @@ import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
 import { syncOffers, getConnector, applyMarkup } from "./connectors.js";
 import QRCode from "qrcode";
-import { PAYMENT_METHODS, methodByCode, activeProvider } from "./payments.js";
+import { PAYMENT_METHODS, methodByCode, activeProvider, verifyLinkquCallback, LINKQU_CALLBACK_IP } from "./payments.js";
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { pushDistribution } from "./distribution.js";
@@ -1655,8 +1655,16 @@ app.post("/api/bookings/:id/pay", requireAuth, async (req: AuthRequest, res) => 
     },
   });
   await prisma.booking.update({ where: { id: booking.id }, data: { paymentMethod: method.label } });
-  res.json({ payment });
+  res.json({ payment: clientPayment(payment) });
 });
+
+// Never expose the gateway's internal reference or raw response to clients —
+// the partner_reff is what a forged callback would need.
+function clientPayment(p: any) {
+  if (!p) return p;
+  const { externalId, raw, ...pub } = p;
+  return pub;
+}
 
 // Settle a payment as PAID and confirm its booking (+notification). Shared by the
 // provider webhook and the mock "I've paid" action.
@@ -1696,9 +1704,9 @@ app.get("/api/payments/:id", requireAuth, async (req: AuthRequest, res) => {
   // auto-expire
   if (payment.status === "PENDING" && payment.expiresAt && payment.expiresAt < new Date()) {
     const exp = await prisma.payment.update({ where: { id: payment.id }, data: { status: "EXPIRED" } });
-    return res.json({ payment: exp });
+    return res.json({ payment: clientPayment(exp) });
   }
-  res.json({ payment });
+  res.json({ payment: clientPayment(payment) });
 });
 
 // Mock/dev settle — simulates a successful payment (no real money). Only allowed
@@ -1732,11 +1740,18 @@ app.post("/api/payments/webhook/linkqu", async (req, res) => {
   try {
     const reff = String(req.body?.partner_reff || "");
     const paid = String(req.body?.status || "").toUpperCase() === "SUCCESS";
-    if (reff && paid) {
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+    // A callback is only trusted if its HMAC signature checks out. Without this,
+    // anyone could POST {status:"SUCCESS"} and get a free booking.
+    const verified = await verifyLinkquCallback(req.body);
+    if (reff && paid && verified) {
       const payment = await prisma.payment.findFirst({ where: { externalId: reff, provider: "LINKQU" } });
       if (payment) await markPaymentPaid(payment.id);
+    } else if (paid && !verified) {
+      logger.warn({ reff, ip, expectedIp: LINKQU_CALLBACK_IP, sig: String(req.body?.signature || "").slice(0, 10) },
+        "LinkQu callback REJECTED — invalid/absent signature (not settled)");
     }
-    audit(req as any, "payment.linkqu.callback", "Payment", reff, { status: req.body?.status });
+    audit(req as any, "payment.linkqu.callback", "Payment", reff, { status: req.body?.status, verified, ip });
   } catch (e) { logger.error({ err: e }, "linkqu callback failed"); }
   res.json({ response: "OK" }); // LinkQu requires this exact acknowledgement
 });
