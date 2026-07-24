@@ -16,6 +16,7 @@ import { redis, cached, invalidate } from "./redis.js";
 import { ensureBucket, putObject, storageReady } from "./storage.js";
 import { syncOffers, getConnector, applyMarkup } from "./connectors.js";
 import QRCode from "qrcode";
+import PDFDocument from "pdfkit";
 import { PAYMENT_METHODS, methodByCode, activeProvider, verifyLinkquCallback, LINKQU_CALLBACK_IP } from "./payments.js";
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
@@ -25,7 +26,7 @@ import { screenChat, violationNotice } from "./moderation.js";
 import { runRateShopping, aiConfigured } from "./rateshopper.js";
 import { dispatch, sendMail } from "./notify.js";
 import { testFcm } from "./fcm.js";
-import { quote, consume } from "./availability.js";
+import { quote, consume, release } from "./availability.js";
 
 // ── Observability: structured logging + error tracking ──
 // Sentry activates only when SENTRY_DSN is set (configure in the environment,
@@ -1676,12 +1677,15 @@ async function markPaymentPaid(paymentId: string) {
     where: { id: payment.bookingId },
     data: { status: "PAID", paidAt: new Date(), paymentMethod: payment.methodLabel },
   });
+  const b = await prisma.booking.findUnique({ where: { id: payment.bookingId }, include: { hotel: true, room: true } });
+  const voucherEmail = b ? await buildVoucherEmail(b) : null;
   await dispatch(prisma, {
     userId: payment.booking.userId,
-    title: `Pesanan ${payment.booking.hotel.name}`,
-    body: `Pembayaran berhasil (${payment.methodLabel}). No. Pesanan ${payment.booking.code}.\nE-voucher: ${PUBLIC_ORIGIN}/api/vouchers/${payment.booking.code}\nInvoice: ${PUBLIC_ORIGIN}/api/invoices/${payment.booking.code}`,
+    title: `E-Voucher · ${payment.booking.hotel.name}`,
+    body: `Pembayaran berhasil (${payment.methodLabel}). No. Pesanan ${payment.booking.code}.\nE-voucher: ${PUBLIC_ORIGIN}/api/vouchers/${payment.booking.code}\nUnduh PDF: ${PUBLIC_ORIGIN}/api/vouchers/${payment.booking.code}/pdf\nInvoice: ${PUBLIC_ORIGIN}/api/invoices/${payment.booking.code}`,
     type: "success", hotelName: payment.booking.hotel.name, orderCode: payment.booking.code,
     phone: payment.booking.bookerPhone, email: payment.booking.bookerEmail,
+    html: voucherEmail?.html, attachments: voucherEmail?.attachments,
   });
   // Send the property its confirmation receipt (with price + commission).
   if (payment.booking.hotel.ownerId) {
@@ -1695,15 +1699,84 @@ async function markPaymentPaid(paymentId: string) {
   return updated;
 }
 
+// ── E-Voucher email (rich HTML + inline QR) ─────────────────────────────────
+async function buildVoucherEmail(b: any): Promise<{ html: string; attachments: any[] }> {
+  const qrPng = await QRCode.toBuffer(b.code, { width: 320, margin: 1 });
+  const O = PUBLIC_ORIGIN;
+  const row = (k: string, v: string) =>
+    `<tr><td style="padding:7px 0;color:#6c7683;font-size:13px">${k}</td><td style="padding:7px 0;text-align:right;font-weight:600;font-size:13px">${v}</td></tr>`;
+  const html = `<!doctype html><html><body style="margin:0;background:#eef0f4;font-family:Arial,Helvetica,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef0f4;padding:24px 12px"><tr><td align="center">
+  <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fff;border-radius:14px;overflow:hidden">
+    <tr><td style="background:linear-gradient(135deg,#F5931E,#E07C0C);padding:22px 24px;text-align:center">
+      <div style="display:inline-block;background:#fff;border-radius:8px;padding:8px 12px"><img src="${O}/static/logo.png" alt="Miruum" height="26" style="display:block"></div>
+      <div style="color:#fff;font-size:12px;letter-spacing:1px;margin-top:12px;opacity:.95">E-VOUCHER HOTEL</div>
+      <div style="color:#fff;font-size:20px;font-weight:800;margin-top:2px">${b.hotel.name}</div>
+      <div style="color:#fff;font-size:12.5px;opacity:.95">${b.hotel.city}</div>
+    </td></tr>
+    <tr><td style="padding:22px 24px">
+      <div style="background:#f7f6f2;border-radius:12px;padding:16px;text-align:center">
+        <img src="cid:qrcheckin" alt="QR" width="150" height="150" style="display:block;margin:0 auto 8px">
+        <div style="font-size:11px;color:#6c7683;text-transform:uppercase;letter-spacing:1px">No. Pesanan</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:1px;color:#20344A">${b.code}</div>
+        <div style="font-size:11.5px;color:#8a8f98;margin-top:4px">Tunjukkan / pindai kode ini di resepsionis saat check-in.</div>
+      </div>
+      <div style="font-size:11px;color:#F5931E;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin:18px 0 4px">Detail Menginap</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #eee">
+        ${row("Tamu", `${b.bookerName} · ${b.guests} tamu`)}
+        ${row("Kamar", `${b.rooms}× ${b.room?.name ?? "-"}`)}
+        ${row("Check-in", fmtDate(b.checkIn))}
+        ${row("Check-out", fmtDate(b.checkOut))}
+        ${row("Durasi", `${b.nights} malam`)}
+        ${row("Alamat", b.hotel.address)}
+      </table>
+      <div style="text-align:center;margin-top:20px">
+        <a href="${O}/api/vouchers/${b.code}/pdf" style="display:inline-block;background:#F5931E;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:24px;font-size:14px">Unduh E-Voucher (PDF)</a>
+        <div style="margin-top:10px"><a href="${O}/api/vouchers/${b.code}" style="color:#0E7DD1;text-decoration:none;font-size:12.5px">Lihat E-Voucher online</a> · <a href="${O}/api/invoices/${b.code}" style="color:#0E7DD1;text-decoration:none;font-size:12.5px">Invoice</a></div>
+      </div>
+      <div style="margin-top:18px;font-size:11px;color:#8a8f98;line-height:1.6;text-align:center">
+        E-voucher resmi Miruum — bukti pemesanan menginap. Butuh bantuan? Live Chat CS di aplikasi Miruum · miruum.id</div>
+    </td></tr>
+  </table></td></tr></table></body></html>`;
+  return { html, attachments: [{ filename: `evoucher-${b.code}.png`, content: qrPng, cid: "qrcheckin", contentType: "image/png" }] };
+}
+
+// ── Expiry: cancel the unpaid booking, release allotment, notify the user ────
+async function expirePayment(payment: any): Promise<void> {
+  await prisma.payment.update({ where: { id: payment.id }, data: { status: "EXPIRED" } });
+  const b = await prisma.booking.findUnique({ where: { id: payment.bookingId }, include: { hotel: true } });
+  if (!b || b.status !== "PENDING") return; // already paid/cancelled — leave it
+  await prisma.booking.update({ where: { id: b.id }, data: { status: "CANCELLED" } });
+  if (b.roomId) await release(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms).catch(() => {});
+  await dispatch(prisma, {
+    userId: b.userId,
+    title: `Pembayaran kedaluwarsa · ${b.hotel.name}`,
+    body: `Pesanan ${b.code} dibatalkan otomatis karena pembayaran tidak diselesaikan sebelum batas waktu. Silakan pesan ulang jika masih dibutuhkan.`,
+    type: "cancel", hotelName: b.hotel.name, orderCode: b.code,
+    phone: b.bookerPhone, email: b.bookerEmail,
+  });
+}
+
+// Background sweep: expire overdue PENDING payments even if the user never
+// re-opens the app to trigger the on-poll check.
+async function sweepExpiredPayments(): Promise<void> {
+  const overdue = await prisma.payment.findMany({
+    where: { status: "PENDING", expiresAt: { lt: new Date() } },
+    take: 200,
+  });
+  for (const p of overdue) await expirePayment(p).catch((e) => logger.error({ err: e }, "expire failed"));
+}
+
 // Poll payment status (app checks after showing instructions).
 app.get("/api/payments/:id", requireAuth, async (req: AuthRequest, res) => {
   const payment = await prisma.payment.findFirst({
     where: { id: req.params.id, booking: { userId: req.userId } },
   });
   if (!payment) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
-  // auto-expire
+  // auto-expire (also cancels the booking, releases allotment, notifies)
   if (payment.status === "PENDING" && payment.expiresAt && payment.expiresAt < new Date()) {
-    const exp = await prisma.payment.update({ where: { id: payment.id }, data: { status: "EXPIRED" } });
+    await expirePayment(payment).catch(() => {});
+    const exp = await prisma.payment.findUnique({ where: { id: payment.id } });
     return res.json({ payment: clientPayment(exp) });
   }
   res.json({ payment: clientPayment(payment) });
@@ -1754,6 +1827,18 @@ app.post("/api/payments/webhook/linkqu", async (req, res) => {
     audit(req as any, "payment.linkqu.callback", "Payment", reff, { status: req.body?.status, verified, ip });
   } catch (e) { logger.error({ err: e }, "linkqu callback failed"); }
   res.json({ response: "OK" }); // LinkQu requires this exact acknowledgement
+});
+
+// LinkQu also POSTs reload (merchant balance top-up) and withdraw (disbursement)
+// callbacks. Miruum doesn't use those products, but LinkQu requires a URL that
+// acknowledges — accept and ignore so its dashboard is satisfied.
+app.post("/api/payments/webhook/linkqu/reload", (req, res) => {
+  audit(req as any, "payment.linkqu.reload", "Payment", String(req.body?.partner_reff || ""), {});
+  res.json({ response: "OK" });
+});
+app.post("/api/payments/webhook/linkqu/withdraw", (req, res) => {
+  audit(req as any, "payment.linkqu.withdraw", "Payment", String(req.body?.partner_reff || ""), {});
+  res.json({ response: "OK" });
 });
 
 // Single source of truth for the cancellation refund quote (policy is fully
@@ -2395,6 +2480,60 @@ app.get("/api/vouchers/:code", async (req, res) => {
 </div></div>
 <div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
+});
+
+// One-click e-voucher PDF (server-generated, no browser needed), by booking code.
+app.get("/api/vouchers/:code/pdf", async (req, res) => {
+  const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
+  if (!b) return res.status(404).send("Voucher tidak ditemukan");
+  const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
+  const qrPng = await QRCode.toBuffer(b.code, { width: 360, margin: 1 });
+  const O = { orange: "#F5931E", navy: "#20344A", ink: "#25303B", muted: "#78828F", line: "#E8E5DE" };
+  const doc = new PDFDocument({ size: "A4", margin: 0 });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="E-Voucher-${b.code}.pdf"`);
+  doc.pipe(res);
+  const W = doc.page.width, M = 48;
+  // Header band
+  doc.rect(0, 0, W, 130).fill(O.orange);
+  doc.fillColor("#fff").font("Helvetica-Bold").fontSize(11).text("E-VOUCHER HOTEL", M, 34, { characterSpacing: 2 });
+  doc.fontSize(24).text(b.hotel.name, M, 52, { width: W - 2 * M });
+  doc.font("Helvetica").fontSize(12).fillColor("#ffffff").text(b.hotel.city, M, 88);
+  doc.roundedRect(W - M - 140, 34, 140, 26, 13).fill(paid ? "#2FA84F" : "#B08900");
+  doc.fillColor("#fff").font("Helvetica-Bold").fontSize(10).text(paid ? "TERKONFIRMASI" : String(b.status), W - M - 140, 42, { width: 140, align: "center" });
+  // QR + code block
+  let y = 168;
+  doc.image(qrPng, M, y, { width: 132, height: 132 });
+  doc.fillColor(O.muted).font("Helvetica-Bold").fontSize(9).text("NO. PESANAN", M + 156, y + 14, { characterSpacing: 1 });
+  doc.fillColor(O.navy).font("Helvetica-Bold").fontSize(22).text(b.code, M + 156, y + 30);
+  doc.fillColor(O.muted).font("Helvetica").fontSize(10).text("Tunjukkan / pindai kode ini di resepsionis saat check-in.", M + 156, y + 62, { width: W - M - (M + 156) });
+  // Details
+  y += 168;
+  doc.fillColor(O.orange).font("Helvetica-Bold").fontSize(11).text("DETAIL MENGINAP", M, y, { characterSpacing: 1 });
+  y += 22;
+  const rows: [string, string][] = [
+    ["Tamu", `${b.bookerName} · ${b.guests} tamu`],
+    ["Kamar", `${b.rooms}× ${b.room?.name ?? "-"}`],
+    ["Check-in", fmtDate(b.checkIn)],
+    ["Check-out", fmtDate(b.checkOut)],
+    ["Durasi", `${b.nights} malam`],
+    ["Alamat", b.hotel.address],
+  ];
+  for (const [k, v] of rows) {
+    doc.moveTo(M, y + 22).lineTo(W - M, y + 22).lineWidth(0.5).strokeColor(O.line).stroke();
+    doc.fillColor(O.muted).font("Helvetica").fontSize(11).text(k, M, y, { width: 140 });
+    doc.fillColor(O.ink).font("Helvetica-Bold").fontSize(11).text(v, M + 150, y, { width: W - 2 * M - 150, align: "right" });
+    y += 30;
+  }
+  if (b.hotel.checkInInfo) {
+    y += 10;
+    doc.fillColor(O.orange).font("Helvetica-Bold").fontSize(11).text("INFORMASI CHECK-IN", M, y); y += 18;
+    doc.fillColor(O.ink).font("Helvetica").fontSize(10).text(b.hotel.checkInInfo, M, y, { width: W - 2 * M }); y += 40;
+  }
+  doc.fillColor(O.muted).font("Helvetica").fontSize(9)
+    .text("E-voucher resmi Miruum — bukti pemesanan menginap. Tunjukkan saat check-in. Butuh bantuan? Live Chat CS di aplikasi Miruum · miruum.id",
+      M, doc.page.height - 70, { width: W - 2 * M, align: "center" });
+  doc.end();
 });
 
 // Public invoice (printable HTML), by booking code.
@@ -4974,6 +5113,9 @@ if (process.env.NODE_ENV !== "test") {
     // Data-retention purge (UU PDP): now + every 24h.
     runRetention();
     setInterval(runRetention, 24 * 3600_000).unref();
+    // Expire overdue unpaid payments (cancel booking + release + notify): every 2 min.
+    sweepExpiredPayments().catch(() => {});
+    setInterval(() => sweepExpiredPayments().catch(() => {}), 2 * 60_000).unref();
     // Miruum Intelligent: tick every 4h; each hotel runs at its own 1/2/3×-per-day
     // cadence (only hotels that are "due" get an API call).
     setInterval(() => {

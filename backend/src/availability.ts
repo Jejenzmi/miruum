@@ -85,3 +85,14 @@ export async function consume(prisma: PrismaClient, roomId: string, checkIn: Dat
     });
   }
 }
+
+/** Give allotment back — used when a booking is cancelled or its payment expires. */
+export async function release(prisma: PrismaClient, roomId: string, checkIn: Date, checkOut: Date, rooms: number): Promise<void> {
+  const dates = nights(checkIn, checkOut);
+  for (const d of dates) {
+    await prisma.roomAvailability.updateMany({
+      where: { roomId, date: d },
+      data: { allotment: { increment: rooms } },
+    });
+  }
+}

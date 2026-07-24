@@ -17,6 +17,8 @@ export interface NotifyInput {
   orderCode?: string;
   phone?: string;
   email?: string;
+  html?: string; // rich HTML email body (falls back to `body` text)
+  attachments?: { filename: string; content: Buffer; cid?: string; contentType?: string }[];
 }
 
 let mailer: nodemailer.Transporter | null = null;
@@ -36,11 +38,14 @@ function getMailer(s: Record<string, string>): nodemailer.Transporter | null {
   return mailer;
 }
 
-export async function sendMail(to: string, subject: string, text: string): Promise<void> {
+export async function sendMail(
+  to: string, subject: string, text: string,
+  html?: string, attachments?: { filename: string; content: Buffer; cid?: string; contentType?: string }[],
+): Promise<void> {
   const s = await getSettings();
   const m = getMailer(s);
   if (!m) { console.log(`[notify:email mock] → ${to}: ${subject}`); return; }
-  await m.sendMail({ from: s.smtp_from || s.smtp_user, to, subject, text });
+  await m.sendMail({ from: s.smtp_from || s.smtp_user, to, subject, text, ...(html ? { html } : {}), ...(attachments ? { attachments } : {}) });
 }
 
 export async function dispatch(prisma: PrismaClient, n: NotifyInput): Promise<void> {
@@ -68,9 +73,9 @@ export async function dispatch(prisma: PrismaClient, n: NotifyInput): Promise<vo
     }
   }
 
-  // Email (real via SMTP, else mock)
+  // Email (real via SMTP, else mock) — HTML body + attachments when provided.
   if (n.email) {
-    try { await sendMail(n.email, n.title, n.body); }
+    try { await sendMail(n.email, n.title, n.body, n.html, n.attachments); }
     catch (e: any) { console.warn("[notify:email] failed", e.message); }
   }
 
