@@ -1,9 +1,9 @@
 <%- include('../partials/top', { title:'Konten Web', heading:'Konten Web (miruum.id)', section:'admin', active:'site-content', me }) %>
 
 <% if (saved==='1') { %><div class="notice ok">Konten web tersimpan. Perubahan langsung tampil di miruum.id.</div><% } %>
-<% if (saved==='err') { %><div class="notice bad">Gagal menyimpan. Periksa format JSON pada daftar (array).</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal menyimpan. Coba lagi.</div><% } %>
 
-<p class="muted" style="margin:-4px 0 18px">Semua teks pemasaran di situs pelanggan <b>miruum.id</b> & halaman <b>/mitra</b> diatur di sini — tidak hardcode. Bagian berupa <b>daftar</b> (benefit, testimoni, FAQ, dll) memakai format <b>JSON</b>; ubah teks di dalam tanda kutip.</p>
+<p class="muted" style="margin:-4px 0 18px">Semua teks pemasaran di situs pelanggan <b>miruum.id</b> & halaman <b>/mitra</b> diatur di sini — tidak hardcode. Bagian berupa <b>daftar</b> (fitur, benefit, testimoni, FAQ, dll) memakai <b>form isian biasa</b> — klik <b>“+ Tambah”</b> untuk menambah baris, tombol <b>×</b> untuk menghapus.</p>
 
 <p class="muted" style="margin:-8px 0 18px">Situs pelanggan kini <b>dwibahasa</b>. Setiap teks punya dua kotak: <b>Indonesia</b> & <b>English</b>. Bila kotak English dikosongkan, situs memakai teks Indonesia sebagai cadangan.</p>
 
@@ -27,8 +27,8 @@
       <div><label class="lang" style="margin-top:0">Indonesia</label><input name="homeSub[id]" value="<%= L(content.homeSub,'id') %>"></div>
       <div><label class="lang" style="margin-top:0">English</label><input name="homeSub[en]" value="<%= L(content.homeSub,'en') %>"></div>
     </div>
-    <label>Fitur / Keunggulan (JSON: [{"t":"judul","d":"deskripsi"}])</label>
-    <textarea name="features" rows="6" style="font-family:monospace;font-size:12px"><%= j(content.features) %></textarea>
+    <label>Fitur / Keunggulan</label>
+    <%- include('../partials/list_editor', { key:'features', items:content.features, fields:[{name:'t',label:'Judul'},{name:'d',label:'Deskripsi',wide:true}], addLabel:'Tambah fitur' }) %>
   </div>
 
   <div class="card">
@@ -143,18 +143,18 @@
       <div><label class="lang" style="margin-top:0">Indonesia</label><textarea name="mitraSub[id]" rows="2"><%= L(content.mitraSub,'id') %></textarea></div>
       <div><label class="lang" style="margin-top:0">English</label><textarea name="mitraSub[en]" rows="2"><%= L(content.mitraSub,'en') %></textarea></div>
     </div>
-    <div class="row2">
-      <div><label>Statistik (JSON)</label><textarea name="stats" rows="7" style="font-family:monospace;font-size:12px"><%= j(content.stats) %></textarea></div>
-      <div><label>Cara Kerja / Langkah (JSON)</label><textarea name="steps" rows="7" style="font-family:monospace;font-size:12px"><%= j(content.steps) %></textarea></div>
-    </div>
-    <label>Benefit (JSON: [{"t","d"}])</label>
-    <textarea name="benefits" rows="8" style="font-family:monospace;font-size:12px"><%= j(content.benefits) %></textarea>
-    <label>Poin Komisi (JSON: ["poin 1","poin 2"])</label>
-    <textarea name="commission" rows="4" style="font-family:monospace;font-size:12px"><%= j(content.commission) %></textarea>
-    <label>Testimoni (JSON: [{"name","role","quote"}])</label>
-    <textarea name="testimonials" rows="8" style="font-family:monospace;font-size:12px"><%= j(content.testimonials) %></textarea>
-    <label>FAQ (JSON: [{"q","a"}])</label>
-    <textarea name="faqs" rows="8" style="font-family:monospace;font-size:12px"><%= j(content.faqs) %></textarea>
+    <label>Statistik</label>
+    <%- include('../partials/list_editor', { key:'stats', items:content.stats, fields:[{name:'value',label:'Angka',ph:'mis. 24/7'},{name:'label',label:'Keterangan',ph:'mis. Dukungan mitra'}], addLabel:'Tambah statistik' }) %>
+    <label style="margin-top:14px">Cara Kerja / Langkah</label>
+    <%- include('../partials/list_editor', { key:'steps', items:content.steps, fields:[{name:'t',label:'Judul'},{name:'d',label:'Deskripsi',wide:true}], addLabel:'Tambah langkah' }) %>
+    <label style="margin-top:14px">Benefit</label>
+    <%- include('../partials/list_editor', { key:'benefits', items:content.benefits, fields:[{name:'t',label:'Judul'},{name:'d',label:'Deskripsi',wide:true}], addLabel:'Tambah benefit' }) %>
+    <label style="margin-top:14px">Poin Komisi</label>
+    <%- include('../partials/list_editor', { key:'commission', items:content.commission, single:true, fields:[{label:'Poin',ph:'mis. Gratis mendaftar & tanpa biaya langganan'}], addLabel:'Tambah poin' }) %>
+    <label style="margin-top:14px">Testimoni</label>
+    <%- include('../partials/list_editor', { key:'testimonials', items:content.testimonials, fields:[{name:'name',label:'Nama'},{name:'role',label:'Jabatan / Properti'},{name:'quote',label:'Testimoni',wide:true}], addLabel:'Tambah testimoni' }) %>
+    <label style="margin-top:14px">FAQ</label>
+    <%- include('../partials/list_editor', { key:'faqs', items:content.faqs, fields:[{name:'q',label:'Pertanyaan',wide:true},{name:'a',label:'Jawaban',wide:true}], addLabel:'Tambah FAQ' }) %>
   </div>
 
   <div style="margin:16px 0 40px"><button class="btn">Simpan Konten Web</button></div>
@@ -162,6 +162,31 @@
 
 <style>
   label.lang{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:8px}
+  .leditor{margin:6px 0 4px}
+  .leditor .lrow{display:flex;gap:8px;align-items:end;margin-bottom:8px;flex-wrap:wrap}
+  .leditor .lfld{display:flex;flex-direction:column;flex:1;min-width:150px;gap:3px;margin:0}
+  .leditor .lfld.wide{flex-basis:100%}
+  .leditor .lfld span{font-size:11px;color:var(--muted);font-weight:600}
+  .leditor .lrow input{width:100%;box-sizing:border-box}
+  .leditor .lrm{align-self:center;padding:4px 10px}
 </style>
+
+<script>
+(function(){
+  document.addEventListener('click', function(e){
+    var add = e.target.closest('.ladd');
+    if (add){
+      var ed = add.closest('.leditor');
+      var n = parseInt(ed.dataset.count || '0', 10);
+      var html = ed.querySelector('.ltmpl').innerHTML.replace(/__i__/g, n);
+      ed.querySelector('.lrows').insertAdjacentHTML('beforeend', html);
+      ed.dataset.count = n + 1;
+      return;
+    }
+    var rm = e.target.closest('.lrm');
+    if (rm){ rm.closest('.lrow').remove(); }
+  });
+})();
+</script>
 
 <%- include('../partials/bottom') %>

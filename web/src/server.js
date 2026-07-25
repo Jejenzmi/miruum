@@ -583,9 +583,22 @@ app.post("/admin/site-content", adminGuard, async (req, res) => {
       body[k] = { id, en }; // keep the nested shape intact for the API
     } else body[k] = v;
   });
-  ["features", "benefits", "stats", "steps", "commission", "testimonials", "faqs"].forEach((k) => {
-    try { const v = JSON.parse(req.body[k] || "null"); if (v) body[k] = v; } catch (_) {}
-  });
+  // List sections now come from repeatable-row form fields (no raw JSON).
+  // qs parses `stats[0][label]` into arrays/objects; normalize + drop empty rows.
+  const toArray = (raw) => !raw ? [] : (Array.isArray(raw) ? raw : Object.keys(raw).sort((a, b) => Number(a) - Number(b)).map((k) => raw[k]));
+  const objRows = (key, fields) => toArray(req.body[key]).map((o) => {
+    const row = {}; let has = false;
+    fields.forEach((f) => { const v = String((o && o[f]) || "").trim(); row[f] = v; if (v) has = true; });
+    return has ? row : null;
+  }).filter(Boolean);
+  const strRows = (key) => toArray(req.body[key]).map((s) => String(s || "").trim()).filter(Boolean);
+  body.features = objRows("features", ["t", "d"]);
+  body.benefits = objRows("benefits", ["t", "d"]);
+  body.steps = objRows("steps", ["t", "d"]);
+  body.stats = objRows("stats", ["value", "label"]);
+  body.testimonials = objRows("testimonials", ["name", "role", "quote"]);
+  body.faqs = objRows("faqs", ["q", "a"]);
+  body.commission = strRows("commission");
   try { await api("/admin/site-content", { method: "PUT", token: res.locals.token, body }); res.redirect("/admin/site-content?saved=1"); }
   catch (e) { res.redirect("/admin/site-content?saved=err"); }
 });

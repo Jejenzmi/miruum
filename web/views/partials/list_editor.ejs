@@ -1,0 +1,24 @@
+<%
+  // Repeatable-row editor (replaces raw-JSON textareas).
+  // Params: key (string), items (array), fields ([{name,label,ph,wide}]),
+  //         addLabel (string), single (bool → array of plain strings).
+  var _single = (typeof single !== 'undefined') && single;
+  var _fields = fields || [];
+  var _items = items || [];
+%>
+<div class="leditor" data-key="<%= key %>" data-count="<%= _items.length %>">
+  <div class="lrows">
+    <% _items.forEach(function(it, i){ %>
+      <div class="lrow">
+        <% if (_single) { %>
+          <label class="lfld wide"><span><%= _fields[0] && _fields[0].label || 'Poin' %></span><input name="<%= key %>[<%= i %>]" value="<%= it %>" placeholder="<%= _fields[0] && _fields[0].ph || '' %>"></label>
+        <% } else { _fields.forEach(function(f){ %>
+          <label class="lfld <%= f.wide?'wide':'' %>"><span><%= f.label %></span><input name="<%= key %>[<%= i %>][<%= f.name %>]" value="<%= (it && it[f.name]) || '' %>" placeholder="<%= f.ph || '' %>"></label>
+        <% }); } %>
+        <button type="button" class="btn danger sm lrm" title="Hapus baris">×</button>
+      </div>
+    <% }) %>
+  </div>
+  <button type="button" class="btn ghost sm ladd">+ <%= addLabel || 'Tambah baris' %></button>
+  <template class="ltmpl"><div class="lrow"><% if (_single) { %><label class="lfld wide"><span><%= _fields[0] && _fields[0].label || 'Poin' %></span><input name="<%= key %>[__i__]" placeholder="<%= _fields[0] && _fields[0].ph || '' %>"></label><% } else { _fields.forEach(function(f){ %><label class="lfld <%= f.wide?'wide':'' %>"><span><%= f.label %></span><input name="<%= key %>[__i__][<%= f.name %>]" placeholder="<%= f.ph || '' %>"></label><% }); } %><button type="button" class="btn danger sm lrm" title="Hapus baris">×</button></div></template>
+</div>
