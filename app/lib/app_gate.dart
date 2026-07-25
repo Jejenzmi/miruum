@@ -1,5 +1,8 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +15,31 @@ import 'theme.dart';
 /// popup — whichever applies first. Animated & non-blocking (never throws).
 class AppGate {
   static Future<void> check(BuildContext context) async {
+    // ── Google Play In-App Update (AUTOMATIC) ──
+    // Play itself detects a newer release the moment you publish it — no manual
+    // `app_latest_version` setting needed. Works for installs from Google Play;
+    // on a sideloaded APK checkForUpdate throws and we fall back to the backend
+    // version-config popup below (that channel still uses the manual setting).
+    bool playHandlesUpdates = false;
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final info = await InAppUpdate.checkForUpdate();
+        playHandlesUpdates = true; // came from Play → Play owns update prompting
+        if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+          try {
+            if (info.flexibleUpdateAllowed) {
+              await InAppUpdate.startFlexibleUpdate();
+              await InAppUpdate.completeFlexibleUpdate();
+            } else if (info.immediateUpdateAllowed) {
+              await InAppUpdate.performImmediateUpdate();
+            }
+          } catch (_) {/* user cancelled the update — Play still owns updates */}
+        }
+      } catch (_) {
+        playHandlesUpdates = false; // not a Play install / API unavailable
+      }
+    }
+
     try {
       final api = context.read<Api>();
       final cfg = await api.appConfig();
@@ -28,20 +56,25 @@ class AppGate {
       final url = (update['url'] ?? 'https://api.miruum.id/ota.apk').toString();
       final notes = (update['notes'] ?? '').toString();
 
-      // 1) Forced update — user's version is below the minimum allowed.
-      if (minV.isNotEmpty && _cmp(current, minV) < 0) {
-        if (context.mounted) await _showUpdate(context, forced: true, url: url, notes: notes, version: latestV.isNotEmpty ? latestV : minV);
-        return;
-      }
-      // 2) Optional update — a newer version exists (dismissible once per version).
-      if (latestV.isNotEmpty && _cmp(current, latestV) < 0) {
-        final prefs = await SharedPreferences.getInstance();
-        if (prefs.getString('update_dismissed') != latestV) {
-          if (context.mounted) await _showUpdate(context, forced: false, url: url, notes: notes, version: latestV);
+      // The manual version popup only runs when Play's in-app update is NOT
+      // handling updates (i.e. sideloaded APK from api.miruum.id/ota.apk).
+      if (!playHandlesUpdates) {
+        // 1) Forced update — user's version is below the minimum allowed.
+        if (minV.isNotEmpty && _cmp(current, minV) < 0) {
+          if (context.mounted) await _showUpdate(context, forced: true, url: url, notes: notes, version: latestV.isNotEmpty ? latestV : minV);
           return;
         }
+        // 2) Optional update — a newer version exists (dismissible once per version).
+        if (latestV.isNotEmpty && _cmp(current, latestV) < 0) {
+          final prefs = await SharedPreferences.getInstance();
+          if (prefs.getString('update_dismissed') != latestV) {
+            if (context.mounted) await _showUpdate(context, forced: false, url: url, notes: notes, version: latestV);
+            return;
+          }
+        }
       }
-      // 3) Announcement popup — shown once until its content changes.
+      // 3) Announcement popup — shown once until its content changes (independent
+      // of the update channel).
       final popup = cfg['popup'] as Map?;
       if (popup != null) {
         final prefs = await SharedPreferences.getInstance();
