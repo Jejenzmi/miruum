@@ -189,12 +189,41 @@ app.post("/admin/hotels", adminGuard, async (req, res) => {
 });
 
 app.get("/admin/hotels/:id/edit", adminGuard, async (req, res) => {
-  const [{ hotels }, { users }] = await Promise.all([
+  const [{ hotels }, { users }, detail] = await Promise.all([
     api("/admin/hotels", { token: res.locals.token }),
     api("/admin/users", { token: res.locals.token }),
+    // Admin passes ownsHotel, so the partner endpoint returns full rooms for any hotel.
+    api(`/partner/hotels/${req.params.id}`, { token: res.locals.token }).catch(() => null),
   ]);
   const hotel = hotels.find((h) => h.id === req.params.id);
-  res.render("admin/hotel_form", { hotel, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err });
+  const rooms = (detail && detail.hotel && detail.hotel.rooms) || [];
+  res.render("admin/hotel_form", { hotel, rooms, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err, saved: req.query.saved });
+});
+
+// Admin helps a partner set up inventory: add / edit / delete rooms on any hotel
+// (proxies to the partner endpoints with the admin token; backend allows ADMIN).
+app.post("/admin/hotels/:id/rooms", adminGuard, async (req, res) => {
+  try {
+    await api(`/partner/hotels/${req.params.id}/rooms`, { method: "POST", token: res.locals.token, body: {
+      name: req.body.name, price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+      breakfast: req.body.breakfast === "on", refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on",
+    } });
+    res.redirect(`/admin/hotels/${req.params.id}/edit?saved=kamar#kamar`);
+  } catch (e) { res.redirect(`/admin/hotels/${req.params.id}/edit?err=` + encodeURIComponent(e.message) + `#kamar`); }
+});
+app.post("/admin/rooms/:id", adminGuard, async (req, res) => {
+  try {
+    await api(`/partner/rooms/${req.params.id}`, { method: "PUT", token: res.locals.token, body: {
+      price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+      refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on", breakfast: req.body.breakfast === "on",
+    } });
+  } catch (_) {}
+  res.redirect(`/admin/hotels/${req.body.hotelId}/edit?saved=kamar#kamar`);
+});
+app.post("/admin/rooms/:id/delete", adminGuard, async (req, res) => {
+  try { await api(`/partner/rooms/${req.params.id}`, { method: "DELETE", token: res.locals.token });
+    res.redirect(`/admin/hotels/${req.body.hotelId}/edit?saved=kamar#kamar`);
+  } catch (e) { res.redirect(`/admin/hotels/${req.body.hotelId}/edit?err=` + encodeURIComponent(e.message) + `#kamar`); }
 });
 
 app.post("/admin/hotels/:id", adminGuard, async (req, res) => {

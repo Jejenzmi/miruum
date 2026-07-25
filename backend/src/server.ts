@@ -5310,7 +5310,8 @@ app.put("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req: A
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data kamar tidak valid" });
   const room = await prisma.room.findUnique({ where: { id: req.params.id }, include: { hotel: true } });
-  if (!room || room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  if ((req as any).role !== "ADMIN" && room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
   const updated = await prisma.room.update({ where: { id: req.params.id }, data: p.data });
   if (p.data.price != null) await refreshPriceFrom(room.hotelId); // update headline price + harga-turun badge
   await invalidate("miruum:");
@@ -5362,7 +5363,8 @@ app.delete("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req
 app.put("/api/partner/rooms/:id/deal", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const dealPct = Math.max(0, Math.min(90, Number(req.body?.dealPct) || 0));
   const room = await prisma.room.findUnique({ where: { id: req.params.id }, include: { hotel: true } });
-  if (!room || room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  if ((req as any).role !== "ADMIN" && room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
   const baseline = room.originalPrice ?? room.price;
   const data = dealPct > 0
     ? { originalPrice: baseline, price: Math.round(baseline * (1 - dealPct / 100)) }

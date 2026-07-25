@@ -79,6 +79,51 @@
   </form>
 </div>
 
+<% if (hotel) { var roomList = (typeof rooms !== 'undefined' && rooms) ? rooms : []; function rp(v){ return 'Rp ' + Number(v||0).toLocaleString('id-ID'); } %>
+<div class="card" id="kamar" style="max-width:720px">
+  <h2 style="margin:0 0 4px">Kamar (bantu mitra set inventori)</h2>
+  <p class="muted" style="margin-top:0;font-size:12px">Sebagai admin Anda bisa menambah/ubah/hapus kamar untuk mitra yang kesulitan. Hotel baru <b>tidak muncul di aplikasi</b> sampai punya minimal 1 kamar berharga.</p>
+  <% if (typeof saved !== 'undefined' && saved==='kamar') { %><div class="notice ok">Kamar tersimpan.</div><% } %>
+  <% if (!roomList.length) { %><div class="notice bad">⚠️ Belum ada kamar — hotel ini tidak tampil di aplikasi.</div><% } %>
+
+  <% roomList.forEach(function(r){ %>
+    <div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <b><%= r.name %></b>
+        <span class="muted" style="font-size:12px"><%= rp(r.price) %>/malam · stok <%= r.stock %> · <%= r.capacity %> org</span>
+      </div>
+      <form method="post" action="/admin/rooms/<%= r.id %>" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px">
+        <input type="hidden" name="hotelId" value="<%= hotel.id %>">
+        <div><label style="margin:0 0 4px">Harga/malam</label><input name="price" type="number" value="<%= r.originalPrice && r.originalPrice>r.price ? r.originalPrice : r.price %>" style="max-width:130px"></div>
+        <div><label style="margin:0 0 4px">Stok</label><input name="stock" type="number" value="<%= r.stock %>" style="max-width:80px"></div>
+        <div><label style="margin:0 0 4px">Kapasitas</label><input name="capacity" type="number" value="<%= r.capacity %>" style="max-width:90px"></div>
+        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="refundable" <%= r.refundable?'checked':'' %>> Refundable</label>
+        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="breakfast" <%= r.breakfast?'checked':'' %>> Sarapan</label>
+        <button class="btn sm" style="margin-bottom:2px">Simpan</button>
+        
+      </form>
+      <form method="post" action="/admin/rooms/<%= r.id %>/delete" data-confirm="Hapus kamar <%= r.name %>?" style="margin-top:6px">
+        <input type="hidden" name="hotelId" value="<%= hotel.id %>">
+        <button class="btn danger sm">Hapus kamar</button>
+      </form>
+    </div>
+  <% }) %>
+
+  <div style="border:2px dashed var(--brand,#f6883a);border-radius:12px;padding:12px;margin-top:6px">
+    <b>+ Tambah Kamar Baru</b>
+    <form method="post" action="/admin/hotels/<%= hotel.id %>/rooms" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px">
+      <div><label style="margin:0 0 4px">Nama kamar</label><input name="name" placeholder="Deluxe King" required style="max-width:170px"></div>
+      <div><label style="margin:0 0 4px">Harga/malam (Rp)</label><input name="price" type="number" min="1" placeholder="500000" required style="max-width:140px"></div>
+      <div><label style="margin:0 0 4px">Stok</label><input name="stock" type="number" min="0" value="5" style="max-width:80px"></div>
+      <div><label style="margin:0 0 4px">Kapasitas</label><input name="capacity" type="number" min="1" value="2" style="max-width:90px"></div>
+      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="refundable" checked> Refundable</label>
+      <button class="btn" style="margin-bottom:2px">Tambah Kamar</button>
+    </form>
+  </div>
+  <a class="btn ghost" href="/admin/hotels" style="margin-top:12px">← Daftar Hotel</a>
+</div>
+<% } %>
+
 <script>
 (function(){
   var f=document.getElementById('hotelForm');
