@@ -205,7 +205,7 @@ app.get("/admin/hotels/:id/edit", adminGuard, async (req, res) => {
 app.post("/admin/hotels/:id/rooms", adminGuard, async (req, res) => {
   try {
     await api(`/partner/hotels/${req.params.id}/rooms`, { method: "POST", token: res.locals.token, body: {
-      name: req.body.name, price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+      name: req.body.name, bedInfo: req.body.bedInfo, price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
       breakfast: req.body.breakfast === "on", refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on",
     } });
     res.redirect(`/admin/hotels/${req.params.id}/edit?saved=kamar#kamar`);
@@ -214,8 +214,8 @@ app.post("/admin/hotels/:id/rooms", adminGuard, async (req, res) => {
 app.post("/admin/rooms/:id", adminGuard, async (req, res) => {
   try {
     await api(`/partner/rooms/${req.params.id}`, { method: "PUT", token: res.locals.token, body: {
-      price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
-      refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on", breakfast: req.body.breakfast === "on",
+      price: req.body.price, stock: req.body.stock, capacity: req.body.capacity, bedInfo: req.body.bedInfo,
+    refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on", breakfast: req.body.breakfast === "on",
     } });
   } catch (_) {}
   res.redirect(`/admin/hotels/${req.body.hotelId}/edit?saved=kamar#kamar`);
@@ -1235,7 +1235,7 @@ app.post("/pms/guests/:email/note", ...pmsG, async (req, res) => {
 app.post("/extranet/hotels/:id/rooms", partnerGuard, async (req, res) => {
   try {
     await api(`/partner/hotels/${req.params.id}/rooms`, { method: "POST", token: res.locals.token, body: {
-      name: req.body.name, price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+      name: req.body.name, bedInfo: req.body.bedInfo, price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
       breakfast: req.body.breakfast === "on", refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on",
     } });
     res.redirect(`/extranet/hotels/${req.params.id}?saved=kamar#kamar`);
@@ -1250,7 +1250,7 @@ app.post("/extranet/rooms/:id/delete", partnerGuard, async (req, res) => {
 
 app.post("/extranet/rooms/:id", partnerGuard, async (req, res) => {
   await api(`/partner/rooms/${req.params.id}`, { method: "PUT", token: res.locals.token, body: {
-    price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+    price: req.body.price, stock: req.body.stock, capacity: req.body.capacity, bedInfo: req.body.bedInfo,
     refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on", breakfast: req.body.breakfast === "on",
   } });
   res.redirect(req.get("referer") || "/extranet");

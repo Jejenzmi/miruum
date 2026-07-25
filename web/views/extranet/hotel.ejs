@@ -151,6 +151,17 @@
 <div class="card" id="kamar">
   <h2>Kamar, Atribut &amp; Promo</h2>
   <p class="muted" style="margin-top:-8px">Satu tempat untuk mengatur tiap tipe kamar: <b>harga &amp; stok</b>, <b>atribut</b> (kapasitas, refundable, sarapan), <b>rate plan</b> (beberapa tarif: Kamar Saja / Sarapan / Bebas Batal / Non-refund), <b>promo diskon %</b>, dan <b>foto kamar</b> (dipakai saat mapping kamar ke Channel Manager / API OTA).</p>
+  <style>
+    .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-items:end;margin-top:10px}
+    .rgrid .fld{display:flex;flex-direction:column;min-width:0}
+    .rgrid .fld label{margin:0 0 4px;font-size:12px;font-weight:600;color:var(--muted)}
+    .rgrid .fld input,.rgrid .fld select{width:100%;box-sizing:border-box}
+    .rgrid .fld.wide{grid-column:1/-1}
+    .rchecks{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 0}
+    .rchecks label{display:flex;align-items:center;gap:6px;margin:0;font-size:13px}
+    .rchecks input{width:auto}
+    .rform-actions{display:flex;justify-content:flex-end;margin-top:12px}
+  </style>
   <% if (saved==='kamar') { %><div class="notice ok">Kamar tersimpan.</div><% } %>
   <% if (!hotel.rooms.length) { %>
     <div class="notice bad">⚠️ Properti ini <b>belum punya kamar</b> — sehingga <b>tidak muncul di aplikasi</b>. Tambahkan minimal 1 kamar dengan harga di form <b>"Tambah Kamar Baru"</b> di bawah.</div>
@@ -167,14 +178,19 @@
           </form>
         </div>
       </div>
-      <form method="post" action="/extranet/rooms/<%= r.id %>" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px">
-        <div><label style="margin:0 0 4px">Harga/malam</label><input name="price" type="number" value="<%= r.originalPrice && r.originalPrice>r.price ? r.originalPrice : r.price %>" style="max-width:130px"></div>
-        <div><label style="margin:0 0 4px">Stok</label><input name="stock" type="number" value="<%= r.stock %>" style="max-width:80px"></div>
-        <div><label style="margin:0 0 4px">Kapasitas</label><input name="capacity" type="number" value="<%= r.capacity %>" style="max-width:90px"></div>
-        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="refundable" <%= r.refundable?'checked':'' %>> Refundable</label>
-        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="freeCancellation" <%= r.freeCancellation?'checked':'' %>> Gratis batal</label>
-        <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="breakfast" <%= r.breakfast?'checked':'' %>> Sarapan</label>
-        <button class="btn sm" style="margin-bottom:2px">Simpan Kamar</button>
+      <form method="post" action="/extranet/rooms/<%= r.id %>">
+        <div class="rgrid">
+          <div class="fld"><label>Konfigurasi tempat tidur</label><input name="bedInfo" value="<%= r.bedInfo || '' %>" placeholder="mis. 1 kasur King / 2 kasur Twin"></div>
+          <div class="fld"><label>Harga/malam (Rp)</label><input name="price" type="number" min="1" value="<%= r.originalPrice && r.originalPrice>r.price ? r.originalPrice : r.price %>"></div>
+          <div class="fld"><label>Stok kamar</label><input name="stock" type="number" min="0" value="<%= r.stock %>"></div>
+          <div class="fld"><label>Kapasitas (tamu)</label><input name="capacity" type="number" min="1" value="<%= r.capacity %>"></div>
+        </div>
+        <div class="rchecks">
+          <label><input type="checkbox" name="refundable" <%= r.refundable?'checked':'' %>> Refundable</label>
+          <label><input type="checkbox" name="freeCancellation" <%= r.freeCancellation?'checked':'' %>> Gratis batal</label>
+          <label><input type="checkbox" name="breakfast" <%= r.breakfast?'checked':'' %>> Termasuk sarapan</label>
+        </div>
+        <div class="rform-actions"><button class="btn sm">Simpan Kamar</button></div>
       </form>
       <form method="post" action="/extranet/rooms/<%= r.id %>/deal" style="display:flex;gap:8px;align-items:end;margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)">
         <div><label style="margin:0 0 4px">Promo diskon (%)</label><input name="dealPct" type="number" min="0" max="90" value="<%= dealPct %>" style="max-width:110px" placeholder="0 = nonaktif"></div>
@@ -233,16 +249,21 @@
   <!-- Tambah kamar baru — inilah yang membuat properti baru tampil di aplikasi -->
   <div style="border:2px dashed var(--brand,#f6883a);border-radius:14px;padding:14px;margin-top:6px">
     <b>+ Tambah Kamar Baru</b>
-    <p class="muted" style="font-size:11.5px;margin:2px 0 10px">Isi minimal <b>nama kamar</b> dan <b>harga/malam</b>. Setelah tersimpan, hotel langsung bisa dipesan &amp; muncul di aplikasi.</p>
-    <form method="post" action="/extranet/hotels/<%= hotel.id %>/rooms" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
-      <div><label style="margin:0 0 4px">Nama kamar</label><input name="name" placeholder="mis. Deluxe King" required style="max-width:180px"></div>
-      <div><label style="margin:0 0 4px">Harga/malam (Rp)</label><input name="price" type="number" min="1" placeholder="500000" required style="max-width:150px"></div>
-      <div><label style="margin:0 0 4px">Stok</label><input name="stock" type="number" min="0" value="5" style="max-width:80px"></div>
-      <div><label style="margin:0 0 4px">Kapasitas</label><input name="capacity" type="number" min="1" value="2" style="max-width:90px"></div>
-      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="refundable" checked> Refundable</label>
-      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="freeCancellation" checked> Gratis batal</label>
-      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="breakfast"> Sarapan</label>
-      <button class="btn" style="margin-bottom:2px">Tambah Kamar</button>
+    <p class="muted" style="font-size:11.5px;margin:2px 0 0">Isi minimal <b>nama kamar</b> dan <b>harga/malam</b>. Setelah tersimpan, hotel langsung bisa dipesan &amp; muncul di aplikasi.</p>
+    <form method="post" action="/extranet/hotels/<%= hotel.id %>/rooms">
+      <div class="rgrid">
+        <div class="fld"><label>Nama tipe kamar *</label><input name="name" placeholder="mis. Deluxe King" required></div>
+        <div class="fld"><label>Konfigurasi tempat tidur</label><input name="bedInfo" placeholder="mis. 1 kasur King"></div>
+        <div class="fld"><label>Harga/malam (Rp) *</label><input name="price" type="number" min="1" placeholder="500000" required></div>
+        <div class="fld"><label>Stok kamar</label><input name="stock" type="number" min="0" value="5"></div>
+        <div class="fld"><label>Kapasitas (tamu)</label><input name="capacity" type="number" min="1" value="2"></div>
+      </div>
+      <div class="rchecks">
+        <label><input type="checkbox" name="refundable" checked> Refundable</label>
+        <label><input type="checkbox" name="freeCancellation" checked> Gratis batal</label>
+        <label><input type="checkbox" name="breakfast"> Termasuk sarapan</label>
+      </div>
+      <div class="rform-actions"><button class="btn">Tambah Kamar</button></div>
     </form>
   </div>
 </div>

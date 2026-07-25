@@ -5304,7 +5304,7 @@ app.get("/api/partner/bookings", requireRole("PARTNER", "ADMIN"), async (req: Au
 app.put("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const schema = z.object({
     price: z.coerce.number().int().optional(), stock: z.coerce.number().int().optional(),
-    capacity: z.coerce.number().int().min(1).optional(),
+    capacity: z.coerce.number().int().min(1).optional(), bedInfo: z.string().optional(),
     refundable: formBool.optional(), breakfast: formBool.optional(), freeCancellation: formBool.optional(),
   });
   const p = schema.safeParse(req.body);
@@ -5326,6 +5326,7 @@ app.post("/api/partner/hotels/:id/rooms", requireRole("PARTNER", "ADMIN"), async
   if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan properti Anda" });
   const schema = z.object({
     name: z.string().min(1, "Nama kamar wajib diisi"),
+    bedInfo: z.string().optional(),
     price: z.coerce.number().int().positive("Harga harus lebih dari 0"),
     stock: z.coerce.number().int().min(0).default(5),
     capacity: z.coerce.number().int().min(1).default(2),
@@ -5335,6 +5336,7 @@ app.post("/api/partner/hotels/:id/rooms", requireRole("PARTNER", "ADMIN"), async
   if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || "Data kamar tidak valid" });
   const room = await prisma.room.create({ data: {
     hotelId: req.params.id, name: p.data.name, price: p.data.price, stock: p.data.stock, capacity: p.data.capacity,
+    ...(p.data.bedInfo && p.data.bedInfo.trim() ? { bedInfo: p.data.bedInfo.trim() } : {}),
     breakfast: p.data.breakfast ?? false,
     refundable: p.data.refundable ?? true,
     freeCancellation: p.data.freeCancellation ?? true,
