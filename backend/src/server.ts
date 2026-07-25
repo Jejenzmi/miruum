@@ -3566,6 +3566,7 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
     name: z.string().min(2), city: z.string().min(2), address: z.string().min(2),
     regionId: z.string({ required_error: "Wilayah wajib dipilih" }).min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
     description: z.string().default(""), priceFrom: z.coerce.number().int().default(0),
+    checkInInfo: z.string().optional(), checkOutInfo: z.string().optional(),
     starRating: z.coerce.number().int().min(1).max(5).default(3), rating: z.coerce.number().default(8),
     imageUrl: z.string().default(""), isPromo: formBool,
     promoLabel: z.string().optional(), ownerId: z.string().optional(),
@@ -3591,6 +3592,7 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
     name: z.string().optional(), city: z.string().optional(), address: z.string().optional(),
     regionId: z.string({ required_error: "Wilayah wajib dipilih" }).min(1, "Wilayah wajib dipilih"), // mandatory: no property without a structured area
     description: z.string().optional(), priceFrom: z.coerce.number().int().optional(),
+    checkInInfo: z.string().optional(), checkOutInfo: z.string().optional(),
     starRating: z.coerce.number().int().optional(), rating: z.coerce.number().optional(),
     imageUrl: z.string().optional(), isPromo: formBool.optional(),
     promoLabel: z.string().optional(), ownerId: z.string().optional(),

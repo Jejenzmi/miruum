@@ -1,6 +1,8 @@
 <%- include('../partials/top', { title: hotel ? 'Edit Hotel' : 'Hotel Baru', heading: hotel ? 'Edit Hotel' : 'Tambah Hotel', section:'admin', active:'hotels', me }) %>
 
 <% if (typeof err !== 'undefined' && err) { %><div class="notice bad" style="max-width:720px"><%= err %></div><% } %>
+<% if (typeof added !== 'undefined' && added) { %><div class="notice ok" style="max-width:720px">✓ Hotel dibuat. Lengkapi <b>Kamar</b> di bawah — hotel <b>tidak muncul di aplikasi</b> sampai punya minimal 1 kamar berharga.</div><% } %>
+<% if (typeof saved !== 'undefined' && saved==='1') { %><div class="notice ok" style="max-width:720px">Perubahan tersimpan.</div><% } %>
 
 <div class="card" style="max-width:720px">
   <form id="hotelForm" method="post" action="<%= hotel ? '/admin/hotels/'+hotel.id : '/admin/hotels' %>">
@@ -20,6 +22,10 @@
     <%- include('../partials/region_picker', { regionId: hotel ? hotel.regionId : '', address: hotel ? hotel.address : '' }) %>
     <label>Deskripsi</label>
     <textarea name="description" rows="3"><%= hotel ? hotel.description : '' %></textarea>
+    <div class="row2">
+      <div><label>Info Check-in</label><input name="checkInInfo" value="<%= hotel ? (hotel.checkInInfo || '') : '' %>" placeholder="Dari jam 14.00"></div>
+      <div><label>Info Check-out</label><input name="checkOutInfo" value="<%= hotel ? (hotel.checkOutInfo || '') : '' %>" placeholder="Sebelum 12.00"></div>
+    </div>
     <div class="row2">
       <div><label>Bintang (1-5)</label><input name="starRating" type="number" min="1" max="5" value="<%= hotel ? hotel.starRating : 3 %>"></div>
       <div><label>Rating (0-10)</label><input name="rating" type="number" step="0.1" value="<%= hotel ? hotel.rating : 8 %>"></div>
@@ -76,6 +82,9 @@
       <button class="btn"><%= hotel ? 'Simpan Perubahan' : 'Tambah Hotel' %></button>
       <a class="btn ghost" href="/admin/hotels">Batal</a>
     </div>
+    <% if (!hotel) { %>
+      <p class="muted" style="font-size:12px;margin:12px 0 0">Setelah <b>Tambah Hotel</b>, Anda langsung diarahkan ke halaman lengkap untuk mengisi <b>Kamar</b>, harga, dan foto (via Extranet). Wilayah wajib dipilih.</p>
+    <% } %>
   </form>
 </div>
 

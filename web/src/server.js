@@ -183,8 +183,10 @@ app.get("/admin/hotels/new", adminGuard, async (req, res) => {
 app.post("/admin/hotels", adminGuard, async (req, res) => {
   // Wilayah (regionId) wajib — surface the API message back on the form.
   try {
-    await api("/admin/hotels", { method: "POST", token: res.locals.token, body: req.body });
-    res.redirect("/admin/hotels?added=1");
+    const { hotel } = await api("/admin/hotels", { method: "POST", token: res.locals.token, body: req.body });
+    // Land on the edit page so the admin can immediately complete the property
+    // (rooms, photos via Extranet, etc.) instead of a half-set-up listing.
+    res.redirect(`/admin/hotels/${hotel.id}/edit?added=1`);
   } catch (e) { res.redirect("/admin/hotels/new?err=" + encodeURIComponent(e.message)); }
 });
 
@@ -197,7 +199,7 @@ app.get("/admin/hotels/:id/edit", adminGuard, async (req, res) => {
   ]);
   const hotel = hotels.find((h) => h.id === req.params.id);
   const rooms = (detail && detail.hotel && detail.hotel.rooms) || [];
-  res.render("admin/hotel_form", { hotel, rooms, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err, saved: req.query.saved });
+  res.render("admin/hotel_form", { hotel, rooms, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err, saved: req.query.saved, added: req.query.added });
 });
 
 // Admin helps a partner set up inventory: add / edit / delete rooms on any hotel
