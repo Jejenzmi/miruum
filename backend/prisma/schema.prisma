@@ -440,6 +440,7 @@ model Hotel {
   payoutBankName    String?
   payoutBankAccount String?
   payoutBankHolder  String?
+  legalLockedAt DateTime? // once the partner fills legal & payout, it locks; only Miruum back office (admin) can change it
   cancellationPolicy String? // FLEXIBLE | MODERATE | STRICT | NON_REFUNDABLE
   isPromo     Boolean  @default(false)
   promoLabel  String?
@@ -679,11 +680,17 @@ model HotelOffer {
 }
 
 model HotelPhoto {
-  id      String @id @default(cuid())
-  hotelId String
-  url     String
-  sort    Int    @default(0)
-  hotel   Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  id       String  @id @default(cuid())
+  hotelId  String
+  roomId   String? // when set, this photo belongs to a specific room (for channel-manager mapping)
+  category String  @default("OTHER") // BUILDING | LOBBY | BEDROOM | BATHROOM | POOL | RESTAURANT | AMENITIES | FACILITIES | VIEW | OTHER
+  url      String
+  sort     Int     @default(0)
+  hotel    Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room     Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([hotelId, category])
+  @@index([roomId])
 }
 
 model Facility {
@@ -726,6 +733,7 @@ model Room {
   channelMaps       RoomChannelMap[]
   units             RoomUnit[]
   ratePlans         RatePlan[]
+  photos            HotelPhoto[]
 }
 
 // Multiple sellable rate plans for the same room (Room Only / Breakfast /

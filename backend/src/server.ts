@@ -4399,8 +4399,8 @@ app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: 
   const hotel = await prisma.hotel.findFirst({
     where: { id: req.params.id, ...((req as any).role === "ADMIN" ? {} : { ownerId: req.userId }) },
     include: {
-      rooms: { orderBy: { price: "asc" }, include: { ratePlans: { orderBy: { sortOrder: "asc" } } } },
-      photos: true, facilities: { select: { facilityId: true } },
+      rooms: { orderBy: { price: "asc" }, include: { ratePlans: { orderBy: { sortOrder: "asc" } }, photos: { orderBy: { sort: "asc" } } } },
+      photos: { orderBy: { sort: "asc" } }, facilities: { select: { facilityId: true } },
       nearby: { orderBy: { distanceKm: "asc" } },
     },
   });
@@ -4411,18 +4411,34 @@ app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: 
 // Partner edits legal/tax, payout bank, cancellation policy & check-in/out.
 app.put("/api/partner/hotels/:id/legal", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan properti Anda" });
+  const isAdmin = (req as any).role === "ADMIN";
+  const existing = await prisma.hotel.findUnique({ where: { id: req.params.id }, select: { legalLockedAt: true } });
+  // Once the partner has submitted legal & payout data it locks — only Miruum
+  // back office (admin) may change it afterwards.
+  if (existing?.legalLockedAt && !isAdmin) {
+    return res.status(423).json({ error: "Data legalitas & rekening sudah terkunci. Hubungi Miruum (back office) untuk perubahan." });
+  }
   const schema = z.object({
     legalName: z.string().optional(), businessRegNo: z.string().optional(), taxId: z.string().optional(),
     payoutBankName: z.string().optional(), payoutBankAccount: z.string().optional(), payoutBankHolder: z.string().optional(),
     cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "NON_REFUNDABLE"]).optional().or(z.literal("")),
     checkInInfo: z.string().optional(), checkOutInfo: z.string().optional(),
+    unlock: z.any().optional(), // admin-only: clear the lock
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
   const data: any = { ...p.data };
+  const unlock = data.unlock; delete data.unlock;
   if (data.cancellationPolicy === "") data.cancellationPolicy = null;
+  if (isAdmin && (unlock === "1" || unlock === true || unlock === "on")) {
+    data.legalLockedAt = null; // admin unlocks so the partner can edit again
+  } else if (!existing?.legalLockedAt) {
+    // first submission by the partner (or admin) — lock it
+    const hasData = data.legalName || data.businessRegNo || data.taxId || data.payoutBankName || data.payoutBankAccount || data.payoutBankHolder;
+    if (hasData && !isAdmin) data.legalLockedAt = new Date();
+  }
   await prisma.hotel.update({ where: { id: req.params.id }, data });
-  res.json({ ok: true });
+  res.json({ ok: true, locked: !!(data.legalLockedAt ?? existing?.legalLockedAt) });
 });
 
 // Verify a hotel belongs to the partner (admins pass through).
@@ -5022,15 +5038,40 @@ app.get("/api/programs", async (req, res) => {
   res.json({ programs: out });
 });
 
-// Partner: manage hotel photos.
+const PHOTO_CATEGORIES = ["BUILDING", "LOBBY", "BEDROOM", "BATHROOM", "POOL", "RESTAURANT", "AMENITIES", "FACILITIES", "VIEW", "OTHER"];
+
+// Partner: manage hotel photos. Accepts a single `url` or a bulk `urls` array,
+// tagged with a `category` (Building/Bedroom/Bathroom/…) and optionally scoped to
+// a specific `roomId` (per-room photos used when mapping rooms to a channel API).
 app.post("/api/partner/hotels/:id/photos", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const body = req.body || {};
+  const urls: string[] = Array.isArray(body.urls) ? body.urls : (body.url ? [body.url] : []);
+  const clean = urls.map((u) => String(u || "")).filter((u) => /^https?:\/\//.test(u));
+  if (!clean.length) return res.status(400).json({ error: "URL foto tidak valid" });
+  const category = PHOTO_CATEGORIES.includes(String(body.category)) ? String(body.category) : "OTHER";
+  let roomId: string | null = body.roomId ? String(body.roomId) : null;
+  if (roomId) {
+    // the room must belong to this hotel
+    const room = await prisma.room.findFirst({ where: { id: roomId, hotelId: req.params.id }, select: { id: true } });
+    if (!room) roomId = null;
+  }
+  let count = await prisma.hotelPhoto.count({ where: { hotelId: req.params.id } });
+  await prisma.hotelPhoto.createMany({
+    data: clean.map((url) => ({ hotelId: req.params.id, url, category, roomId, sort: count++ })),
+  });
+  await invalidate("miruum:");
+  res.json({ ok: true, added: clean.length });
+});
+
+// Partner: change the hotel cover / profile photo (imageUrl).
+app.put("/api/partner/hotels/:id/cover", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan hotel Anda" });
   const url = String(req.body?.url ?? "");
   if (!/^https?:\/\//.test(url)) return res.status(400).json({ error: "URL foto tidak valid" });
-  const count = await prisma.hotelPhoto.count({ where: { hotelId: req.params.id } });
-  const photo = await prisma.hotelPhoto.create({ data: { hotelId: req.params.id, url, sort: count } });
+  await prisma.hotel.update({ where: { id: req.params.id }, data: { imageUrl: url } });
   await invalidate("miruum:");
-  res.json({ photo });
+  res.json({ ok: true });
 });
 
 app.delete("/api/partner/photos/:photoId", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {

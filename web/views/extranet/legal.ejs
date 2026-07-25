@@ -1,0 +1,68 @@
+<%- include('../partials/top', { title: 'Legalitas & Rekening', heading: 'Legalitas & Rekening', section:'extranet', active:'legal', me }) %>
+
+<% var locked = !!hotel.legalLockedAt; %>
+
+<% if (saved==='legal') { %><div class="notice ok">Data legalitas &amp; rekening tersimpan<%= locked ? ' dan dikunci' : '' %>.</div><% } %>
+<% if (typeof err !== 'undefined' && err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="card">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <img class="thumb" style="width:56px;height:56px" src="<%= hotel.imageUrl %>" alt="">
+    <div style="flex:1">
+      <h2 style="margin:0 0 2px"><%= hotel.name %></h2>
+      <p class="muted" style="margin:0"><%= hotel.city || '' %></p>
+    </div>
+    <a class="btn ghost sm" href="/extranet/hotels/<%= hotel.id %>">← Kelola Properti</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Legalitas, Payout &amp; Kebijakan</h2>
+  <p class="muted" style="margin-top:-8px">Data legal &amp; rekening pencairan untuk kontrak dan pembayaran. Bersifat rahasia — hanya Anda &amp; admin Miruum yang melihat.</p>
+
+  <% if (locked) { %>
+    <div class="notice" style="background:#fff5e3;border:1px solid #e8bf72;color:#8a5a1a">
+      🔒 <b>Terkunci.</b> Data ini sudah Anda kirim dan tidak bisa diubah lagi dari sini. Untuk perubahan (mis. ganti rekening), hubungi <b>Miruum Back Office</b> — hanya mereka yang berwenang mengubahnya. Ini untuk keamanan pembayaran Anda.
+    </div>
+  <% } else { %>
+    <div class="notice" style="background:#eaf3ff;border:1px solid #9cc0ef;color:#1f4a86">
+      ⚠️ Pastikan data benar. <b>Setelah disimpan, data ini akan terkunci</b> dan hanya bisa diubah oleh Miruum Back Office.
+    </div>
+  <% } %>
+
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/legal">
+    <div class="nav-label">Legalitas &amp; Pajak</div>
+    <div class="row2">
+      <div><label>Nama Badan Hukum</label><input name="legalName" value="<%= hotel.legalName || '' %>" placeholder="mis. PT Nusantara Jaya" <%= locked?'readonly':'' %>></div>
+      <div><label>NIB / SIUP</label><input name="businessRegNo" value="<%= hotel.businessRegNo || '' %>" placeholder="Nomor Induk Berusaha" <%= locked?'readonly':'' %>></div>
+    </div>
+    <label>NPWP</label>
+    <input name="taxId" value="<%= hotel.taxId || '' %>" placeholder="00.000.000.0-000.000" <%= locked?'readonly':'' %>>
+
+    <div class="nav-label" style="margin-top:14px">Rekening Pencairan (Payout)</div>
+    <div class="row2">
+      <div><label>Bank</label><input name="payoutBankName" value="<%= hotel.payoutBankName || '' %>" placeholder="mis. BCA" <%= locked?'readonly':'' %>></div>
+      <div><label>No. Rekening</label><input name="payoutBankAccount" value="<%= hotel.payoutBankAccount || '' %>" placeholder="No. rekening" inputmode="numeric" <%= locked?'readonly':'' %>></div>
+    </div>
+    <label>Nama Pemilik Rekening</label>
+    <input name="payoutBankHolder" value="<%= hotel.payoutBankHolder || '' %>" placeholder="Sesuai buku tabungan" <%= locked?'readonly':'' %>>
+
+    <label style="margin-top:14px">Kebijakan Pembatalan</label>
+    <% var cp = hotel.cancellationPolicy || ''; %>
+    <select name="cancellationPolicy" <%= locked?'disabled':'' %>>
+      <option value="">— pilih —</option>
+      <option value="FLEXIBLE" <%= cp==='FLEXIBLE'?'selected':'' %>>Fleksibel (refund penuh sebelum batas)</option>
+      <option value="MODERATE" <%= cp==='MODERATE'?'selected':'' %>>Moderat (refund sebagian)</option>
+      <option value="STRICT" <%= cp==='STRICT'?'selected':'' %>>Ketat</option>
+      <option value="NON_REFUNDABLE" <%= cp==='NON_REFUNDABLE'?'selected':'' %>>Non-refundable</option>
+    </select>
+
+    <% if (!locked) { %>
+      <div style="margin-top:16px"><button class="btn">Simpan &amp; Kunci Legalitas &amp; Payout</button></div>
+    <% } %>
+  </form>
+</div>
+
+<a class="btn ghost" href="/extranet/hotels/<%= hotel.id %>">← Kembali ke Properti</a>
+
+<%- include('../partials/bottom') %>

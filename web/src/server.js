@@ -896,11 +896,19 @@ app.get("/extranet", partnerGuard, async (req, res) => {
 });
 
 app.get("/extranet/hotels/:id", partnerGuard, async (req, res) => {
-  const [{ hotel }, { facilities }] = await Promise.all([
+  const monthQ = req.query.month ? `?month=${encodeURIComponent(req.query.month)}` : "";
+  const [{ hotel }, { facilities }, cal] = await Promise.all([
     api(`/partner/hotels/${req.params.id}`, { token: res.locals.token }),
     api(`/facilities`),
+    api(`/partner/hotels/${req.params.id}/calendar${monthQ}`, { token: res.locals.token }).catch(() => null),
   ]);
-  res.render("extranet/hotel", { hotel, facilities, active: "dashboard", saved: req.query.saved, err: req.query.err });
+  res.render("extranet/hotel", { hotel, facilities, cal, hotelId: req.params.id, active: "dashboard", saved: req.query.saved, err: req.query.err });
+});
+
+// Dedicated, restricted Legalitas & Rekening page (separate from operational).
+app.get("/extranet/hotels/:id/legal", partnerGuard, async (req, res) => {
+  const { hotel } = await api(`/partner/hotels/${req.params.id}`, { token: res.locals.token });
+  res.render("extranet/legal", { hotel, hotelId: req.params.id, active: "dashboard", saved: req.query.saved, err: req.query.err });
 });
 
 // Allotment calendar (Traveloka Tera style): month grid per room.
@@ -1249,8 +1257,8 @@ app.post("/extranet/hotels/:id/content", partnerGuard, async (req, res) => {
 });
 app.post("/extranet/hotels/:id/legal", partnerGuard, async (req, res) => {
   try { await api(`/partner/hotels/${req.params.id}/legal`, { method: "PUT", token: res.locals.token, body: req.body });
-    res.redirect(`/extranet/hotels/${req.params.id}?saved=legal`);
-  } catch (e) { res.redirect(`/extranet/hotels/${req.params.id}?err=` + encodeURIComponent(e.message)); }
+    res.redirect(`/extranet/hotels/${req.params.id}/legal?saved=legal`);
+  } catch (e) { res.redirect(`/extranet/hotels/${req.params.id}/legal?err=` + encodeURIComponent(e.message)); }
 });
 app.post("/extranet/hotels/:id/facilities", partnerGuard, async (req, res) => {
   const ids = Array.isArray(req.body.facilityIds) ? req.body.facilityIds : (req.body.facilityIds ? [req.body.facilityIds] : []);
@@ -1322,14 +1330,34 @@ app.post("/extranet/rooms/:id/availability", partnerGuard, async (req, res) => {
   res.redirect(req.body.redirect || "back");
 });
 
-app.post("/extranet/hotels/:id/photos", partnerGuard, upload.single("photo"), async (req, res) => {
+// Bulk photo upload — many files at once, tagged by category, optionally per-room.
+app.post("/extranet/hotels/:id/photos", partnerGuard, upload.array("photos", 20), async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length) {
+      const urls = [];
+      for (const f of files) {
+        try { urls.push(await uploadFile(res.locals.token, f, "hotels")); } catch (_) {}
+      }
+      if (urls.length) {
+        await api(`/partner/hotels/${req.params.id}/photos`, {
+          method: "POST", token: res.locals.token,
+          body: { urls, category: req.body.category || "OTHER", roomId: req.body.roomId || undefined },
+        });
+      }
+    }
+  } catch (_) {}
+  res.redirect(`/extranet/hotels/${req.params.id}?saved=foto#foto`);
+});
+// Change hotel cover / profile photo.
+app.post("/extranet/hotels/:id/cover", partnerGuard, upload.single("cover"), async (req, res) => {
   try {
     if (req.file) {
       const url = await uploadFile(res.locals.token, req.file, "hotels");
-      await api(`/partner/hotels/${req.params.id}/photos`, { method: "POST", token: res.locals.token, body: { url } });
+      await api(`/partner/hotels/${req.params.id}/cover`, { method: "PUT", token: res.locals.token, body: { url } });
     }
-  } catch (_) {}
-  res.redirect(`/extranet/hotels/${req.params.id}`);
+  } catch (e) { return res.redirect(`/extranet/hotels/${req.params.id}?err=` + encodeURIComponent(e.message)); }
+  res.redirect(`/extranet/hotels/${req.params.id}?saved=cover`);
 });
 app.post("/extranet/photos/:photoId/delete", partnerGuard, async (req, res) => {
   try { await api(`/partner/photos/${req.params.photoId}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
