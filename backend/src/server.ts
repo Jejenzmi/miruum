@@ -5318,6 +5318,45 @@ app.put("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req: A
   res.json({ room: updated });
 });
 
+// Partner: add a NEW room type to a hotel. A hotel is only publicly discoverable
+// once it has ≥1 room with price > 0 (PUBLIC_HOTEL_GATE), so this is what makes a
+// freshly-onboarded property go live. refreshPriceFrom() sets the headline price.
+app.post("/api/partner/hotels/:id/rooms", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan properti Anda" });
+  const schema = z.object({
+    name: z.string().min(1, "Nama kamar wajib diisi"),
+    price: z.coerce.number().int().positive("Harga harus lebih dari 0"),
+    stock: z.coerce.number().int().min(0).default(5),
+    capacity: z.coerce.number().int().min(1).default(2),
+    breakfast: formBool.optional(), refundable: formBool.optional(), freeCancellation: formBool.optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || "Data kamar tidak valid" });
+  const room = await prisma.room.create({ data: {
+    hotelId: req.params.id, name: p.data.name, price: p.data.price, stock: p.data.stock, capacity: p.data.capacity,
+    breakfast: p.data.breakfast ?? false,
+    refundable: p.data.refundable ?? true,
+    freeCancellation: p.data.freeCancellation ?? true,
+  } });
+  await refreshPriceFrom(req.params.id); // sets priceFrom so the hotel becomes bookable & shows in the app
+  await invalidate("miruum:");
+  audit(req, "room.create", "Room", room.id, { hotelId: req.params.id, name: room.name, price: room.price });
+  res.json({ room });
+});
+
+// Partner: delete a room type (refused if it has bookings — history must stay intact).
+app.delete("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsRoom(req, req.params.id))) return res.status(403).json({ error: "Kamar bukan milik Anda" });
+  const room = await prisma.room.findUnique({ where: { id: req.params.id }, select: { hotelId: true, _count: { select: { bookings: true } } } });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  if (room._count.bookings > 0) return res.status(409).json({ error: "Kamar tidak bisa dihapus karena sudah punya pesanan. Set stok 0 untuk menutup penjualan." });
+  await prisma.room.delete({ where: { id: req.params.id } });
+  await refreshPriceFrom(room.hotelId);
+  await invalidate("miruum:");
+  audit(req, "room.delete", "Room", req.params.id, { hotelId: room.hotelId });
+  res.json({ ok: true });
+});
+
 // Partner deal (buat promo sendiri): a % off a room. Uses originalPrice as the
 // baseline so the discount shows as a strikethrough in the app + booking pays less.
 app.put("/api/partner/rooms/:id/deal", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {

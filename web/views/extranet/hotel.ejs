@@ -148,14 +148,24 @@
 </div>
 
 <!-- ── Kamar, Atribut, Rate Plan, Promo & Foto Kamar ── -->
-<div class="card">
+<div class="card" id="kamar">
   <h2>Kamar, Atribut &amp; Promo</h2>
   <p class="muted" style="margin-top:-8px">Satu tempat untuk mengatur tiap tipe kamar: <b>harga &amp; stok</b>, <b>atribut</b> (kapasitas, refundable, sarapan), <b>rate plan</b> (beberapa tarif: Kamar Saja / Sarapan / Bebas Batal / Non-refund), <b>promo diskon %</b>, dan <b>foto kamar</b> (dipakai saat mapping kamar ke Channel Manager / API OTA).</p>
+  <% if (saved==='kamar') { %><div class="notice ok">Kamar tersimpan.</div><% } %>
+  <% if (!hotel.rooms.length) { %>
+    <div class="notice bad">⚠️ Properti ini <b>belum punya kamar</b> — sehingga <b>tidak muncul di aplikasi</b>. Tambahkan minimal 1 kamar dengan harga di form <b>"Tambah Kamar Baru"</b> di bawah.</div>
+  <% } %>
   <% hotel.rooms.forEach(function(r){ var dealPct = (r.originalPrice && r.originalPrice>r.price) ? Math.round((1 - r.price/r.originalPrice)*100) : 0; var roomPhotos = (r.photos||[]); %>
     <div style="border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <b><%= r.name %></b>
-        <% if (dealPct>0) { %><span class="pill PAID">Promo -<%= dealPct %>% · <s style="opacity:.6"><%= rupiah(r.originalPrice) %></s> → <%= rupiah(r.price) %></span><% } %>
+        <div style="display:flex;align-items:center;gap:8px">
+          <% if (dealPct>0) { %><span class="pill PAID">Promo -<%= dealPct %>% · <s style="opacity:.6"><%= rupiah(r.originalPrice) %></s> → <%= rupiah(r.price) %></span><% } %>
+          <form method="post" action="/extranet/rooms/<%= r.id %>/delete" data-confirm="Hapus kamar <%= r.name %>? Tidak bisa jika sudah ada pesanan." style="margin:0">
+            <input type="hidden" name="hotelId" value="<%= hotel.id %>">
+            <button class="btn danger sm" title="Hapus kamar">Hapus</button>
+          </form>
+        </div>
       </div>
       <form method="post" action="/extranet/rooms/<%= r.id %>" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px">
         <div><label style="margin:0 0 4px">Harga/malam</label><input name="price" type="number" value="<%= r.originalPrice && r.originalPrice>r.price ? r.originalPrice : r.price %>" style="max-width:130px"></div>
@@ -219,7 +229,22 @@
       </div>
     </div>
   <% }) %>
-  <% if (!hotel.rooms.length) { %><p class="empty">Belum ada kamar</p><% } %>
+
+  <!-- Tambah kamar baru — inilah yang membuat properti baru tampil di aplikasi -->
+  <div style="border:2px dashed var(--brand,#f6883a);border-radius:14px;padding:14px;margin-top:6px">
+    <b>+ Tambah Kamar Baru</b>
+    <p class="muted" style="font-size:11.5px;margin:2px 0 10px">Isi minimal <b>nama kamar</b> dan <b>harga/malam</b>. Setelah tersimpan, hotel langsung bisa dipesan &amp; muncul di aplikasi.</p>
+    <form method="post" action="/extranet/hotels/<%= hotel.id %>/rooms" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+      <div><label style="margin:0 0 4px">Nama kamar</label><input name="name" placeholder="mis. Deluxe King" required style="max-width:180px"></div>
+      <div><label style="margin:0 0 4px">Harga/malam (Rp)</label><input name="price" type="number" min="1" placeholder="500000" required style="max-width:150px"></div>
+      <div><label style="margin:0 0 4px">Stok</label><input name="stock" type="number" min="0" value="5" style="max-width:80px"></div>
+      <div><label style="margin:0 0 4px">Kapasitas</label><input name="capacity" type="number" min="1" value="2" style="max-width:90px"></div>
+      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="refundable" checked> Refundable</label>
+      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="freeCancellation" checked> Gratis batal</label>
+      <label class="pr-check" style="margin:0 0 8px"><input type="checkbox" name="breakfast"> Sarapan</label>
+      <button class="btn" style="margin-bottom:2px">Tambah Kamar</button>
+    </form>
+  </div>
 </div>
 
 <% if (saved==='tipe') { %><div class="notice ok">Jenis properti tersimpan.</div><% } %>

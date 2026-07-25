@@ -1202,6 +1202,23 @@ app.post("/pms/guests/:email/note", ...pmsG, async (req, res) => {
   res.redirect(`/pms/guests?e=${encodeURIComponent(req.params.email)}`);
 });
 
+// Add a new room type — makes a freshly-onboarded hotel go live in the app.
+app.post("/extranet/hotels/:id/rooms", partnerGuard, async (req, res) => {
+  try {
+    await api(`/partner/hotels/${req.params.id}/rooms`, { method: "POST", token: res.locals.token, body: {
+      name: req.body.name, price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
+      breakfast: req.body.breakfast === "on", refundable: req.body.refundable === "on", freeCancellation: req.body.freeCancellation === "on",
+    } });
+    res.redirect(`/extranet/hotels/${req.params.id}?saved=kamar#kamar`);
+  } catch (e) { res.redirect(`/extranet/hotels/${req.params.id}?err=` + encodeURIComponent(e.message) + `#kamar`); }
+});
+app.post("/extranet/rooms/:id/delete", partnerGuard, async (req, res) => {
+  try {
+    await api(`/partner/rooms/${req.params.id}`, { method: "DELETE", token: res.locals.token });
+    res.redirect((req.body.hotelId ? `/extranet/hotels/${req.body.hotelId}?saved=kamar#kamar` : (req.get("referer") || "/extranet")));
+  } catch (e) { res.redirect(`/extranet/hotels/${req.body.hotelId || ""}?err=` + encodeURIComponent(e.message) + `#kamar`); }
+});
+
 app.post("/extranet/rooms/:id", partnerGuard, async (req, res) => {
   await api(`/partner/rooms/${req.params.id}`, { method: "PUT", token: res.locals.token, body: {
     price: req.body.price, stock: req.body.stock, capacity: req.body.capacity,
