@@ -199,6 +199,7 @@ app.get("/admin/hotels/:id/edit", adminGuard, async (req, res) => {
   ]);
   const hotel = hotels.find((h) => h.id === req.params.id);
   const rooms = (detail && detail.hotel && detail.hotel.rooms) || [];
+  if (hotel) hotel.photos = (detail && detail.hotel && detail.hotel.photos) || []; // hotel-level + per-room photos for the manager
   res.render("admin/hotel_form", { hotel, rooms, users: users.filter((u) => u.role === "PARTNER"), active: "hotels", err: req.query.err, saved: req.query.saved, added: req.query.added });
 });
 
@@ -226,6 +227,35 @@ app.post("/admin/rooms/:id/delete", adminGuard, async (req, res) => {
   try { await api(`/partner/rooms/${req.params.id}`, { method: "DELETE", token: res.locals.token });
     res.redirect(`/admin/hotels/${req.body.hotelId}/edit?saved=kamar#kamar`);
   } catch (e) { res.redirect(`/admin/hotels/${req.body.hotelId}/edit?err=` + encodeURIComponent(e.message) + `#kamar`); }
+});
+
+// Admin: categorized + per-room photo management (mirrors the Extranet, admin token).
+app.post("/admin/hotels/:id/photos", adminGuard, upload.array("photos", 20), async (req, res) => {
+  try {
+    const files = req.files || [];
+    const urls = [];
+    for (const f of files) { try { urls.push(await uploadFile(res.locals.token, f, "hotels")); } catch (_) {} }
+    if (urls.length) {
+      await api(`/partner/hotels/${req.params.id}/photos`, {
+        method: "POST", token: res.locals.token,
+        body: { urls, category: req.body.category || "OTHER", roomId: req.body.roomId || undefined },
+      });
+    }
+  } catch (_) {}
+  res.redirect(`/admin/hotels/${req.params.id}/edit?saved=foto#foto`);
+});
+app.post("/admin/hotels/:id/cover", adminGuard, upload.single("cover"), async (req, res) => {
+  try {
+    if (req.file) {
+      const url = await uploadFile(res.locals.token, req.file, "hotels");
+      await api(`/partner/hotels/${req.params.id}/cover`, { method: "PUT", token: res.locals.token, body: { url } });
+    }
+  } catch (e) { return res.redirect(`/admin/hotels/${req.params.id}/edit?err=` + encodeURIComponent(e.message) + `#foto`); }
+  res.redirect(`/admin/hotels/${req.params.id}/edit?saved=foto#foto`);
+});
+app.post("/admin/photos/:photoId/delete", adminGuard, async (req, res) => {
+  try { await api(`/partner/photos/${req.params.photoId}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect(req.get("referer") || "/admin/hotels");
 });
 
 app.post("/admin/hotels/:id", adminGuard, async (req, res) => {

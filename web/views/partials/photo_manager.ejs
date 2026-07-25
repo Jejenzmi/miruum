@@ -1,0 +1,49 @@
+<%
+  // Categorized hotel-photo manager, shared by Extranet & Back Office.
+  // Params: prefix ('/extranet' | '/admin'), hotel (id, imageUrl, photos[]),
+  //         showCover (bool → render the cover/profile upload).
+  var PHOTO_CATS = [
+    ['BUILDING','Gedung / Tampak Luar'], ['LOBBY','Lobby'], ['BEDROOM','Kamar Tidur'],
+    ['BATHROOM','Kamar Mandi'], ['POOL','Kolam Renang'], ['RESTAURANT','Restoran'],
+    ['AMENITIES','Amenities'], ['FACILITIES','Fasilitas'], ['VIEW','Pemandangan'], ['OTHER','Lainnya']
+  ];
+  var _all = hotel.photos || [];
+  var _hotelPhotos = _all.filter(function(p){ return !p.roomId; });
+  var _showCover = (typeof showCover !== 'undefined') && showCover;
+%>
+<% if (_showCover) { %>
+  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+    <img src="<%= hotel.imageUrl %>" style="width:88px;height:66px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">
+    <form method="post" action="<%= prefix %>/hotels/<%= hotel.id %>/cover" enctype="multipart/form-data" style="margin:0">
+      <label class="btn ghost sm" style="cursor:pointer;margin:0">Ganti Foto Cover / Profil
+        <input type="file" name="cover" accept="image/*" style="display:none" onchange="this.form.submit()">
+      </label>
+    </form>
+  </div>
+<% } %>
+
+<% PHOTO_CATS.forEach(function(cat){ var catKey=cat[0], catLabel=cat[1]; var photos = _hotelPhotos.filter(function(p){ return (p.category||'OTHER')===catKey; }); %>
+  <div style="border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+      <b><%= catLabel %> <span class="muted" style="font-weight:400">(<%= photos.length %>)</span></b>
+      <form method="post" action="<%= prefix %>/hotels/<%= hotel.id %>/photos" enctype="multipart/form-data" style="margin:0">
+        <input type="hidden" name="category" value="<%= catKey %>">
+        <label class="btn sm" style="cursor:pointer;margin:0">+ Unggah Foto
+          <input type="file" name="photos" accept="image/*" multiple style="display:none" onchange="this.form.submit()">
+        </label>
+      </form>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <% photos.forEach(function(ph){ %>
+        <div style="position:relative">
+          <img src="<%= ph.url %>" style="width:104px;height:78px;object-fit:cover;border-radius:10px">
+          <form method="post" action="<%= prefix %>/photos/<%= ph.id %>/delete" data-confirm="Hapus foto?" style="position:absolute;top:4px;right:4px;margin:0">
+            <button class="btn danger sm" style="padding:2px 8px">×</button>
+          </form>
+        </div>
+      <% }) %>
+      <% if (!photos.length) { %><span class="muted" style="font-size:12px;align-self:center">Belum ada foto</span><% } %>
+    </div>
+  </div>
+<% }) %>
+<p class="muted" style="font-size:11px;margin-top:2px">Format JPG/PNG/WebP, maks 6MB/foto. Bisa pilih beberapa file sekaligus.</p>

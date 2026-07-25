@@ -127,7 +127,32 @@
           <button class="btn sm">Simpan</button>
         </div>
       </form>
-      <form method="post" action="/admin/rooms/<%= r.id %>/delete" data-confirm="Hapus kamar <%= r.name %>?" style="margin-top:6px;display:flex;justify-content:flex-end">
+      <!-- Foto kamar (per-room, untuk mapping API) -->
+      <% var rphotos = (r.photos||[]); %>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <b style="font-size:12px">Foto kamar ini <span class="muted" style="font-weight:400">(<%= rphotos.length %>)</span></b>
+          <form method="post" action="/admin/hotels/<%= hotel.id %>/photos" enctype="multipart/form-data" style="margin:0">
+            <input type="hidden" name="category" value="BEDROOM">
+            <input type="hidden" name="roomId" value="<%= r.id %>">
+            <label class="btn ghost sm" style="cursor:pointer;margin:0">+ Foto Kamar
+              <input type="file" name="photos" accept="image/*" multiple style="display:none" onchange="this.form.submit()">
+            </label>
+          </form>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <% rphotos.forEach(function(ph){ %>
+            <div style="position:relative">
+              <img src="<%= ph.url %>" style="width:88px;height:66px;object-fit:cover;border-radius:9px">
+              <form method="post" action="/admin/photos/<%= ph.id %>/delete" data-confirm="Hapus foto kamar?" style="position:absolute;top:3px;right:3px;margin:0">
+                <button class="btn danger sm" style="padding:1px 7px">×</button>
+              </form>
+            </div>
+          <% }) %>
+          <% if (!rphotos.length) { %><span class="muted" style="font-size:11px;align-self:center">Belum ada foto kamar</span><% } %>
+        </div>
+      </div>
+      <form method="post" action="/admin/rooms/<%= r.id %>/delete" data-confirm="Hapus kamar <%= r.name %>?" style="margin-top:8px;display:flex;justify-content:flex-end">
         <input type="hidden" name="hotelId" value="<%= hotel.id %>">
         <button class="btn danger sm">Hapus kamar</button>
       </form>
@@ -152,6 +177,13 @@
       <div class="rform-actions"><button class="btn">Tambah Kamar</button></div>
     </form>
   </div>
+</div>
+
+<div class="card" id="foto" style="max-width:720px">
+  <h2 style="margin:0 0 4px">Foto Hotel (berkategori)</h2>
+  <p class="muted" style="margin-top:0;font-size:12px">Bantu mitra melengkapi galeri. Foto dipisah per kategori (Gedung, Lobby, Kamar, dll) &amp; bisa unggah banyak sekaligus. Foto khusus kamar diatur di kartu <b>Kamar</b> di atas.</p>
+  <% if (typeof saved !== 'undefined' && saved==='foto') { %><div class="notice ok">Foto tersimpan.</div><% } %>
+  <%- include('../partials/photo_manager', { prefix: '/admin', hotel: hotel, showCover: true }) %>
   <a class="btn ghost" href="/admin/hotels" style="margin-top:12px">← Daftar Hotel</a>
 </div>
 <% } %>
