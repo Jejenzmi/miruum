@@ -7,6 +7,7 @@ import '../bloc/auth/auth_bloc.dart';
 import '../brand.dart';
 import '../feedback.dart';
 import '../l10n.dart';
+import 'content_screen.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
 import '../widgets.dart';
@@ -236,16 +237,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _pass = TextEditingController();
-  bool _loading = false, _obscure = true;
+  bool _loading = false, _obscure = true, _consent = false;
 
   Future<void> _submit() async {
     if (_name.text.trim().length < 2 || !_email.text.contains('@') || _pass.text.length < 6) {
       _toast(context, tr('Lengkapi nama, email valid, & kata sandi min. 6 karakter', 'Enter your name, a valid email, and a password of at least 6 characters'));
       return;
     }
+    if (!_consent) {
+      _toast(context, tr('Setujui Kebijakan Privasi & Syarat Ketentuan dulu', 'Please agree to the Privacy Policy & Terms first'));
+      return;
+    }
     setState(() => _loading = true);
     try {
-      final (token, user) = await context.read<Api>().register(_name.text.trim(), _email.text.trim(), _pass.text);
+      final (token, user) = await context.read<Api>().register(_name.text.trim(), _email.text.trim(), _pass.text, consent: _consent);
       if (!mounted) return;
       context.read<AuthBloc>().add(AuthSessionGranted(token, user));
       // OTP step (mock) then done.
@@ -289,9 +294,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     onPressed: () => setState(() => _obscure = !_obscure),
                   )),
               const SizedBox(height: 14),
-              Text(tr('Dengan mendaftar, Anda menyetujui Syarat & Ketentuan dan Kebijakan Privasi Miruum',
-                  'By registering, you agree to Miruum\'s Terms & Conditions and Privacy Policy'),
-                  style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(width: 24, height: 24, child: Checkbox(
+                  value: _consent, onChanged: (v) => setState(() => _consent = v ?? false),
+                  activeColor: MC.primary, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap)),
+                const SizedBox(width: 8),
+                Expanded(child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  Text(tr('Saya menyetujui ', 'I agree to '), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContentScreen(slug: 'privacy', fallbackTitle: 'Kebijakan Privasi'))),
+                    child: Text(tr('Kebijakan Privasi', 'Privacy Policy'), style: const TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w700))),
+                  Text(tr(' dan ', ' and '), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContentScreen(slug: 'terms', fallbackTitle: 'Syarat & Ketentuan'))),
+                    child: Text(tr('Syarat & Ketentuan', 'Terms & Conditions'), style: const TextStyle(color: MC.primary, fontSize: 12, fontWeight: FontWeight.w700))),
+                ])),
+              ]),
               const SizedBox(height: 20),
               PrimaryButton(tr('Daftar', 'Sign Up'), loading: _loading, onPressed: _submit),
               const SizedBox(height: 22),

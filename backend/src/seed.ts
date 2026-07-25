@@ -87,8 +87,8 @@ const HOTELS: HotelSeed[] = [
 ];
 
 const REVIEWS = [
-  { authorName: "Ajeng", rating: 8.5, body: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Kamar bersih dan pelayanan ramah." },
-  { authorName: "Abdul Ghoni", rating: 7.0, body: "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lokasi strategis, sarapan enak." },
+  { authorName: "Ajeng", rating: 8.5, body: "Kamar bersih dan pelayanan ramah. Check-in cepat, kasur nyaman." },
+  { authorName: "Abdul Ghoni", rating: 7.0, body: "Lokasi strategis, sarapan enak. Kamar mandi bisa lebih diperhatikan." },
   { authorName: "Sinta", rating: 9.0, body: "Sangat nyaman, kolam renang bagus, staff helpful. Recommended!" },
 ];
 
@@ -424,6 +424,13 @@ async function main() {
     await ensureCorporate();
     await ensureRegions();
     console.log(`[seed] catalog already present — channels + ${s.offers} offers + ${av} availability days synced${bk ? `, +${bk} demo bookings` : ""}, skipping reseed`);
+    return;
+  }
+  // PRODUCTION SAFETY: never create the demo catalog on an empty DB automatically.
+  // The dummy hotels must NOT reappear in live production — they are created only
+  // when explicitly requested with `--force`.
+  if (!force) {
+    console.log("[seed] empty catalog and no --force — refusing to create demo hotels (production-safe).");
     return;
   }
 

@@ -73,13 +73,50 @@
         </div>
 
         <div v-else-if="hotels.length" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          <HotelCard v-for="h in hotels" :key="h.id" :hotel="h" />
+          <HotelCard v-for="h in hotels" :key="h.id" :hotel="h" :external="h._ext" @book="onBook" />
         </div>
 
         <div v-else class="card p-12 text-center text-ink-muted">
           <p class="text-lg font-semibold mb-1">{{ t('Tidak ada properti ditemukan', 'No properties found') }}</p>
           <p class="text-sm">{{ t('Coba ubah kata kunci atau filter pencarian.', 'Try changing your keywords or search filters.') }}</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Booking flow for live-inventory properties (no separate detail page) -->
+    <div v-if="sel" class="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" @click.self="sel = null">
+      <div class="card p-5 w-full max-w-md max-h-[88vh] overflow-y-auto">
+        <h2 class="font-bold text-lg">{{ sel.name }}</h2>
+        <p class="text-ink-muted text-sm mb-3">{{ [sel.categoryName, sel.destinationName].filter(Boolean).join(' · ') }}</p>
+        <!-- room/rate picker -->
+        <div v-if="!rate" class="divide-y divide-line border-t border-line">
+          <div v-for="(r,i) in sel.rooms" :key="i" class="flex items-center justify-between gap-3 py-2.5">
+            <div class="min-w-0">
+              <div class="font-semibold text-sm truncate">{{ r.name }}</div>
+              <div class="text-xs text-ink-muted">{{ r.boardName }} · {{ r.refundable ? t('Bisa refund', 'Refundable') : t('Non-refundable', 'Non-refundable') }}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="font-bold text-sm">{{ rupiah(r.netIdr ?? r.net) }}</div>
+              <button @click="rate = r" class="btn-brand btn-sm mt-1">{{ t('Pilih', 'Select') }}</button>
+            </div>
+          </div>
+        </div>
+        <!-- guest form -->
+        <div v-else>
+          <p class="text-sm mb-3">{{ rate.name }} · <b>{{ rupiah(rate.netIdr ?? rate.net) }}</b></p>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="lbl2">{{ t('Nama Depan','First name') }}</label><input v-model="holder.name" class="inp2" /></div>
+            <div><label class="lbl2">{{ t('Nama Belakang','Surname') }}</label><input v-model="holder.surname" class="inp2" /></div>
+          </div>
+          <div class="mt-2"><label class="lbl2">Email</label><input v-model="holder.email" type="email" class="inp2" /></div>
+          <div class="mt-2"><label class="lbl2">{{ t('Telepon','Phone') }}</label><input v-model="holder.phone" class="inp2" /></div>
+          <p v-if="mErr" class="text-red-600 text-sm mt-2">{{ mErr }}</p>
+          <div class="flex gap-2 mt-4">
+            <button @click="rate = null" class="btn-ghost flex-1">{{ t('Kembali','Back') }}</button>
+            <button @click="reserve" :disabled="booking" class="btn-brand flex-1">{{ booking ? t('Memproses…','Processing…') : t('Lanjut Bayar','Continue to Pay') }}</button>
+          </div>
+        </div>
+        <button @click="sel = null" class="mt-4 text-sm text-ink-faint w-full">{{ t('Tutup','Close') }}</button>
       </div>
     </div>
   </div>
@@ -98,6 +135,7 @@ const regionId = computed(() => (route.query.regionId as string) || '')
 const regionName = computed(() => (route.query.regionName as string) || '')
 const areaLabel = computed(() => titleCaseArea(regionName.value) || t('Area terpilih', 'Selected area'))
 const heading = computed(() => {
+  if (route.query.lat && route.query.lng) return t('Hotel di sekitar Anda', 'Hotels near you')
   if (regionId.value) {
     const base = `${t('Properti di', 'Properties in')} ${areaLabel.value}`
     return q.value ? `${base} · “${q.value}”` : base
@@ -122,8 +160,14 @@ const facilityIds = ref<string[]>([])
 const { data: facData } = await useAsyncData('facilities', () => $api('/facilities').catch(() => ({ facilities: [] })))
 const facilities = computed<any[]>(() => (facData.value as any)?.facilities || [])
 
+const lat = computed(() => route.query.lat ? Number(route.query.lat) : null)
+const lng = computed(() => route.query.lng ? Number(route.query.lng) : null)
+const isNear = computed(() => lat.value != null && lng.value != null)
+
 const query = computed(() => {
   const p: Record<string, any> = { sort: sort.value }
+  // Current-location search (same as the app): DIRECT hotels sorted by distance.
+  if (isNear.value) { p.lat = lat.value; p.lng = lng.value; p.radius = 150 }
   if (q.value) p.q = q.value
   if (regionId.value) p.regionId = regionId.value
   if (propType.value) p.propertyType = propType.value
@@ -141,7 +185,74 @@ const { data, pending } = await useAsyncData(
   () => $api('/hotels', { query: query.value }).catch(() => ({ hotels: [] })),
   { watch: [query] },
 )
-const hotels = computed<any[]>(() => ((data.value as any)?.hotels || (data.value as any) || []))
+const directHotels = computed<any[]>(() => ((data.value as any)?.hotels || (data.value as any) || []))
+
+// Live external-supply inventory, blended into the same results (no source shown).
+// Dates come from the query (SearchWidget) or sensible defaults so bedbank — which
+// requires a stay — can be queried.
+const pad = (n: number) => String(n).padStart(2, '0')
+const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+const checkIn = computed(() => (route.query.checkIn as string) || iso(new Date(Date.now() + 86400000)))
+const checkOut = computed(() => (route.query.checkOut as string) || iso(new Date(Date.now() + 2 * 86400000)))
+const adults = computed(() => Number(route.query.guests) || 2)
+const roomsQ = computed(() => Number(route.query.rooms) || 1)
+
+// External (partner) inventory — by current location if a near-me search, else
+// by destination text. Same source & behavior as the app, so results match.
+const { data: extData } = await useAsyncData(
+  'search-supply',
+  () => {
+    const base: any = { checkIn: checkIn.value, checkOut: checkOut.value, adults: adults.value, rooms: roomsQ.value }
+    if (isNear.value) return $api('/supply/search', { method: 'POST', body: { ...base, lat: lat.value, lng: lng.value } }).catch(() => ({ external: [] }))
+    if (q.value || regionName.value) return $api('/supply/search', { method: 'POST', body: { ...base, destination: q.value || regionName.value } }).catch(() => ({ external: [] }))
+    return Promise.resolve({ external: [] })
+  },
+  { watch: [q, regionName, checkIn, checkOut, lat, lng] },
+)
+// Map external hotels to the same card shape (unlabeled); keep raw for booking.
+const externalHotels = computed<any[]>(() => ((extData.value as any)?.external || []).map((h: any) => ({
+  id: `x-${h.supplierHotelCode}`, name: h.name, city: h.destinationName || h.zoneName || '',
+  address: h.zoneName || '', imageUrl: '', starRating: starOf(h.categoryName), rating: 0, reviewCount: 0,
+  priceFrom: h.minRateIdr ?? h.minRate, propertyType: 'HOTEL', facilities: [],
+  _ext: true, _raw: h,
+})))
+function starOf(cat?: string): number { const m = /([1-5])/.exec(cat || ''); return m ? Number(m[1]) : 3 }
+
+// Merged list — external appended so filters/sort on DIRECT still behave; both
+// render through the identical HotelCard with no source hint.
+const hotels = computed<any[]>(() => [...directHotels.value, ...externalHotels.value])
+
+// ── Booking flow for external (live) properties ──
+const sel = ref<any>(null)
+const rate = ref<any>(null)
+const holder = reactive({ name: '', surname: '', email: '', phone: '' })
+const booking = ref(false)
+const mErr = ref('')
+const { isLoggedIn } = useAuth()
+function onBook(h: any) {
+  if (!isLoggedIn.value) { navigateTo(`/login?next=${encodeURIComponent(route.fullPath)}`); return }
+  sel.value = h._raw; rate.value = null; mErr.value = ''
+}
+async function reserve() {
+  mErr.value = ''
+  if (!holder.name || !holder.surname) { mErr.value = t('Isi nama depan & belakang.', 'Enter first & surname.'); return }
+  booking.value = true
+  try {
+    const paxes = Array.from({ length: adults.value }, (_, i) => ({ type: 'AD', name: i === 0 ? holder.name : 'Guest', surname: i === 0 ? holder.surname : String(i + 1) }))
+    const r: any = await $api('/supply/book', {
+      method: 'POST',
+      body: {
+        source: sel.value.source, rateKey: rate.value.rateKey,
+        hotelName: sel.value.name, supplierHotelCode: sel.value.supplierHotelCode, city: sel.value.destinationName || '',
+        checkIn: checkIn.value, checkOut: checkOut.value, holder: { ...holder }, paxes,
+        guests: adults.value, rooms: roomsQ.value,
+      },
+    })
+    if (r?.booking?.id) await navigateTo(`/payment/${r.booking.id}`)
+    else mErr.value = t('Gagal membuat pesanan.', 'Failed to create booking.')
+  } catch (e: any) { mErr.value = e?.data?.error || t('Reservasi gagal (rate mungkin kedaluwarsa).', 'Reservation failed (rate may have expired).') }
+  finally { booking.value = false }
+}
 
 useHead({
   title: () => {
@@ -150,3 +261,8 @@ useHead({
   },
 })
 </script>
+
+<style scoped>
+.lbl2 { @apply block text-xs font-semibold text-ink-muted mb-1; }
+.inp2 { @apply w-full border border-line rounded-lg px-3 py-2 text-sm; }
+</style>

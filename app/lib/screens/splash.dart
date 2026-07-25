@@ -23,6 +23,16 @@ class _SplashScreenState extends State<SplashScreen> {
         if (m.isNotEmpty) AppSettings.modules.value = {...AppSettings.modules.value, ...m};
       }).catchError((_) {});
     } catch (_) {}
+    // Nationality (market) pricing status + IP-resolved default (never blocks launch).
+    try {
+      context.read<Api>().market().then((r) {
+        AppSettings.marketEnabled = r['enabled'] == true;
+        AppSettings.marketMarkup = (r['markup'] is num) ? (r['markup'] as num).toInt() : int.tryParse('${r['markup']}') ?? 0;
+        if (!AppSettings.marketChosen) {
+          AppSettings.market.value = r['market'] == 'FOREIGN' ? 'FOREIGN' : 'DOMESTIC';
+        }
+      }).catchError((_) {});
+    } catch (_) {}
     // Full splash on cold start; instant (no delay) when the navigator is
     // rebuilt for a language switch, landing back on the last tab.
     final firstBoot = !AppSettings.booted;

@@ -10,6 +10,7 @@ import '../models.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
+import '../supply_booking.dart';
 import 'filter.dart';
 
 class ResultsScreen extends StatelessWidget {
@@ -55,6 +56,39 @@ class _ResultsView extends StatefulWidget {
 class _ResultsViewState extends State<_ResultsView> {
   late FilterResult _filter = widget.initialFilter ?? const FilterResult();
   final _fmt = DateFormat('d MMM yyyy', 'id_ID');
+
+  // Live external-supply inventory, blended into the same list (source hidden).
+  List<Map<String, dynamic>> _external = const [];
+  late final String _ci, _co;
+
+  @override
+  void initState() {
+    super.initState();
+    String iso(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    _ci = iso(widget.checkIn ?? DateTime.now().add(const Duration(days: 1)));
+    _co = iso(widget.checkOut ?? DateTime.now().add(const Duration(days: 2)));
+    _loadExternal();
+  }
+
+  Future<void> _loadExternal() async {
+    if (widget.query.isEmpty && !widget.near) return; // need a destination or geo
+    try {
+      final r = await context.read<Api>().supplySearch(
+        destination: widget.near ? null : widget.query,
+        lat: widget.near ? widget.nearLat : null, lng: widget.near ? widget.nearLng : null,
+        checkIn: _ci, checkOut: _co, adults: 2, rooms: widget.rooms);
+      if (mounted) setState(() => _external = (((r['external'] as List?) ?? const []).cast<Map<String, dynamic>>()));
+    } catch (_) {/* stay empty on failure */}
+  }
+
+  int _starOf(String? c) { final m = RegExp(r'([1-5])').firstMatch(c ?? ''); return m != null ? int.parse(m.group(1)!) : 3; }
+  Hotel _extHotel(Map<String, dynamic> h) => Hotel.fromJson({
+        'id': 'x-${h['supplierHotelCode']}', 'name': h['name'],
+        'city': h['destinationName'] ?? h['zoneName'] ?? '', 'address': h['zoneName'] ?? '',
+        'imageUrl': '', 'rating': 0, 'reviewCount': 0,
+        'priceFrom': h['minRateIdr'] ?? h['minRate'] ?? 0,
+        'starRating': _starOf(h['categoryName']?.toString()), 'isPromo': false, 'propertyType': 'HOTEL',
+      });
 
   void _apply() {
     context.read<HotelsCubit>().load(query: {
@@ -112,19 +146,26 @@ class _ResultsViewState extends State<_ResultsView> {
                     return const SkeletonList();
                   }
                   final hotels = state.data ?? [];
-                  if (hotels.isEmpty) {
+                  if (hotels.isEmpty && _external.isEmpty) {
                     return EmptyState(
                       icon: Icons.search_off_rounded,
                       title: tr('Hotel tidak ditemukan', 'No hotels found'),
                       subtitle: tr('Coba ubah kata kunci atau filter pencarian', 'Try changing your keywords or search filters'),
                     );
                   }
+                  final total = hotels.length + _external.length;
                   return ListView.separated(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                    itemCount: hotels.length,
+                    itemCount: total,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) => HotelCard(hotels[i], showBook: true)
-                        .animate().fadeIn(delay: (i * 55).ms, duration: 350.ms).slideY(begin: 0.1, end: 0),
+                    itemBuilder: (context, i) {
+                      final Widget card = i < hotels.length
+                          ? HotelCard(hotels[i], showBook: true)
+                          : HotelCard(_extHotel(_external[i - hotels.length]),
+                              onCardTap: () => showExternalBooking(context, _external[i - hotels.length],
+                                  checkIn: _ci, checkOut: _co, adults: 2, rooms: widget.rooms));
+                      return card.animate().fadeIn(delay: (i * 55).ms, duration: 350.ms).slideY(begin: 0.1, end: 0);
+                    },
                   );
                 },
               ),

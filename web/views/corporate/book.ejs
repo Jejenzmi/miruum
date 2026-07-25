@@ -1,7 +1,7 @@
 <%- include('../partials/top', { title:'Pesan Hotel', heading:'Pesan Hotel', section:'corporate', active:'book', me }) %>
 
-<% if (booked) { %><div class="notice ok">Pemesanan berhasil — kode <b><%= booked %></b> ditagihkan ke corporate. <a href="/api/invoices/<%= booked %>" target="_blank">Lihat Invoice</a> · <a href="/api/vouchers/<%= booked %>" target="_blank">E-Voucher</a></div><% } %>
-<% if (err) { %><div class="notice bad">Pemesanan gagal. Periksa isian Anda.</div><% } %>
+<% if (pending) { %><div class="notice ok">Pesanan <b><%= pending %></b> diajukan &amp; menunggu <b>persetujuan Approver</b>. E-voucher terbit setelah disetujui.<% if (noapprover) { %><br><b>Catatan:</b> belum ada Approver di akun Anda — minta Admin menambahkan Approver di menu <b>Pengguna &amp; Peran</b>.<% } %></div><% } %>
+<% if (err) { %><div class="notice bad">Pengajuan gagal. Periksa isian Anda.</div><% } %>
 
 <% var _disc = Number(locals.discountPct) || 0; %>
 
@@ -40,7 +40,8 @@
     </div>
     <label>Catatan / No. SPD (opsional)</label>
     <input name="note" placeholder="mis. Perjalanan Dinas No. 123/2026">
-    <div style="margin-top:18px"><button class="btn">Pesan &amp; Tagih ke Corporate</button></div>
+    <p class="muted" style="font-size:12px;margin-top:14px"><svg class="ci" style="vertical-align:-2px"><use href="#i-shield"/></svg> Pesanan korporat memakai alur <b>Maker → Approver</b>: pengajuan ini akan menunggu persetujuan sebelum ditagihkan.</p>
+    <div style="margin-top:10px"><button class="btn">Ajukan Pesanan untuk Disetujui</button></div>
   </form>
 </div>
 

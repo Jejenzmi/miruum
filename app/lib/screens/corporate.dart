@@ -513,7 +513,11 @@ class CorporatePortalScreen extends StatefulWidget {
 class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
   Map<String, dynamic>? _overview;
   List<dynamic> _invoices = const [];
+  List<dynamic> _approvals = const [];
+  bool _canApprove = false;
+  String _myRole = 'MAKER';
   bool _loading = true;
+  bool _acting = false;
   String? _error;
 
   @override
@@ -528,11 +532,77 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
       final api = context.read<Api>();
       final ov = await api.corporateOverview();
       final inv = await api.corporateInvoices();
+      // Approval queue — any corporate user may read it; only Approvers can act.
+      Map<String, dynamic> appr = const {};
+      try { appr = await api.corporateApprovals(); } catch (_) {}
       if (!mounted) return;
-      setState(() { _overview = ov; _invoices = inv; _loading = false; });
+      setState(() {
+        _overview = ov;
+        _invoices = inv;
+        _approvals = (appr['approvals'] as List?) ?? const [];
+        _canApprove = appr['canApprove'] == true || ov['canApprove'] == true;
+        _myRole = (appr['myRole'] ?? ov['myRole'] ?? 'MAKER').toString();
+        _loading = false;
+      });
     } catch (e) {
       if (mounted) setState(() { _error = tr('Gagal memuat data portal', 'Failed to load portal data'); _loading = false; });
     }
+  }
+
+  String _roleLabel(String r) => r == 'ADMIN'
+      ? tr('Admin', 'Admin')
+      : r == 'APPROVER' ? tr('Approver', 'Approver') : tr('Maker', 'Maker');
+
+  Future<void> _approve(Map<String, dynamic> b) async {
+    final code = b['code']?.toString() ?? '';
+    final ok = await confirmDialog(context,
+        title: tr('Setujui Pesanan', 'Approve Booking'),
+        message: tr('Setujui pesanan $code? E-voucher akan terbit & ditagihkan ke akun bisnis.',
+            'Approve booking $code? An e-voucher will be issued & billed to the business account.'),
+        confirmText: tr('Ya, setujui', 'Yes, approve'), icon: Icons.verified_rounded);
+    if (ok != true) return;
+    setState(() => _acting = true);
+    try {
+      await context.read<Api>().corporateApprove(b['id'].toString());
+      if (mounted) _toast(context, tr('Pesanan disetujui', 'Booking approved'), err: false);
+      await _load();
+    } catch (e) {
+      if (mounted) _toast(context, e.toString().replaceFirst('Exception: ', ''));
+    } finally { if (mounted) setState(() => _acting = false); }
+  }
+
+  Future<void> _reject(Map<String, dynamic> b) async {
+    final code = b['code']?.toString() ?? '';
+    final ctl = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: MC.surface,
+        title: Text(tr('Tolak Pesanan $code', 'Reject Booking $code')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(tr('Beri alasan penolakan (opsional). Pemesan (maker) akan diberi tahu.',
+              'Give a reason (optional). The maker will be notified.'), style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 12),
+          TextField(controller: ctl, maxLines: 2, decoration: InputDecoration(
+            hintText: tr('Alasan penolakan', 'Reason for rejection'), border: const OutlineInputBorder())),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dctx), child: Text(tr('Batal', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(dctx, ctl.text.trim()),
+              style: FilledButton.styleFrom(backgroundColor: MC.danger),
+              child: Text(tr('Tolak', 'Reject'))),
+        ],
+      ),
+    );
+    if (reason == null) return; // cancelled
+    setState(() => _acting = true);
+    try {
+      await context.read<Api>().corporateReject(b['id'].toString(), reason);
+      if (mounted) _toast(context, tr('Pesanan ditolak', 'Booking rejected'), err: false);
+      await _load();
+    } catch (e) {
+      if (mounted) _toast(context, e.toString().replaceFirst('Exception: ', ''));
+    } finally { if (mounted) setState(() => _acting = false); }
   }
 
   void _logout() {
@@ -580,6 +650,17 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                           Text(isGov ? tr('Pemerintahan', 'Government') : tr('Bisnis', 'Business'), style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                           const SizedBox(height: 4),
                           Text(corp?['name']?.toString() ?? '—', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(20)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.badge_rounded, color: Colors.white, size: 13),
+                              const SizedBox(width: 4),
+                              Text(tr('Peran: ${_roleLabel(_myRole)}', 'Role: ${_roleLabel(_myRole)}'),
+                                  style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+                            ]),
+                          ),
                           if (corp?['taxId'] != null) Padding(padding: const EdgeInsets.only(top: 2), child: Text(tr('NPWP: ${corp!['taxId']}', 'Tax ID: ${corp!['taxId']}'), style: const TextStyle(color: Colors.white70, fontSize: 12))),
                           const SizedBox(height: 16),
                           Row(children: [
@@ -598,6 +679,72 @@ class _CorporatePortalScreenState extends State<CorporatePortalScreen> {
                         const SizedBox(width: 12),
                         _statCard(tr('Total Belanja', 'Total Spend'), rupiah(_toInt(stats?['spend'])), Icons.payments_rounded),
                       ]),
+                      // Approval queue (Approvers/Admin only).
+                      if (_canApprove) ...[
+                        const SizedBox(height: 22),
+                        Row(children: [
+                          Text(tr('Persetujuan', 'Approvals'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                          const SizedBox(width: 8),
+                          if (_approvals.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(color: MC.primary, borderRadius: BorderRadius.circular(20)),
+                              child: Text('${_approvals.length}', style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                            ),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(tr('Pesanan diajukan Maker menunggu persetujuan Anda. Anda tidak dapat menyetujui pesanan yang Anda ajukan sendiri.',
+                            'Bookings submitted by Makers awaiting your approval. You cannot approve your own requests.'),
+                            style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                        const SizedBox(height: 10),
+                        if (_approvals.isEmpty)
+                          _emptyBox(tr('Tidak ada pesanan menunggu persetujuan.', 'No bookings awaiting approval.'))
+                        else
+                          ..._approvals.map((raw) {
+                            final b = raw as Map<String, dynamic>;
+                            final hotel = b['hotel'] as Map<String, dynamic>?;
+                            final room = b['room'] as Map<String, dynamic>?;
+                            final maker = b['makerName']?.toString();
+                            final mine = b['requestedById'] != null && b['requestedById'] == _overview?['myId'];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(color: MC.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: MC.line)),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Row(children: [
+                                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(hotel?['name']?.toString() ?? 'Hotel', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                                    const SizedBox(height: 2),
+                                    Text('${b['code'] ?? ''} · ${room?['name'] ?? ''}', style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                                    if (b['bookerName'] != null) Text(tr('Tamu: ${b['bookerName']}', 'Guest: ${b['bookerName']}'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                                    if (maker != null) Text(tr('Diajukan: $maker', 'By: $maker'), style: TextStyle(color: MC.inkMuted, fontSize: 12)),
+                                  ])),
+                                  Text(rupiah(_toInt(b['totalPrice'])), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                                ]),
+                                const SizedBox(height: 12),
+                                if (mine)
+                                  Text(tr('Pesanan Anda sendiri — menunggu approver lain.', 'Your own request — awaiting another approver.'),
+                                      style: TextStyle(color: MC.inkMuted, fontSize: 12, fontStyle: FontStyle.italic))
+                                else
+                                  Row(children: [
+                                    Expanded(child: OutlinedButton.icon(
+                                      onPressed: _acting ? null : () => _reject(b),
+                                      icon: const Icon(Icons.close_rounded, size: 18),
+                                      label: Text(tr('Tolak', 'Reject')),
+                                      style: OutlinedButton.styleFrom(foregroundColor: MC.danger, side: BorderSide(color: MC.danger.withOpacity(0.5))),
+                                    )),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: FilledButton.icon(
+                                      onPressed: _acting ? null : () => _approve(b),
+                                      icon: const Icon(Icons.check_rounded, size: 18),
+                                      label: Text(tr('Setujui', 'Approve')),
+                                      style: FilledButton.styleFrom(backgroundColor: MC.primary),
+                                    )),
+                                  ]),
+                              ]),
+                            );
+                          }),
+                      ],
                       const SizedBox(height: 22),
                       // Invoices.
                       Text(tr('Tagihan dari Miruum', 'Invoices from Miruum'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),

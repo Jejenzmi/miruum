@@ -1,0 +1,47 @@
+<%- include('../partials/top', { title:'Persetujuan', heading:'Persetujuan Pesanan', section:'corporate', active:'approvals', me }) %>
+
+<% if (done==='approve') { %><div class="notice ok">Pesanan disetujui. E-voucher diterbitkan &amp; pemesan (maker) diberi tahu.</div><% } %>
+<% if (done==='reject') { %><div class="notice bad">Pesanan ditolak. Pemesan (maker) telah diberi tahu.</div><% } %>
+<% if (locals.err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="card">
+  <h2>Menunggu Persetujuan Anda</h2>
+  <p class="muted" style="margin-top:-8px">
+    Pesanan diajukan oleh <b>Maker</b> dan wajib disetujui <b>Approver</b> sebelum ditagihkan ke korporat.
+    Anda tidak dapat menyetujui pesanan yang Anda ajukan sendiri.
+  </p>
+  <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Kode</th><th>Hotel · Kamar</th><th>Tamu</th><th>Menginap</th><th>Diajukan oleh</th><th>Total</th><th style="text-align:right">Tindakan</th></tr></thead>
+      <tbody>
+        <% approvals.forEach(function(b){ %>
+          <tr>
+            <td><b><%= b.code %></b></td>
+            <td><%= b.hotel.name %><br><span class="muted" style="font-size:11px"><%= b.room ? b.room.name : '—' %></span></td>
+            <td><%= b.bookerName %></td>
+            <td style="font-size:12px"><%= new Date(b.checkIn).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) %> → <%= new Date(b.checkOut).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) %></td>
+            <td><%= b.makerName || '—' %></td>
+            <td><b><%= rupiah(b.totalPrice) %></b></td>
+            <td style="text-align:right;white-space:nowrap">
+              <% if (canApprove) { %>
+                <form method="post" action="/corporate/approvals/<%= b.id %>/approve" style="display:inline">
+                  <button class="btn sm" data-confirm="Setujui pesanan <%= b.code %>? E-voucher akan terbit &amp; ditagihkan ke korporat." data-confirm-title="Setujui Pesanan" data-confirm-ok="Ya, setujui">Setujui</button>
+                </form>
+                <button type="button" class="btn ghost sm" onclick="document.getElementById('rj-<%= b.id %>').style.display='block'">Tolak</button>
+                <form id="rj-<%= b.id %>" method="post" action="/corporate/approvals/<%= b.id %>/reject" style="display:none;margin-top:8px;text-align:left">
+                  <input name="reason" placeholder="Alasan penolakan (opsional)" style="width:100%">
+                  <button class="btn ghost sm" style="margin-top:6px;color:var(--danger,#dc2626)">Konfirmasi Tolak</button>
+                </form>
+              <% } else { %>
+                <span class="muted" style="font-size:12px">Hanya Approver</span>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!approvals.length) { %><tr><td colspan="7" class="empty">Tidak ada pesanan menunggu persetujuan</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -30,7 +30,7 @@
             <td><b><%= c.name %></b><br><span class="muted" style="font-size:11px">Tarif efektif <%= eff %>%</span></td>
             <td><span class="pill <%= c.type==='GOVERNMENT'?'ADMIN':'PARTNER' %>"><%= ENTITY_LABELS[c.entityType] || (c.type==='GOVERNMENT'?'Pemerintah':'Korporat') %></span></td>
             <td style="font-size:12px"><%= c.email || '—' %><br><span class="muted"><%= c.phone || '—' %></span></td>
-            <td><%= (c._count && c._count.users) || 0 %></td>
+            <td><a href="/admin/corporates/<%= c.id %>/users" class="btn ghost sm"><%= (c._count && c._count.users) || 0 %> · Kelola</a></td>
             <td><%= (c._count && c._count.bookings) || 0 %></td>
             <td><b><%= rupiah(c.creditLimit) %></b></td>
             <td>

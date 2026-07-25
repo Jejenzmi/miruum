@@ -10,6 +10,15 @@ class AppSettings {
   static final themeMode = ValueNotifier<ThemeMode>(ThemeMode.system);
   static final locale = ValueNotifier<Locale>(const Locale('id'));
 
+  /// Nationality (market) pricing — Domestik (WNI) vs Asing (WNA). `market`
+  /// drives the re-key rebuild so a switch re-prices every screen. `chosen`
+  /// tracks whether the user picked explicitly (else the backend defaults from
+  /// IP). `enabled`/`markup` come from the backend `/market` status.
+  static final market = ValueNotifier<String>('DOMESTIC'); // DOMESTIC | FOREIGN
+  static bool marketChosen = false;
+  static bool marketEnabled = false;
+  static int marketMarkup = 0;
+
   /// Set true after the first cold-start splash finishes. Lets the splash skip
   /// its animation when the whole navigator is rebuilt on a language switch.
   static bool booted = false;

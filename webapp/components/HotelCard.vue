@@ -1,12 +1,14 @@
 <template>
-  <NuxtLink :to="`/hotel/${hotel.id}`" class="group card overflow-hidden hover:shadow-cardhover hover:-translate-y-0.5 transition-all flex flex-col">
+  <component :is="external ? 'div' : 'NuxtLink'" :to="external ? undefined : `/hotel/${hotel.id}`"
+             @click="external ? $emit('book', hotel) : undefined"
+             :class="['group card overflow-hidden hover:shadow-cardhover hover:-translate-y-0.5 transition-all flex flex-col', external ? 'cursor-pointer' : '']">
     <div class="relative aspect-[4/3] overflow-hidden bg-line">
       <img :src="img(hotel.imageUrl, 800)" :alt="hotel.name" loading="lazy" decoding="async"
            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
       <span v-if="hotel.isPromo" class="absolute top-3 left-3 pill bg-brand text-white shadow">
         {{ hotel.promoLabel || 'Promo' }}
       </span>
-      <button @click.prevent.stop="toggle(hotel.id)" :aria-label="fav ? t('Hapus favorit', 'Remove from favorites') : t('Tambah favorit', 'Add to favorites')"
+      <button v-if="!external" @click.prevent.stop="toggle(hotel.id)" :aria-label="fav ? t('Hapus favorit', 'Remove from favorites') : t('Tambah favorit', 'Add to favorites')"
               class="absolute top-2.5 right-2.5 w-9 h-9 rounded-full bg-white/90 backdrop-blur grid place-items-center shadow hover:scale-110 transition">
         <svg viewBox="0 0 24 24" class="w-5 h-5 transition-colors" :class="fav ? 'fill-red-500 stroke-red-500' : 'fill-none stroke-ink-muted'" stroke-width="2">
           <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>
@@ -51,11 +53,12 @@
         </div>
       </div>
     </div>
-  </NuxtLink>
+  </component>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ hotel: any }>()
+const props = defineProps<{ hotel: any; external?: boolean }>()
+defineEmits(['book'])
 const { t } = useLang()
 const propType = computed(() => propertyTypeLabel(props.hotel?.propertyType))
 const { isFav, toggle, load } = useFavorites()

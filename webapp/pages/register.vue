@@ -9,6 +9,14 @@
         <div><label class="label">{{ t('Email', 'Email') }}</label><input v-model="f.email" type="email" class="input" required /></div>
         <div><label class="label">{{ t('Nomor HP', 'Phone Number') }}</label><input v-model="f.phone" class="input" placeholder="08xxxx" /></div>
         <div><label class="label">{{ t('Kata Sandi', 'Password') }}</label><input v-model="f.password" type="password" class="input" :placeholder="t('Min. 6 karakter', 'Min. 6 characters')" required /></div>
+        <label class="flex items-start gap-2 text-[12.5px] text-ink-muted leading-snug">
+          <input type="checkbox" v-model="f.consent" class="accent-brand w-4 h-4 mt-0.5 shrink-0" required />
+          <span>{{ t('Saya telah membaca & menyetujui', 'I have read and agree to the') }}
+            <NuxtLink to="/content/privacy" target="_blank" class="text-brand-600 font-semibold">{{ t('Kebijakan Privasi', 'Privacy Policy') }}</NuxtLink>
+            {{ t('dan', 'and') }}
+            <NuxtLink to="/content/terms" target="_blank" class="text-brand-600 font-semibold">{{ t('Syarat & Ketentuan', 'Terms & Conditions') }}</NuxtLink>.
+          </span>
+        </label>
         <p v-if="err" class="text-red-600 text-[13px]">{{ err }}</p>
         <button :disabled="loading" class="btn-brand w-full">{{ loading ? t('Memproses…', 'Processing…') : t('Buat Akun', 'Create Account') }}</button>
       </form>
@@ -56,7 +64,7 @@ const { t } = useLang()
 const { $api } = useNuxtApp()
 const { register } = useAuth()
 
-const f = reactive({ name: '', email: '', phone: '', password: '' })
+const f = reactive({ name: '', email: '', phone: '', password: '', consent: false })
 const loading = ref(false); const err = ref('')
 
 // OTP step state (mirrors the mobile OtpScreen).
@@ -73,7 +81,7 @@ function setBoxRef(el: any, i: number) { if (el) boxes.value[i] = el as HTMLInpu
 async function submit() {
   loading.value = true; err.value = ''
   try {
-    await register({ name: f.name.trim(), email: f.email.trim(), password: f.password, phone: f.phone.trim() || undefined })
+    await register({ name: f.name.trim(), email: f.email.trim(), password: f.password, phone: f.phone.trim() || undefined, consent: f.consent })
   } catch (e: any) {
     err.value = e?.data?.error || t('Gagal mendaftar. Email mungkin sudah terpakai.', 'Registration failed. The email may already be in use.')
     loading.value = false

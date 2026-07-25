@@ -75,15 +75,31 @@ export async function quote(
   return { available: true, nights: dates.length, total, perNight };
 }
 
-// Decrement allotment for each booked night (rows that exist).
-export async function consume(prisma: PrismaClient, roomId: string, checkIn: Date, checkOut: Date, rooms: number): Promise<void> {
+// Atomically decrement allotment for each booked night. Returns false if any
+// night with a calendar row has insufficient allotment (sold out) — the caller
+// must then reject the booking to PREVENT OVERBOOKING. The `allotment: { gte }`
+// guard makes each decrement race-safe (two concurrent bookings can't both win
+// the last room). Nights without a calendar row fall back to the flat rate and
+// are always sellable. Auto close-out: a date that hits 0 is marked closed.
+export async function consume(prisma: PrismaClient, roomId: string, checkIn: Date, checkOut: Date, rooms: number): Promise<boolean> {
   const dates = nights(checkIn, checkOut);
+  let ok = true;
   for (const d of dates) {
-    await prisma.roomAvailability.updateMany({
-      where: { roomId, date: d, allotment: { gte: rooms } },
+    const r = await prisma.roomAvailability.updateMany({
+      where: { roomId, date: d, allotment: { gte: rooms }, closed: false },
       data: { allotment: { decrement: rooms } },
     });
+    if (r.count === 0) {
+      // Nothing decremented: either no calendar row (flat rate → sellable) or the
+      // row exists but is sold out/closed → overbooking risk, fail.
+      const exists = await prisma.roomAvailability.findFirst({ where: { roomId, date: d }, select: { id: true } });
+      if (exists) ok = false;
+    }
+    // Close out any date whose allotment has reached zero (no more sales here or
+    // on mapped channels once distribution is connected).
+    await prisma.roomAvailability.updateMany({ where: { roomId, date: d, allotment: { lte: 0 } }, data: { closed: true } });
   }
+  return ok;
 }
 
 /** Give allotment back — used when a booking is cancelled or its payment expires. */

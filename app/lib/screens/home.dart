@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../api.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/cubits.dart';
@@ -155,6 +156,7 @@ class _HomeView extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const _NearMeButton(),
+            const _MarketToggle(),
             if (!auth.isLoggedIn) ...[
               const SizedBox(height: 14),
               Row(children: [
@@ -383,6 +385,74 @@ class _ErrorState extends StatelessWidget {
 
 /// "Cari di sekitar saya" — reads GPS then opens results sorted by distance.
 /// Browsing is open to everyone, so this does NOT require login.
+// Nationality (market) pricing selector — Domestik/Asing. Shown only when the
+// admin enabled it. Switching re-keys the app so every screen re-prices.
+class _MarketToggle extends StatelessWidget {
+  const _MarketToggle();
+
+  Future<void> _set(String m) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('miruum_market', m);
+    AppSettings.marketChosen = true;
+    AppSettings.market.value = m; // re-keys the navigator → re-fetches prices
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AppSettings.marketEnabled) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: ValueListenableBuilder<String>(
+        valueListenable: AppSettings.market,
+        builder: (context, market, _) {
+          Widget seg(String value, String label, IconData icon) {
+            final on = market == value;
+            return Expanded(
+              child: GestureDetector(
+                onTap: on ? null : () => _set(value),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: BoxDecoration(
+                    color: on ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(icon, size: 15, color: on ? MC.primary : Colors.white),
+                    const SizedBox(width: 5),
+                    Text(label, style: TextStyle(color: on ? MC.primary : Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            );
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.public_rounded, color: Colors.white, size: 14),
+              const SizedBox(width: 5),
+              Text(tr('Tarif tamu', 'Guest rate'), style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+              if (AppSettings.marketMarkup > 0) ...[
+                const Spacer(),
+                Text(tr('Asing +${AppSettings.marketMarkup}%', 'Foreign +${AppSettings.marketMarkup}%'),
+                    style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11)),
+              ],
+            ]),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), borderRadius: BorderRadius.circular(13)),
+              child: Row(children: [
+                seg('DOMESTIC', tr('Domestik', 'Local'), Icons.flag_rounded),
+                const SizedBox(width: 4),
+                seg('FOREIGN', tr('Asing', 'Foreign'), Icons.language_rounded),
+              ]),
+            ),
+          ]);
+        },
+      ),
+    );
+  }
+}
+
 class _NearMeButton extends StatefulWidget {
   const _NearMeButton();
   @override

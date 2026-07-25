@@ -131,6 +131,7 @@ model User {
   idNumber     String?
   address      String?
   city         String?
+  privacyConsentAt DateTime? // UU PDP: when the user consented to the Privacy Policy
   createdAt    DateTime @default(now())
 
   bookings     Booking[]
@@ -142,6 +143,7 @@ model User {
   savedGuests  SavedGuest[]
   corporateId  String?
   corporate    Corporate? @relation(fields: [corporateId], references: [id])
+  corporateRole String?   // ADMIN | APPROVER | MAKER (only for corporate sub-users)
   refreshTokens RefreshToken[]
   verificationCodes VerificationCode[]
   loyaltyPoints Int      @default(0) // current redeemable balance (denormalized)
@@ -421,12 +423,24 @@ model Hotel {
   reviewCount Int      @default(0)
   priceFrom   Int      @default(0) // rupiah / night
   priceBefore Int?     // previous priceFrom when it dropped → "harga turun" badge
+  foreignMarkupPct Int? // per-hotel foreign (WNA) markup %; null = use global setting
+  source      String   @default("DIRECT") // DIRECT (own inventory) | HOTELBEDS (external bedbank cache)
+  supplierHotelCode String? // provider hotel id when source != DIRECT
+  @@index([source])
   rateShopFreq Int     @default(0) // Miruum Intelligent auto rate-check: 0=off, 1/2/3 per day
   rateShoppedAt DateTime?          // last AI rate-shop for this hotel
   starRating  Int      @default(3)
   imageUrl    String
   checkInInfo  String  @default("Dari jam 14.00")
   checkOutInfo String  @default("Sebelum 12.00")
+  // Legal, tax & payout (industry-standard hotel contracting)
+  legalName    String?
+  businessRegNo String?  // NIB / SIUP
+  taxId        String?   // NPWP
+  payoutBankName    String?
+  payoutBankAccount String?
+  payoutBankHolder  String?
+  cancellationPolicy String? // FLEXIBLE | MODERATE | STRICT | NON_REFUNDABLE
   isPromo     Boolean  @default(false)
   promoLabel  String?
   propertyType String  @default("HOTEL") // HOTEL | VILLA | APARTMENT | HOMESTAY | GUESTHOUSE | HOSTEL | RESORT
@@ -703,6 +717,8 @@ model Room {
   freeCancellation  Boolean @default(true)
   stock             Int     @default(5)
   housekeeping      String  @default("CLEAN") // PMS: CLEAN | DIRTY | INSPECT
+  supplierRoomTypeId String? // Channex room_type_id (for pushing bookings back)
+  supplierRatePlanId String? // Channex rate_plan_id
   hotel             Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
   bookings          Booking[]
   packages          HotelPackage[]
@@ -951,6 +967,19 @@ enum BookingStatus {
   REFUNDED
 }
 
+// Anti-fraud blocklist — reject bookings/refunds matching these values.
+model FraudBlock {
+  id        String   @id @default(cuid())
+  type      String   // EMAIL | IP | BANK | PHONE | DEVICE
+  value     String
+  reason    String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([type, value])
+  @@index([type, value, active])
+}
+
 model Booking {
   id             String        @id @default(cuid())
   code           String        @unique
@@ -962,7 +991,9 @@ model Booking {
   channelId      String?       // supply source this booking was routed to
   corporateId    String?       // set when booked via a corporate/government account
   corporateInvoiceId String?   // billing statement this booking was billed on
+  source         String        @default("DIRECT") // DIRECT | HOTELBEDS (external bedbank)
   supplierRef    String?       // reference at the OTA when routed to an external source
+  supplierBookingCode String?   // provider booking reference (e.g. Hotelbeds `reference`)
   checkIn        DateTime
   checkOut       DateTime
   nights         Int
@@ -982,6 +1013,16 @@ model Booking {
   promoCode      String?
   totalPrice     BigInt
   status         BookingStatus @default(PENDING)
+  // Anti-fraud: flagged for manual review + reason/score note.
+  flagged        Boolean       @default(false)
+  riskScore      Int?
+  riskNote       String?
+  // Corporate maker–approver workflow (null for retail bookings)
+  approvalStatus String?   // PENDING | APPROVED | REJECTED
+  requestedById  String?   // maker (who submitted)
+  approvedById   String?   // approver (who approved/rejected)
+  approvedAt     DateTime?
+  rejectReason   String?
   paymentMethod  String?
   bank           String?
   paidAt         DateTime?
@@ -1224,11 +1265,24 @@ model PartnerApplication {
   propertyType String   @default("HOTEL")
   city         String
   address      String
+  regionId     String?  // structured area (leaf region)
+  lat          Float?
+  lng          Float?
+  starRating   Int?     // self-declared star class
   picName      String
   email        String
   phone        String
   website      String?
   roomCount    Int?
+  // Legal & tax (industry-standard hotel contracting)
+  legalName    String?  // registered business/legal entity name
+  businessRegNo String? // NIB / SIUP
+  taxId        String?  // NPWP
+  // Payout bank account
+  bankName     String?
+  bankAccount  String?
+  bankHolder   String?
+  cancellationPolicy String? // FLEXIBLE | MODERATE | STRICT | NON_REFUNDABLE
   note         String?
   status       String   @default("PENDING") // PENDING | APPROVED | REJECTED
   createdAt    DateTime @default(now())

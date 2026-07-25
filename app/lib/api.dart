@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'models.dart';
 import 'token_store.dart';
+import 'theme.dart';
 
 /// Thin API client for the Miruum backend.
 /// Served same-origin behind nginx → base path is `/api`.
@@ -21,6 +22,9 @@ class Api {
         'Content-Type': 'application/json',
         'X-Device': deviceLabel,
         if (token != null) 'Authorization': 'Bearer $token',
+        // Nationality (market) pricing: only send when the user chose explicitly,
+        // so first-run visitors still get the backend's IP-based default.
+        if (AppSettings.marketChosen) 'X-Market': AppSettings.market.value,
       };
 
   Uri _u(String path, [Map<String, dynamic>? q]) {
@@ -109,8 +113,8 @@ class Api {
     return (j['token'] as String, user);
   }
 
-  Future<(String, AppUser)> register(String name, String email, String password) async {
-    final j = await _post('/auth/register', {'name': name, 'email': email, 'password': password});
+  Future<(String, AppUser)> register(String name, String email, String password, {bool consent = false}) async {
+    final j = await _post('/auth/register', {'name': name, 'email': email, 'password': password, 'consent': consent});
     final user = await _adoptSession(j);
     return (j['token'] as String, user);
   }
@@ -158,6 +162,27 @@ class Api {
   /// Submit a corporate/government account application.
   Future<void> corporateApply(Map<String, dynamic> data) async => _post('/corporate/apply', data);
 
+  /// Nationality (market) pricing status for THIS device (IP default resolved
+  /// server-side). `{enabled, market, markup}`.
+  Future<Map<String, dynamic>> market() async =>
+      (await _get('/market')) as Map<String, dynamic>;
+
+  // ── Partner supply (bedbank, e.g. Hotelbeds) — live search + pay-first book ──
+  /// Live availability from external partner suppliers. Prices include `*Idr`.
+  Future<Map<String, dynamic>> supplySearch({
+    String? destination, double? lat, double? lng,
+    required String checkIn, required String checkOut, int adults = 2, int rooms = 1,
+  }) async =>
+      (await _post('/supply/search', {
+        if (destination != null && destination.isNotEmpty) 'destination': destination,
+        if (lat != null) 'lat': lat, if (lng != null) 'lng': lng,
+        'checkIn': checkIn, 'checkOut': checkOut, 'adults': adults, 'rooms': rooms,
+      })) as Map<String, dynamic>;
+
+  /// Reserve a partner rate → creates a PENDING booking (pay via PembayaranScreen).
+  Future<Map<String, dynamic>> supplyBook(Map<String, dynamic> body) async =>
+      (await _post('/supply/book', body)) as Map<String, dynamic>;
+
   /// Corporate portal: account + stats + recent bookings.
   Future<Map<String, dynamic>> corporateOverview() async =>
       (await _get('/corporate/overview')) as Map<String, dynamic>;
@@ -169,6 +194,19 @@ class Api {
   /// Corporate portal: all bookings made on the corporate account.
   Future<List<dynamic>> corporateBookings() async =>
       (await _get('/corporate/bookings'))['bookings'] as List;
+
+  // ── Maker–Approver: antrean persetujuan pesanan korporat ──
+  /// Pending approval requests + who can approve. `{approvals, canApprove, myRole}`.
+  Future<Map<String, dynamic>> corporateApprovals() async =>
+      (await _get('/corporate/approvals')) as Map<String, dynamic>;
+
+  /// Approve a pending corporate booking (Approver only; not your own request).
+  Future<void> corporateApprove(String id) async =>
+      _post('/corporate/bookings/$id/approve');
+
+  /// Reject a pending corporate booking with an optional reason.
+  Future<void> corporateReject(String id, String reason) async =>
+      _post('/corporate/bookings/$id/reject', {'reason': reason});
 
   /// Request an OTP. Returns a dev code string only when the server has no
   /// email/WA channel configured (so the flow still works in demo); else null.

@@ -1,0 +1,75 @@
+<%- include('../partials/top', { title:'Pengguna & Peran', heading:'Pengguna & Peran', section:'corporate', active:'users', me }) %>
+
+<% if (done==='add') { %><div class="notice ok">Pengguna ditambahkan. Sandi sementara dikirim ke email-nya.</div><% } %>
+<% if (done==='role') { %><div class="notice ok">Peran diperbarui.</div><% } %>
+<% if (done==='del') { %><div class="notice ok">Pengguna dihapus.</div><% } %>
+<% if (locals.err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Daftar Pengguna Korporat</h2>
+    <p class="muted" style="margin-top:-8px;font-size:12.5px">
+      <b>Maker</b> membuat pesanan · <b>Approver</b> menyetujui/menolak · <b>Admin</b> mengelola pengguna &amp; ikut menyetujui.
+    </p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th style="text-align:right">Aksi</th></tr></thead>
+        <tbody>
+          <% users.forEach(function(u){ var self = u.id===meId; %>
+            <tr>
+              <td><b><%= u.name %></b><% if (self) { %> <span class="muted" style="font-size:11px">(Anda)</span><% } %></td>
+              <td class="muted" style="font-size:12px"><%= u.email %></td>
+              <td>
+                <% if (canManage) { %>
+                  <form method="post" action="/corporate/users/<%= u.id %>" style="display:flex;gap:6px;align-items:center">
+                    <select name="corporateRole" onchange="this.form.submit()" style="padding:4px 8px;font-size:12px">
+                      <% ['ADMIN','APPROVER','MAKER'].forEach(function(r){ %>
+                        <option value="<%= r %>" <%= u.corporateRole===r?'selected':'' %>><%= r %></option>
+                      <% }) %>
+                    </select>
+                  </form>
+                <% } else { %>
+                  <span class="pill <%= u.corporateRole==='ADMIN'?'ADMIN':u.corporateRole==='APPROVER'?'PAID':'PENDING' %>"><%= u.corporateRole %></span>
+                <% } %>
+              </td>
+              <td style="text-align:right">
+                <% if (canManage && !self) { %>
+                  <form method="post" action="/corporate/users/<%= u.id %>/delete" style="display:inline">
+                    <button class="btn ghost sm" style="color:var(--danger,#dc2626)" data-confirm="Hapus pengguna <%= u.name %>?" data-confirm-title="Hapus Pengguna" data-confirm-ok="Ya, hapus" data-confirm-kind="logout">Hapus</button>
+                  </form>
+                <% } else { %><span class="muted">—</span><% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <% if (canManage) { %>
+  <div class="card">
+    <h2>Tambah Pengguna</h2>
+    <p class="muted" style="margin-top:-8px;font-size:12.5px">Sandi sementara akan dikirim otomatis ke email pengguna.</p>
+    <form method="post" action="/corporate/users">
+      <label>Nama Lengkap</label>
+      <input name="name" placeholder="Nama pengguna" required minlength="2">
+      <label>Email</label>
+      <input name="email" type="email" placeholder="nama@perusahaan.com" required>
+      <label>Peran</label>
+      <select name="corporateRole" required>
+        <option value="MAKER">Maker — membuat pesanan</option>
+        <option value="APPROVER">Approver — menyetujui pesanan</option>
+        <option value="ADMIN">Admin — kelola pengguna &amp; setujui</option>
+      </select>
+      <div style="margin-top:16px"><button class="btn">Tambah Pengguna</button></div>
+    </form>
+  </div>
+  <% } else { %>
+  <div class="card">
+    <h2>Akses Terbatas</h2>
+    <p class="muted">Hanya <b>Admin</b> korporat yang dapat menambah atau mengubah peran pengguna. Hubungi Admin akun Anda.</p>
+  </div>
+  <% } %>
+</div>
+
+<%- include('../partials/bottom') %>

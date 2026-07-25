@@ -75,6 +75,15 @@
         <span class="lg:hidden">{{ t('Cari Hotel', 'Search Hotels') }}</span>
       </button>
     </form>
+
+    <!-- Search by current location (same as the app's "near me") -->
+    <div class="mt-2.5 flex justify-center">
+      <button type="button" @click="nearMe" :disabled="locating"
+              class="text-[13px] font-semibold text-brand hover:underline flex items-center gap-1.5 disabled:opacity-60">
+        <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        {{ locating ? t('Mencari lokasi…', 'Locating…') : t('Cari di sekitar lokasi saya', 'Search near my location') }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -116,6 +125,23 @@ function onAreaSelect(r: AreaRegion) {
   region.value = r
   q.value = titleCaseArea(r.name)
   go()
+}
+
+const locating = ref(false)
+function nearMe() {
+  if (!import.meta.client || !navigator.geolocation) return
+  locating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      locating.value = false
+      navigateTo({ path: '/search', query: {
+        lat: pos.coords.latitude, lng: pos.coords.longitude, near: 1,
+        checkIn: checkIn.value, checkOut: checkOut.value, guests: guests.value, rooms: rooms.value,
+      } })
+    },
+    () => { locating.value = false },
+    { enableHighAccuracy: true, timeout: 8000 },
+  )
 }
 
 function go() {

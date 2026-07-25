@@ -17,6 +17,15 @@
 
       <div class="flex items-center gap-2">
         <!-- Pemilih bahasa / Language switcher (sama seperti aplikasi) -->
+        <!-- Nationality (market) pricing selector — only when enabled by admin -->
+        <div v-if="marketEnabled" class="flex items-center rounded-full border border-line overflow-hidden text-[12px] font-bold shrink-0"
+             :title="t('Harga tamu asing +' + marketMarkup + '%', 'Foreign-guest price +' + marketMarkup + '%')">
+          <button @click="setMarket('DOMESTIC')" class="px-2.5 py-1.5 flex items-center gap-1"
+                  :class="market === 'DOMESTIC' ? 'bg-brand text-white' : 'text-ink-muted hover:bg-brand-50'">🇮🇩 {{ t('Domestik', 'Local') }}</button>
+          <button @click="setMarket('FOREIGN')" class="px-2.5 py-1.5 flex items-center gap-1"
+                  :class="market === 'FOREIGN' ? 'bg-brand text-white' : 'text-ink-muted hover:bg-brand-50'">🌐 {{ t('Asing', 'Foreign') }}</button>
+        </div>
+
         <div class="flex items-center rounded-full border border-line overflow-hidden text-[12px] font-bold shrink-0">
           <button @click="setLang('id')" class="px-2.5 py-1.5"
                   :class="!isEn ? 'bg-brand text-white' : 'text-ink-muted hover:bg-brand-50'">ID</button>
@@ -88,6 +97,8 @@
 const { $api } = useNuxtApp()
 const { isLoggedIn, user, logout } = useAuth()
 const { t, isEn, setLang } = useLang()
+// Nationality (market) pricing selector — Domestik/Asing.
+const { enabled: marketEnabled, market, markup: marketMarkup, setMarket } = useMarket()
 // Copy strip kepercayaan dikelola dari Back Office (fallback = teks di bawah).
 const { sc } = await useSiteCopy()
 const open = ref(false)

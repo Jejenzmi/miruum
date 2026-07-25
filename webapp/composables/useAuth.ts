@@ -27,7 +27,7 @@ export const useAuth = () => {
     return res
   }
 
-  async function register(payload: { name: string; email: string; password: string; phone?: string }) {
+  async function register(payload: { name: string; email: string; password: string; phone?: string; consent?: boolean }) {
     const res: any = await $api('/auth/register', { method: 'POST', body: payload })
     token.value = res.token
     user.value = res.user

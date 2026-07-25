@@ -16,6 +16,12 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   // Default B2B discount (%) off the public rate for corporate accounts that
   // have no negotiated rate of their own. Never applies to B2C.
   corporate_discount_pct: "0",
+  // Nationality (market) pricing — PUBLIC B2C only, OTA-style. Foreign (WNA)
+  // guests see the public rate + this markup %. Domestic (WNI) see the base
+  // public rate. Per-hotel override via Hotel.foreignMarkupPct. This is a
+  // marketing feature, NOT the B2B guard (that stays auth+role based).
+  foreign_market_enabled: "0", // "1" = apply market pricing to public catalog
+  foreign_markup_pct: "0",     // global default foreign markup % (0–100)
   app_latest_version: "", // e.g. "1.1.0" — newer than this → optional update popup
   app_min_version: "",     // e.g. "1.1.0" — older than this → forced update popup
   app_update_url: "https://api.miruum.id/ota.apk",
@@ -36,6 +42,20 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   ai_api_key: "",        // Anthropic API key
   ai_model: "claude-sonnet-5",
   ai_auto: "0",          // "1" = run automatically on a daily schedule
+  // External supply — Hotelbeds APItude (bedbank aggregation). Real REST API;
+  // inert until credentials are set. Sandbox base by default.
+  hotelbeds_enabled: "0",
+  hotelbeds_base: "https://api.test.hotelbeds.com",
+  hotelbeds_api_key: "",
+  hotelbeds_secret: "",
+  // Channel Manager — Channex (2-way: pull hotel ARI + push bookings). Real REST
+  // API; inert until an API key is set. Sandbox base by default.
+  channex_enabled: "0",
+  channex_base: "https://staging.channex.io/api/v1",
+  channex_api_key: "",
+  // FX for external (bedbank) prices → IDR. JSON rate table + volatility buffer.
+  supply_fx_rates: "",        // e.g. {"EUR":17500,"USD":16200} (empty = built-in defaults)
+  supply_fx_markup_pct: "3",  // buffer % added on top of the raw FX rate
 };
 
 let cache: Record<string, string> | null = null;

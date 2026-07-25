@@ -3,11 +3,10 @@ import { httpConnector, type GatewayConfig } from "./gateway.js";
 
 // ─────────────────────────── OTA connectors ───────────────────────────
 // Miruum aggregates rate & availability from multiple supply sources. Each
-// source is a connector with a common interface. The mock implementations below
-// derive deterministic prices from the canonical hotel so the aggregation logic
-// (compare + pick-best + markup) can be built and demoed end-to-end. Swap a
-// connector's `fetchOffer` for a real Tiket.com/Agoda/Traveloka API call once
-// B2B credentials are available — nothing else changes.
+// source is a connector with a common interface. Only REAL sources produce
+// offers: the hotel's own managed rate (DIRECT) and any OTA whose live B2B API
+// is connected (connectorType HTTP + gateway config). There are no simulated
+// competitor prices — an uncontracted OTA simply yields nothing.
 
 export interface OfferResult {
   basePrice: number; // supplier nett price / night (rupiah)
@@ -23,6 +22,7 @@ export interface HotelRef {
   priceFrom: number;
   city?: string;
   externalId?: string | null;
+  roomsLeft?: number; // real total room stock (for the DIRECT own-rate offer)
 }
 
 export interface OtaConnector {
@@ -30,20 +30,6 @@ export interface OtaConnector {
   fetchOffer(hotel: HotelRef): Promise<OfferResult>;
 }
 
-// Stable FNV-1a hash → deterministic pseudo-randomness (no Math.random, so
-// re-syncs are idempotent).
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-// Factor in [1-spread, 1+spread] derived from a seed.
-function jitter(seed: string, spread: number): number {
-  return 1 - spread + ((hash(seed) % 1000) / 1000) * 2 * spread;
-}
 const round1k = (n: number) => Math.max(1000, Math.round(n / 1000) * 1000);
 
 /** Apply a supply source's pricing rule to a nett base price.
@@ -64,38 +50,18 @@ export function applyMarkup(
   return { price: round1k(base * (1 + pct / 100)), markupPct: pct };
 }
 
-// Own Channel Manager — the hotel's own managed rate.
+// Own Channel Manager — the hotel's own managed rate. Price is the real
+// priceFrom; availability is authoritative from RoomAvailability at booking, so
+// the offer just carries the real total room stock as a hint.
 const directConnector: OtaConnector = {
   code: "DIRECT",
   async fetchOffer(h) {
-    return { basePrice: h.priceFrom, available: true, roomsLeft: 3 + (hash(h.slug) % 6) };
+    const roomsLeft = h.roomsLeft ?? 0;
+    return { basePrice: h.priceFrom, available: roomsLeft > 0 || h.roomsLeft === undefined, roomsLeft };
   },
 };
 
-// Mock OTA — nett price relative to the canonical rate, with per-hotel jitter.
-function otaConnector(code: string, factor: number, spread: number, domain: string): OtaConnector {
-  return {
-    code,
-    async fetchOffer(h) {
-      const base = round1k(h.priceFrom * factor * jitter(`${h.slug}:${code}`, spread));
-      const available = hash(`${h.slug}:${code}:av`) % 7 !== 0; // ~1 in 7 sold out
-      return {
-        basePrice: base,
-        available,
-        roomsLeft: available ? 1 + (hash(`${h.slug}:${code}:r`) % 8) : 0,
-        deeplink: `https://www.${domain}/hotel/${h.slug}`,
-        supplierRef: `${code}-${hash(h.slug) % 100000}`,
-      };
-    },
-  };
-}
-
-export const CONNECTORS: Record<string, OtaConnector> = {
-  DIRECT: directConnector,
-  TIKETCOM: otaConnector("TIKETCOM", 0.99, 0.05, "tiket.com"),
-  AGODA: otaConnector("AGODA", 0.95, 0.06, "agoda.com"),
-  TRAVELOKA: otaConnector("TRAVELOKA", 1.02, 0.05, "traveloka.com"),
-};
+export const CONNECTORS: Record<string, OtaConnector> = { DIRECT: directConnector };
 
 // An OTA sub-agent produces offers ONLY once its real B2B API is connected
 // (connectorType = HTTP with a gateway config). Until then it stays empty — no
@@ -105,13 +71,15 @@ function isConnectedOta(c: { type: string; connectorType?: string | null; config
   return c.type === "OTA" && c.connectorType === "HTTP" && !!c.config;
 }
 
-// Resolve the connector for a channel from its stored config. HTTP → real B2B
-// API via the gateway; otherwise a built-in mock (so demos always work).
+// Resolve the connector for a channel. HTTP → real B2B API via the gateway;
+// DIRECT → the own managed rate. Anything else has no real connector (it is
+// filtered out before this point) and throws rather than faking one.
 export function getConnector(channel: { code: string; connectorType?: string | null; config?: unknown }): OtaConnector {
   if (channel.connectorType === "HTTP" && channel.config && typeof channel.config === "object") {
     return httpConnector(channel.code, channel.config as GatewayConfig);
   }
-  return CONNECTORS[channel.code] ?? otaConnector(channel.code, 1.0, 0.05, `${channel.code.toLowerCase()}.example`);
+  if (channel.code === "DIRECT" || channel.connectorType === "DIRECT") return directConnector;
+  throw new Error(`Channel ${channel.code} tidak punya koneksi API nyata (bukan HTTP/DIRECT)`);
 }
 
 /**
@@ -121,10 +89,12 @@ export function getConnector(channel: { code: string; connectorType?: string | n
  */
 export async function syncOffers(prisma: PrismaClient): Promise<{ hotels: number; offers: number }> {
   const channels = await prisma.supplyChannel.findMany({ where: { active: true } });
-  const hotels = await prisma.hotel.findMany();
+  const hotels = await prisma.hotel.findMany({ include: { rooms: { select: { stock: true } } } });
   let offerCount = 0;
 
   for (const hotel of hotels) {
+    // Real total room stock — feeds the DIRECT offer's roomsLeft (no fabrication).
+    const totalStock = (hotel.rooms ?? []).reduce((s, r) => s + (r.stock ?? 0), 0);
     // sources = own Channel Manager (DIRECT) + any OTA whose real API is connected.
     // Mock/uncontracted OTA sub-agents are skipped → no fake competitor offers.
     const sources = channels.filter((c) => c.type === "DIRECT" || isConnectedOta(c));
@@ -133,7 +103,7 @@ export async function syncOffers(prisma: PrismaClient): Promise<{ hotels: number
       const conn = getConnector(ch);
       let r: OfferResult;
       try {
-        r = await conn.fetchOffer(hotel);
+        r = await conn.fetchOffer({ ...hotel, roomsLeft: totalStock });
       } catch (e: any) {
         // A real B2B API failed → keep any last-known offer, just mark it stale/unavailable.
         console.warn(`[connector] ${ch.code} fetch failed for ${hotel.slug}: ${e.message}`);

@@ -1,0 +1,70 @@
+<%- include('../partials/top', { title:'Pengguna Korporat', heading:'Pengguna Korporat', section:'admin', active:'corporates', me }) %>
+
+<div style="margin-bottom:14px"><a href="/admin/corporates" class="btn ghost sm">← Kembali ke Akun Korporat</a></div>
+
+<% if (done==='add') { %>
+  <div class="notice ok">
+    Pengguna ditambahkan &amp; kredensial dikirim ke email-nya.
+    <% if (locals.cred) { %><br><b>Kredensial:</b> <code><%= cred %></code> <span class="muted">(catat &amp; sampaikan bila email tidak diterima)</span><% } %>
+  </div>
+<% } %>
+<% if (done==='role') { %><div class="notice ok">Peran diperbarui.</div><% } %>
+<% if (done==='del') { %><div class="notice ok">Pengguna dihapus.</div><% } %>
+<% if (locals.err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="grid-2">
+  <div class="card">
+    <h2><%= corporate.name %> — Maker &amp; Approver</h2>
+    <p class="muted" style="margin-top:-8px;font-size:12.5px">
+      <b>Maker</b> membuat pesanan · <b>Approver</b> menyetujui · <b>Admin</b> kelola pengguna &amp; setujui.
+    </p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Nama</th><th>Email</th><th>Peran</th><th style="text-align:right">Aksi</th></tr></thead>
+        <tbody>
+          <% users.forEach(function(u){ %>
+            <tr>
+              <td><b><%= u.name %></b></td>
+              <td class="muted" style="font-size:12px"><%= u.email %></td>
+              <td>
+                <form method="post" action="/admin/corporates/<%= corporate.id %>/users/<%= u.id %>" style="display:inline">
+                  <select name="corporateRole" onchange="this.form.submit()" style="padding:4px 8px;font-size:12px">
+                    <% ['ADMIN','APPROVER','MAKER'].forEach(function(r){ %>
+                      <option value="<%= r %>" <%= u.corporateRole===r?'selected':'' %>><%= r %></option>
+                    <% }) %>
+                  </select>
+                </form>
+              </td>
+              <td style="text-align:right">
+                <form method="post" action="/admin/corporates/<%= corporate.id %>/users/<%= u.id %>/delete" style="display:inline">
+                  <button class="btn ghost sm" style="color:var(--danger,#dc2626)" data-confirm="Hapus pengguna <%= u.name %>?" data-confirm-title="Hapus Pengguna" data-confirm-ok="Ya, hapus" data-confirm-kind="logout">Hapus</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!users.length) { %><tr><td colspan="4" class="empty">Belum ada pengguna</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tambah Pengguna</h2>
+    <p class="muted" style="margin-top:-8px;font-size:12.5px">Sandi sementara dibuat otomatis &amp; dikirim ke email pengguna.</p>
+    <form method="post" action="/admin/corporates/<%= corporate.id %>/users">
+      <label>Nama Lengkap</label>
+      <input name="name" placeholder="Nama pengguna" required minlength="2">
+      <label>Email</label>
+      <input name="email" type="email" placeholder="nama@perusahaan.com" required>
+      <label>Peran</label>
+      <select name="corporateRole" required>
+        <option value="MAKER">Maker — membuat pesanan</option>
+        <option value="APPROVER">Approver — menyetujui pesanan</option>
+        <option value="ADMIN">Admin — kelola pengguna &amp; setujui</option>
+      </select>
+      <div style="margin-top:16px"><button class="btn">Tambah Pengguna</button></div>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

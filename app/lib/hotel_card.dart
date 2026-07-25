@@ -13,14 +13,18 @@ class HotelCard extends StatelessWidget {
   final bool showBook;
   final String bookLabel;
   final VoidCallback? onBook;
-  const HotelCard(this.hotel, {super.key, this.showBook = false, this.bookLabel = '', this.onBook});
+  // When set, the whole card uses this instead of opening the detail page, and
+  // the favorite toggle is hidden (used for live-inventory hotels with no detail
+  // page — the source is never surfaced).
+  final VoidCallback? onCardTap;
+  const HotelCard(this.hotel, {super.key, this.showBook = false, this.bookLabel = '', this.onBook, this.onCardTap});
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthBloc>().state;
     final fav = auth.isFavorite(hotel.id);
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(hotel.id))),
+      onTap: onCardTap ?? () => Navigator.push(context, MaterialPageRoute(builder: (_) => HotelDetailScreen(hotel.id))),
       child: cardBox(
         padding: const EdgeInsets.all(10),
         child: Row(
@@ -39,7 +43,7 @@ class HotelCard extends StatelessWidget {
                     children: [
                       Expanded(child: Text(hotel.name, maxLines: 1, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
-                      if (auth.isLoggedIn)
+                      if (auth.isLoggedIn && onCardTap == null)
                         GestureDetector(
                           onTap: () => context.read<AuthBloc>().add(AuthFavoriteToggled(hotel.id)),
                           child: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,

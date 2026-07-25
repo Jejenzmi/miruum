@@ -83,11 +83,13 @@
         <div class="nav-label">Transaksi</div>
         <a href="/admin/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Pesanan</a>
         <a href="/admin/finance" class="<%= active==='finance'?'active':'' %>"><%- ni('finance') %>Keuangan</a>
+        <a href="/admin/reconciliation" class="<%= active==='reconciliation'?'active':'' %>"><%- ni('finance') %>Rekonsiliasi</a>
         <a href="/admin/invoices" class="<%= active==='invoices'?'active':'' %>"><%- ni('finance') %>Invoice Bulanan</a>
         <a href="/admin/deposits" class="<%= active==='deposits'?'active':'' %>"><%- ni('box') %>Deposit Hotel</a>
         <a href="/admin/report" class="<%= active==='report'?'active':'' %>"><%- ni('report') %>Laporan</a>
         <div class="nav-label">Layanan & Sistem</div>
         <a href="/admin/reviews" class="<%= active==='reviews'?'active':'' %>"><%- ni('reviews') %>Ulasan</a>
+        <a href="/admin/fraud" class="<%= active==='fraud'?'active':'' %>"><%- ni('shield') %>Anti-Fraud</a>
         <a href="/admin/content" class="<%= active==='content'?'active':'' %>"><%- ni('content') %>Konten Statis</a>
         <a href="/admin/site-content" class="<%= active==='site-content'?'active':'' %>"><%- ni('globe') %>Konten Web (miruum.id)</a>
         <a href="/admin/chats" class="<%= active==='chats'?'active':'' %>"><%- ni('chats') %>Live Chat CS</a>
@@ -115,9 +117,15 @@
         <div class="nav-label">Korporat</div>
         <a href="/corporate" class="<%= active==='dashboard'?'active':'' %>"><%- ni('dashboard') %>Dashboard</a>
         <a href="/corporate/book" class="<%= active==='book'?'active':'' %>"><%- ni('hotel') %>Pesan Hotel</a>
+        <% if (typeof corpCanApprove !== 'undefined' && corpCanApprove) { %>
+        <a href="/corporate/approvals" class="<%= active==='approvals'?'active':'' %>"><%- ni('shield') %>Persetujuan<% if (corpPending > 0) { %> <span class="pill PENDING" style="margin-left:auto;font-size:10px"><%= corpPending %></span><% } %></a>
+        <% } %>
         <a href="/corporate/bookings" class="<%= active==='bookings'?'active':'' %>"><%- ni('bookings') %>Riwayat & Invoice</a>
         <a href="/corporate/invoices" class="<%= active==='invoices'?'active':'' %>"><%- ni('finance') %>Tagihan & Pembayaran</a>
         <div class="nav-label">Akun</div>
+        <% if (typeof corpRole !== 'undefined' && corpRole === 'ADMIN') { %>
+        <a href="/corporate/users" class="<%= active==='users'?'active':'' %>"><%- ni('users') %>Pengguna & Peran</a>
+        <% } %>
         <a href="/corporate/logout" class="logout" data-confirm="Yakin ingin keluar dari portal korporat?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } else if (pv === 'pms') { %>
         <div class="nav-label">Front Office</div>

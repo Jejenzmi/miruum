@@ -44,6 +44,39 @@
 </div>
 
 <div class="card">
+  <h2>Legalitas, Payout &amp; Kebijakan</h2>
+  <p class="muted" style="margin-top:-8px">Data legal &amp; rekening pencairan untuk kontrak dan pembayaran. Bersifat rahasia — hanya Anda &amp; admin yang melihat.</p>
+  <form method="post" action="/extranet/hotels/<%= hotel.id %>/legal">
+    <div class="nav-label">Legalitas &amp; Pajak</div>
+    <div class="row2">
+      <div><label>Nama Badan Hukum</label><input name="legalName" value="<%= hotel.legalName || '' %>" placeholder="mis. PT Nusantara Jaya"></div>
+      <div><label>NIB / SIUP</label><input name="businessRegNo" value="<%= hotel.businessRegNo || '' %>" placeholder="Nomor Induk Berusaha"></div>
+    </div>
+    <label>NPWP</label>
+    <input name="taxId" value="<%= hotel.taxId || '' %>" placeholder="00.000.000.0-000.000">
+
+    <div class="nav-label" style="margin-top:14px">Rekening Pencairan (Payout)</div>
+    <div class="row2">
+      <div><label>Bank</label><input name="payoutBankName" value="<%= hotel.payoutBankName || '' %>" placeholder="mis. BCA"></div>
+      <div><label>No. Rekening</label><input name="payoutBankAccount" value="<%= hotel.payoutBankAccount || '' %>" placeholder="No. rekening" inputmode="numeric"></div>
+    </div>
+    <label>Nama Pemilik Rekening</label>
+    <input name="payoutBankHolder" value="<%= hotel.payoutBankHolder || '' %>" placeholder="Sesuai buku tabungan">
+
+    <label style="margin-top:14px">Kebijakan Pembatalan</label>
+    <% var cp = hotel.cancellationPolicy || ''; %>
+    <select name="cancellationPolicy">
+      <option value="">— pilih —</option>
+      <option value="FLEXIBLE" <%= cp==='FLEXIBLE'?'selected':'' %>>Fleksibel (refund penuh sebelum batas)</option>
+      <option value="MODERATE" <%= cp==='MODERATE'?'selected':'' %>>Moderat (refund sebagian)</option>
+      <option value="STRICT" <%= cp==='STRICT'?'selected':'' %>>Ketat</option>
+      <option value="NON_REFUNDABLE" <%= cp==='NON_REFUNDABLE'?'selected':'' %>>Non-refundable</option>
+    </select>
+    <div style="margin-top:14px"><button class="btn sm">Simpan Legalitas &amp; Payout</button></div>
+  </form>
+</div>
+
+<div class="card">
   <h2>Fasilitas Hotel</h2>
   <p class="muted" style="margin-top:-8px">Pilih fasilitas yang tersedia — memengaruhi filter pencarian tamu.</p>
   <% var have = (hotel.facilities||[]).map(function(f){ return f.facilityId; }); %>

@@ -36,6 +36,8 @@ Future<void> main() async {
   final tm = prefs.getString('miruum_theme') ?? 'light'; // default: mode terang
   AppSettings.themeMode.value = tm == 'dark' ? ThemeMode.dark : tm == 'system' ? ThemeMode.system : ThemeMode.light;
   AppSettings.locale.value = Locale(prefs.getString('miruum_lang') ?? 'id');
+  AppSettings.marketChosen = prefs.containsKey('miruum_market');
+  AppSettings.market.value = prefs.getString('miruum_market') ?? 'DOMESTIC';
 
   // Firebase (FCM + Crashlytics) is mobile-only — skip entirely on web, where
   // there's no Firebase config and these plugins aren't supported.
@@ -92,7 +94,9 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
       valueListenable: AppSettings.themeMode,
       builder: (context, mode, _) => ValueListenableBuilder<Locale>(
         valueListenable: AppSettings.locale,
-        builder: (context, locale, __) {
+        builder: (context, locale, __) => ValueListenableBuilder<String>(
+          valueListenable: AppSettings.market,
+          builder: (context, market, ___) {
           final platformDark =
               WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
           kDark = mode == ThemeMode.dark || (mode == ThemeMode.system && platformDark);
@@ -116,7 +120,7 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
               // instantly. The splash skips its animation on this rebuild
               // (AppSettings.booted) and lands back on the last tab.
               return KeyedSubtree(
-                key: ValueKey('locale-${locale.languageCode}'),
+                key: ValueKey('locale-${locale.languageCode}-market-$market'),
                 child: MediaQuery(
                   data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
                   child: child!,
@@ -125,7 +129,8 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
             },
             home: const SplashScreen(),
           );
-        },
+          },
+        ),
       ),
     );
   }

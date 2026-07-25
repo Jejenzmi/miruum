@@ -101,9 +101,13 @@
           <h2 class="font-bold text-xl mb-3">{{ t('Ulasan Tamu', 'Guest Reviews') }} ({{ hotel.reviewCount }})</h2>
           <div class="grid sm:grid-cols-2 gap-4">
             <div v-for="rv in hotel.reviews.slice(0,6)" :key="rv.id" class="card p-4">
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
                 <span class="rounded-lg bg-leaf px-2 py-0.5 text-white text-[12px] font-bold">{{ Number(rv.rating).toFixed(1) }}</span>
                 <span class="font-semibold text-[14px]">{{ rv.userName || rv.user?.name || t('Tamu', 'Guest') }}</span>
+                <span v-if="rv.verified" class="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 bg-green-50 rounded-full px-2 py-0.5">
+                  <svg viewBox="0 0 24 24" class="w-3 h-3 fill-none stroke-current" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+                  {{ t('Menginap Terverifikasi', 'Verified Stay') }}
+                </span>
               </div>
               <p class="text-[14px] text-ink-muted leading-relaxed">{{ rv.comment || rv.body }}</p>
               <div v-if="rv.reply" class="mt-2 pl-3 border-l-2 border-brand-200 text-[13px] text-ink-muted"><b class="text-brand-700">{{ t('Balasan hotel:', 'Hotel reply:') }}</b> {{ rv.reply }}</div>

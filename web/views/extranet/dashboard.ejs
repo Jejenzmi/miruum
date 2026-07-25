@@ -36,19 +36,31 @@
 <div class="card">
   <h2>Hotel yang Anda Kelola</h2>
   <table>
-    <thead><tr><th></th><th>Nama</th><th>Kota</th><th>Kamar</th><th>Pesanan</th><th>Aksi</th></tr></thead>
+    <thead><tr><th></th><th>Nama</th><th>Kota</th><th>Kamar</th><th>Pesanan</th><th>Kelengkapan</th><th>Status</th><th>Aksi</th></tr></thead>
     <tbody>
-      <% overview.hotels.forEach(function(h){ %>
+      <% overview.hotels.forEach(function(h){ var cs = h.contentScore || {score:0, ready:false}; var col = cs.score>=100 ? 'var(--green-d,#2FA84F)' : cs.score>=60 ? '#b8791a' : '#dc2626'; %>
         <tr>
-          <td><img class="thumb" src="<%= h.imageUrl %>" alt=""></td>
+          <td><% if (h.imageUrl) { %><img class="thumb" src="<%= h.imageUrl %>" alt=""><% } else { %><div class="thumb" style="background:var(--bg);display:grid;place-items:center;color:var(--muted);font-size:10px">foto</div><% } %></td>
           <td><b><%= h.name %></b></td>
           <td><%= h.city %></td>
           <td><%= h._count.rooms %></td>
           <td><%= h._count.bookings %></td>
-          <td><a class="btn ghost sm" href="/extranet/hotels/<%= h.id %>">Kelola Kamar</a></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="flex:1;min-width:60px;height:6px;background:var(--line);border-radius:6px;overflow:hidden"><div style="width:<%= cs.score %>%;height:100%;background:<%= col %>"></div></div>
+              <span style="font-size:11px;font-weight:700;color:<%= col %>"><%= cs.score %>%</span>
+            </div>
+          </td>
+          <td><% if (cs.ready) { %><span class="pill PAID">Tayang</span><% } else { %><span class="pill PENDING">Belum tayang</span><% } %></td>
+          <td><a class="btn ghost sm" href="/extranet/hotels/<%= h.id %>">Kelola</a></td>
         </tr>
+        <% if (cs.items) { var todo = cs.items.filter(function(i){return !i.done}); if (todo.length) { %>
+        <tr><td></td><td colspan="7" style="padding-top:0">
+          <div class="muted" style="font-size:11px">Lengkapi agar konversi maksimal: <%= todo.map(function(i){return i.label}).join(' · ') %></div>
+        </td></tr>
+        <% }} %>
       <% }) %>
-      <% if (!overview.hotels.length) { %><tr><td colspan="6" class="empty">Belum ada hotel terhubung ke akun Anda</td></tr><% } %>
+      <% if (!overview.hotels.length) { %><tr><td colspan="8" class="empty">Belum ada hotel terhubung ke akun Anda</td></tr><% } %>
     </tbody>
   </table>
 </div>

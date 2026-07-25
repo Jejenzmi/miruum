@@ -1,0 +1,46 @@
+<%- include('../partials/top', { title:'Rekonsiliasi', heading:'Rekonsiliasi & Settlement', section:'admin', active:'reconciliation', me }) %>
+
+<% if (saved==='settle') { %><div class="notice ok">Settlement otomatis selesai: <%= msg %>.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Terjadi kesalahan.</div><% } %>
+
+<div class="stat-grid">
+  <div class="stat"><div class="label">Total Payout</div><div class="value" style="font-size:19px"><%= rupiah(recon.total.payout) %></div></div>
+  <div class="stat"><div class="label">Sudah Dibayar</div><div class="value" style="font-size:19px"><%= rupiah(recon.total.settled) %></div></div>
+  <div class="stat"><div class="label">Klaim Tertunda</div><div class="value" style="font-size:19px"><%= rupiah(recon.total.pending) %></div></div>
+  <div class="stat"><div class="label">Outstanding</div><div class="value" style="font-size:19px;color:#b8791a"><%= rupiah(recon.total.claimable) %></div></div>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div><h2 style="margin:0">Rekonsiliasi per Hotel</h2><p class="muted" style="margin:2px 0 0;font-size:12.5px">Komisi Miruum <%= recon.platformPct %>% · payout = bruto − komisi.</p></div>
+    <div style="display:flex;gap:8px">
+      <a class="btn ghost sm" href="/admin/reconciliation.csv">Unduh CSV</a>
+      <% if (recon.total.claimable > 0) { %>
+      <form method="post" action="/admin/reconciliation/auto-settle" data-confirm="Bayar semua saldo outstanding (<%= rupiah(recon.total.claimable) %>) ke seluruh hotel sekaligus?" data-confirm-title="Settlement Otomatis" data-confirm-ok="Ya, bayar semua">
+        <button class="btn sm">Settle Semua Outstanding</button>
+      </form>
+      <% } %>
+    </div>
+  </div>
+  <div style="overflow-x:auto;margin-top:12px">
+    <table>
+      <thead><tr><th>Hotel</th><th>Pesanan</th><th>Bruto</th><th>Komisi</th><th>Payout</th><th>Dibayar</th><th>Outstanding</th></tr></thead>
+      <tbody>
+        <% recon.hotels.forEach(function(h){ %>
+          <tr>
+            <td><b><%= h.name %></b></td>
+            <td><%= h.bookings %></td>
+            <td><%= rupiah(h.gross) %></td>
+            <td class="muted"><%= rupiah(h.gross - h.payout) %></td>
+            <td><%= rupiah(h.payout) %></td>
+            <td><%= rupiah(h.settled) %></td>
+            <td><% if (h.claimable > 0) { %><span class="pill PENDING"><%= rupiah(h.claimable) %></span><% } else { %><span class="muted">—</span><% } %></td>
+          </tr>
+        <% }) %>
+        <% if (!recon.hotels.length) { %><tr><td colspan="7" class="empty">Belum ada data (belum ada hotel DIRECT / transaksi)</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

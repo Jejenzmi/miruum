@@ -92,6 +92,28 @@
     </div>
 
     <div class="card">
+      <h2>Supply &amp; Channel Manager</h2>
+      <p class="muted" style="font-size:11.5px;margin-top:-4px">Sumber inventory NYATA. Aktifkan &amp; isi kredensial sandbox; koneksi diverifikasi langsung ke server provider (bukan simulasi).</p>
+
+      <h3 style="margin:14px 0 6px;font-size:14px">Channex (Channel Manager 2-arah)</h3>
+      <label class="pr-check" style="margin-bottom:8px"><input type="checkbox" name="channex_enabled" style="width:auto" <%= i.channex_enabled==='1'?'checked':'' %>> Aktifkan Channex</label>
+      <div class="row2">
+        <div><label style="margin-top:0">Base URL</label><input name="channex_base" value="<%= i.channex_base %>" placeholder="https://staging.channex.io/api/v1 (sandbox) / https://app.channex.io/api/v1 (prod)"></div>
+        <div><label style="margin-top:0">API Key (user-api-key)</label><input name="channex_api_key" type="password" value="<%= i.channex_api_key %>" placeholder="••••••••"></div>
+      </div>
+      <p class="muted" style="font-size:11px;margin:6px 0 0">Tarik inventory hotel (ARI) → katalog Miruum &amp; kirim booking balik ke PMS. Webhook: <code>https://api.miruum.id/api/webhooks/channex</code></p>
+
+      <h3 style="margin:16px 0 6px;font-size:14px">Hotelbeds APItude (Bedbank)</h3>
+      <label class="pr-check" style="margin-bottom:8px"><input type="checkbox" name="hotelbeds_enabled" style="width:auto" <%= i.hotelbeds_enabled==='1'?'checked':'' %>> Aktifkan Hotelbeds</label>
+      <div class="row2">
+        <div><label style="margin-top:0">Base URL</label><input name="hotelbeds_base" value="<%= i.hotelbeds_base %>" placeholder="https://api.test.hotelbeds.com (sandbox)"></div>
+        <div><label style="margin-top:0">Api-key</label><input name="hotelbeds_api_key" type="password" value="<%= i.hotelbeds_api_key %>" placeholder="••••••••"></div>
+      </div>
+      <div><label>Secret</label><input name="hotelbeds_secret" type="password" value="<%= i.hotelbeds_secret %>" placeholder="••••••••"></div>
+      <p class="muted" style="font-size:11px;margin:6px 0 0">Jual-ulang ribuan hotel eksternal (Miruum sebagai sub-agent). Daftar sandbox key di developer.hotelbeds.com.</p>
+    </div>
+
+    <div class="card">
       <h2>Status Kanal</h2>
       <div class="pms-row"><div><b>Payment</b></div><span class="pill <%= (i.payment_provider==='LINKQU'&&i.linkqu_client_id)||(i.payment_provider==='FLIP')?'PAID':'CANCELLED' %>"><%= i.payment_provider && i.payment_provider!=='MOCK' ? (i.payment_provider+' aktif') : 'MOCK (simulasi)' %></span></div>
       <div class="pms-row"><div><b>Email (SMTP)</b></div><span class="pill <%= i.mail_enabled==='1'&&i.smtp_host?'PAID':'CANCELLED' %>"><%= i.mail_enabled==='1'&&i.smtp_host?'Aktif':'Nonaktif' %></span></div>
@@ -118,5 +140,40 @@
     <form method="post" action="/admin/integrations/test-fcm"><button class="btn ghost">Uji Koneksi FCM</button></form>
   </div>
 </div>
+
+<div class="grid-2" style="margin-top:20px">
+  <div class="card">
+    <h3 style="margin:0 0 10px">Status Supply (live)</h3>
+    <p class="muted" style="font-size:12px;margin-top:-4px">Cek koneksi nyata ke server Channex &amp; Hotelbeds (simpan kredensial dulu).</p>
+    <button type="button" class="btn ghost" onclick="checkSupply()">Cek Status Sekarang</button>
+    <div id="supplyStatus" style="margin-top:12px;font-size:13px"></div>
+  </div>
+  <div class="card">
+    <h3 style="margin:0 0 10px">Sync Channex → Katalog</h3>
+    <p class="muted" style="font-size:12px;margin-top:-4px">Tarik properti + kamar dari Channex jadi hotel <code>source=CHANNEX</code>. Perlu Channex aktif.</p>
+    <% if (saved==='cxsync') { %><div class="notice ok" style="margin-bottom:10px">Sync berhasil: <%= msg %></div><% } %>
+    <% if (saved==='cxsyncerr') { %><div class="notice bad" style="margin-bottom:10px"><%= msg %></div><% } %>
+    <form method="post" action="/admin/integrations/channex-sync" data-confirm="Tarik semua properti Channex ke katalog?" data-confirm-title="Sync Channex" data-confirm-ok="Ya, sync"><button class="btn">Sync Sekarang</button></form>
+  </div>
+</div>
+
+<script>
+async function checkSupply(){
+  var el=document.getElementById('supplyStatus');
+  el.innerHTML='Memeriksa…';
+  try{
+    var r=await fetch('/admin/integrations/supply-status');var d=await r.json();
+    if(d.error){el.innerHTML='<span style="color:#dc2626">'+d.error+'</span>';return;}
+    var html='';
+    Object.keys(d.providers||{}).forEach(function(k){
+      var p=d.providers[k];
+      html+='<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><b style="min-width:90px">'+k+'</b>'+
+            '<span class="pill '+(p.ok?'PAID':'CANCELLED')+'">'+(p.ok?'Terhubung':'Nonaktif')+'</span>'+
+            '<span class="muted" style="font-size:12px">'+(p.detail||'')+'</span></div>';
+    });
+    el.innerHTML=html;
+  }catch(e){el.innerHTML='<span style="color:#dc2626">Gagal memeriksa</span>';}
+}
+</script>
 
 <%- include('../partials/bottom') %>

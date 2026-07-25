@@ -17,10 +17,15 @@ import { ensureBucket, putObject, storageReady } from "./storage.js";
 import { syncOffers, getConnector, applyMarkup } from "./connectors.js";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
+import geoip from "fast-geoip";
 import { PAYMENT_METHODS, methodByCode, activeProvider, verifyLinkquCallback, LINKQU_CALLBACK_IP } from "./payments.js";
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { pushDistribution } from "./distribution.js";
+import { supplyProvider, activeSupplyProviders } from "./supply.js";
+import { channexStatus, channexConfigured, syncChannex, cxCreateBooking } from "./channex.js";
+import { fxConverter } from "./fx.js";
+import { clientIp, deviceFingerprint, isBlocked, assessBookingRisk, refundVelocity } from "./fraud.js";
 import { botReply } from "./chatbot.js";
 import { screenChat, violationNotice } from "./moderation.js";
 import { runRateShopping, aiConfigured } from "./rateshopper.js";
@@ -38,6 +43,27 @@ export const logger = pino({ level: process.env.LOG_LEVEL || "info" });
 
 const app = express();
 app.set("trust proxy", 1); // behind nginx → real client IP via X-Forwarded-For (for rate limiting)
+
+// ── Async safety net (Express 4) ──
+// In Express 4 a rejected promise from an `async` handler is NOT forwarded to the
+// error middleware — the request would hang until the socket aborts (this exact
+// bug bit refund/reschedule). Patch the routing methods so every handler's
+// rejection (and sync throw) is caught and passed to next(), reaching
+// `errorHandler` → HTTP 500 instead of hanging. 4-arg error middlewares are left
+// untouched; path strings and non-functions pass through.
+for (const m of ["use", "get", "post", "put", "patch", "delete", "all"] as const) {
+  const orig = (app as any)[m].bind(app);
+  (app as any)[m] = (...args: any[]) =>
+    orig(...args.map((a: any) =>
+      typeof a === "function" && a.length < 4
+        ? function (this: any, req: any, res: any, next: any) {
+            try { return Promise.resolve(a.call(this, req, res, next)).catch(next); }
+            catch (e) { return next(e); }
+          }
+        : a,
+    ));
+}
+
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === "/api/health" } })); // structured request logs
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } })); // security headers (JSON API)
 app.use(cors());
@@ -76,7 +102,11 @@ function flattenFacilities(node: any): any {
 //
 // `channelId` deliberately STAYS: bookings route to the cheapest supply source
 // by that id, and it is an opaque identifier that reveals no pricing.
-const B2B_ONLY_KEYS = new Set(["basePrice", "markupPct", "commissionPct", "deeplink", "channel"]);
+// Keys that must never reach a public (B2C) client: B2B cost/markup internals,
+// plus `foreignMarkupPct` (a pricing-policy field consumed server-side only).
+const B2B_ONLY_KEYS = new Set(["basePrice", "markupPct", "commissionPct", "deeplink", "channel", "foreignMarkupPct",
+  // Internal supply-routing fields — never exposed to a public (B2C) client.
+  "source", "supplierHotelCode", "supplierRoomTypeId", "supplierRatePlanId"]);
 function stripB2B(node: any): any {
   if (Array.isArray(node)) return node.map(stripB2B);
   if (node && typeof node === "object") {
@@ -89,10 +119,86 @@ function stripB2B(node: any): any {
 }
 const PRIVILEGED_PATH = /^\/api\/(admin|partner)(\/|$)/;
 
+// ── Nationality (market) pricing — PUBLIC catalog only, OTA-style ──
+// Foreign (WNA) guests see the public rate + a markup %. Domestic (WNI) see the
+// base rate. This NEVER touches the B2B/corporate tree — that stays auth+role
+// guarded. Only the public catalog paths below are eligible.
+const MARKET_PATH = /^\/api\/(hotels|packages|destinations)(\/|$)/;
+const MARKET_PRICE_FIELDS = new Set(["price", "priceFrom", "priceBefore", "publicPrice"]);
+
+function ipOf(req: Request): string {
+  const xf = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return xf || req.socket.remoteAddress || "";
+}
+/** Resolve the guest market: explicit choice wins, else default from IP country. */
+async function resolveMarket(req: Request): Promise<"DOMESTIC" | "FOREIGN"> {
+  const explicit = String(req.query.market || req.headers["x-market"] || "").toUpperCase();
+  if (explicit === "FOREIGN" || explicit === "WNA") return "FOREIGN";
+  if (explicit === "DOMESTIC" || explicit === "WNI") return "DOMESTIC";
+  try {
+    const ip = ipOf(req);
+    // Skip private/loopback ranges — treat as domestic.
+    if (ip && !/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|::1|fc|fd)/.test(ip)) {
+      const geo = await geoip.lookup(ip);
+      if (geo && geo.country && geo.country !== "ID") return "FOREIGN";
+    }
+  } catch { /* geoip failure → default domestic */ }
+  return "DOMESTIC";
+}
+/**
+ * Bump public display prices for foreign guests. Walks the tree; when it enters
+ * a hotel node (has `foreignMarkupPct`), that hotel's override becomes the active
+ * markup for it and its nested rooms/rate-plans/offers. Mutates a per-request
+ * copy (cache stores the raw domestic value), and drops the policy field.
+ */
+function applyMarket(node: any, pct: number): any {
+  if (Array.isArray(node)) { for (const n of node) applyMarket(n, pct); return node; }
+  if (node && typeof node === "object") {
+    let ctxPct = pct;
+    if (Object.prototype.hasOwnProperty.call(node, "foreignMarkupPct")) {
+      const own = (node as any).foreignMarkupPct;
+      ctxPct = own === null || own === undefined ? pct : Number(own);
+    }
+    for (const k of Object.keys(node)) {
+      if (MARKET_PRICE_FIELDS.has(k) && typeof node[k] === "number" && ctxPct > 0) {
+        node[k] = Math.round((node[k] * (100 + ctxPct)) / 100);
+      } else if (k !== "foreignMarkupPct") {
+        applyMarket(node[k], ctxPct);
+      }
+    }
+  }
+  return node;
+}
+
 app.use((req, res, next) => {
   const orig = res.json.bind(res);
   const privileged = PRIVILEGED_PATH.test(req.path);
-  res.json = (body: any) => orig(privileged ? flattenFacilities(body) : stripB2B(flattenFacilities(body)));
+  res.json = (body: any) => {
+    let out = flattenFacilities(body);
+    if (!privileged) {
+      // Foreign market markup (public catalog only), applied BEFORE stripB2B
+      // removes the policy field. Domestic / disabled → no change.
+      if (res.locals.market === "FOREIGN" && Number(res.locals.foreignPct) > 0 && MARKET_PATH.test(req.path)) {
+        out = applyMarket(out, Number(res.locals.foreignPct));
+      }
+      out = stripB2B(out);
+    }
+    return orig(out);
+  };
+  next();
+});
+
+// Resolve guest market + global foreign markup for public catalog requests only.
+app.use(async (req, res, next) => {
+  try {
+    if (!PRIVILEGED_PATH.test(req.path) && MARKET_PATH.test(req.path)) {
+      const s = await getSettings();
+      if (s.foreign_market_enabled === "1") {
+        res.locals.market = await resolveMarket(req);
+        res.locals.foreignPct = Math.min(Math.max(Number(s.foreign_markup_pct) || 0, 0), 100);
+      }
+    }
+  } catch { /* fail soft → domestic */ }
   next();
 });
 app.use(express.urlencoded({ extended: true })); // provider webhooks (form-encoded)
@@ -194,14 +300,18 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
     name: z.string().min(2),
     email: z.string().email(),
     password: z.string().min(6),
+    phone: z.string().optional(),
+    consent: z.coerce.boolean().optional(), // explicit Privacy Policy consent (UU PDP)
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Data tidak valid", details: parsed.error.issues });
-  const { name, email, password } = parsed.data;
+  const { name, email, password, phone } = parsed.data;
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) return res.status(409).json({ error: "Email sudah terdaftar" });
   const user = await prisma.user.create({
-    data: { name, email, passwordHash: await bcrypt.hash(password, 10) },
+    // Registering after being shown the consent notice records consent (UU PDP);
+    // the timestamp is our evidence of when it was given.
+    data: { name, email, phone: phone || null, passwordHash: await bcrypt.hash(password, 10), privacyConsentAt: new Date() },
   });
   res.json({ ...(await issueSession(user.id)), user: publicUser(user) });
 });
@@ -273,20 +383,26 @@ app.post("/api/auth/logout", optionalAuth, async (req: AuthRequest, res) => {
   res.json({ ok: true });
 });
 
-// Mock OTP — accepts any 4-digit code or "1234".
-// Request an OTP for the logged-in user — sent via email / WhatsApp if configured.
+// Real OTP — a random code is hashed + stored with a 10-min expiry and delivered
+// via email/WhatsApp. Verified against the stored hash (no bypass code).
 app.post("/api/auth/otp/request", otpLimiter, requireAuth, async (req: AuthRequest, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
   if (!user) return res.status(401).json({ error: "Unauthorized" });
+  const settings = await getSettings();
+  const noChannel = settings.mail_enabled !== "1" && settings.wa_enabled !== "1";
+  // Honest: without a delivery channel the user can never receive the code, so
+  // OTP is genuinely unavailable — don't pretend, don't leak the code in prod.
+  if (noChannel && process.env.NODE_ENV === "production") {
+    return res.status(503).json({ error: "Verifikasi OTP belum aktif — email/WhatsApp belum dikonfigurasi di Back Office" });
+  }
   const code = await issueCode(user.id, "OTP", 4, 10);
   await dispatch(prisma, {
     userId: user.id, title: "Kode Verifikasi Miruum",
     body: `Kode OTP Anda: ${code}. Berlaku 10 menit. Jangan bagikan ke siapa pun.`,
     type: "otp", email: user.email, phone: user.phone || undefined,
   });
-  const settings = await getSettings();
-  const noChannel = settings.mail_enabled !== "1" && settings.wa_enabled !== "1";
-  res.json({ ok: true, ...(noChannel ? { devCode: code } : {}) }); // devCode only when no delivery channel configured
+  // Dev-only convenience so local testing works without SMTP — NEVER in production.
+  res.json({ ok: true, ...(noChannel && process.env.NODE_ENV !== "production" ? { devCode: code } : {}) });
 });
 app.post("/api/auth/otp/verify", otpLimiter, requireAuth, async (req: AuthRequest, res) => {
   const code = String(req.body?.code ?? "");
@@ -295,7 +411,8 @@ app.post("/api/auth/otp/verify", otpLimiter, requireAuth, async (req: AuthReques
   return res.status(400).json({ error: "Kode OTP salah atau kedaluwarsa" });
 });
 
-// Forgot password — sends a reset code (mock "1234"; real would email/SMS it).
+// Forgot password — issues a real 6-digit reset code, hashed + stored (15-min
+// expiry) and delivered via email/WhatsApp. Never reveals whether the email exists.
 app.post("/api/auth/forgot", authLimiter, async (req, res) => {
   const email = String(req.body?.email ?? "").toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
@@ -519,15 +636,23 @@ const hotelCard = {
   id: true, name: true, slug: true, city: true, address: true, rating: true,
   reviewCount: true, priceFrom: true, priceBefore: true, starRating: true, imageUrl: true,
   isPromo: true, promoLabel: true, propertyType: true, lat: true, lng: true,
+  foreignMarkupPct: true, // for nationality (market) pricing on public catalog
   // A few facility chips so list cards can show what the property offers
   // (richer cards convert better — same as the big OTAs).
   facilities: { take: 3, select: { facility: { select: { id: true, name: true, icon: true } } } },
   channel: { select: { code: true, name: true, type: true, color: true, commissionPct: true } },
 } as const;
 
+// A hotel is publicly discoverable ONLY when it's actually bookable: it must have
+// at least one room with a real price. This hides half-set-up properties (a hotel
+// that just registered but hasn't added inventory yet) from search/discovery, so
+// customers never see an un-bookable listing. Admin/partner endpoints don't use
+// this — owners still manage their in-progress hotels in the Extranet.
+const PUBLIC_HOTEL_GATE = { rooms: { some: { price: { gt: 0 } } } };
+
 app.get("/api/hotels", async (req, res) => {
   const { query, city, minPrice, maxPrice, star, sort } = req.query as Record<string, string>;
-  const where: any = {};
+  const where: any = { ...PUBLIC_HOTEL_GATE };
   if (query) where.OR = [
     { name: { contains: query, mode: "insensitive" } },
     { city: { contains: query, mode: "insensitive" } },
@@ -591,14 +716,178 @@ app.get("/api/hotels", async (req, res) => {
   res.json({ hotels });
 });
 
+// Public: nationality (market) pricing status + the market resolved for THIS
+// request (explicit ?market= wins, else IP default). Lets the web/app render a
+// Domestik/Asing selector and show the right default. Disabled → enabled:false.
+app.get("/api/market", async (req, res) => {
+  const s = await getSettings();
+  const enabled = s.foreign_market_enabled === "1";
+  // NB: use `markup` (not `foreignMarkupPct`/`markupPct`) — those keys are in the
+  // public-strip set and would be deleted from this response.
+  const markup = Math.min(Math.max(Number(s.foreign_markup_pct) || 0, 0), 100);
+  const market = enabled ? await resolveMarket(req) : "DOMESTIC";
+  res.json({ enabled, market, markup });
+});
+
+// ───────────────────── External supply (Hotelbeds bedbank) ─────────────────────
+// REAL connectivity — every call hits the provider's live REST API. When no
+// external source is configured, search returns an honest empty set with
+// `externalConfigured:false` (never fabricated hotels).
+
+// Live availability from all configured external bedbanks for a stay.
+app.post("/api/supply/search", async (req, res) => {
+  const schema = z.object({
+    destination: z.string().optional(),          // provider destination code (e.g. Hotelbeds "BCN")
+    hotelCodes: z.array(z.string()).optional(),
+    lat: z.coerce.number().optional(), lng: z.coerce.number().optional(), radiusKm: z.coerce.number().optional(),
+    checkIn: z.string().min(8), checkOut: z.string().min(8),
+    adults: z.coerce.number().int().min(1).default(2),
+    children: z.coerce.number().int().min(0).default(0),
+    rooms: z.coerce.number().int().min(1).default(1),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Parameter pencarian tidak valid" });
+  const providers = await activeSupplyProviders();
+  if (!providers.length) return res.json({ external: [], externalConfigured: false, sources: [] });
+  const occupancies = [{ rooms: p.data.rooms, adults: p.data.adults, children: p.data.children }];
+  const geo = (p.data.lat != null && p.data.lng != null) ? { latitude: p.data.lat, longitude: p.data.lng, radiusKm: p.data.radiusKm } : undefined;
+  const results = await Promise.allSettled(providers.map((pr) =>
+    pr.search({ destinationCode: p.data.destination, hotelCodes: p.data.hotelCodes, geo, stay: { checkIn: p.data.checkIn, checkOut: p.data.checkOut }, occupancies })));
+  const external: any[] = [];
+  const errors: { source: string; error: string }[] = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") external.push(...r.value);
+    else errors.push({ source: providers[i].code, error: r.reason?.message || "gagal" });
+  });
+  // Convert supplier currency → IDR so the app shows rupiah; keep the original
+  // net + currency for reference/transparency.
+  const fx = await fxConverter();
+  for (const h of external) {
+    h.minRateIdr = fx(h.minRate, h.currency);
+    if (h.maxRate != null) h.maxRateIdr = fx(h.maxRate, h.currency);
+    for (const rm of h.rooms || []) rm.netIdr = fx(rm.net, h.currency);
+  }
+  res.json({ external, externalConfigured: true, sources: providers.map((pr) => pr.code), errors });
+});
+
+// Re-price a rateKey right before booking (bedbank prices can move).
+app.post("/api/supply/checkrate", async (req, res) => {
+  const source = String(req.body?.source || "HOTELBEDS").toUpperCase();
+  const rateKey = String(req.body?.rateKey || "");
+  if (!rateKey) return res.status(400).json({ error: "rateKey wajib" });
+  try {
+    const rate = await supplyProvider(source as any).checkRate(rateKey);
+    res.json({ ok: true, rate });
+  } catch (e: any) { res.status(502).json({ error: e.message }); }
+});
+
+// Book an external (bedbank) stay. Caches the hotel/room locally so the Booking
+// has a real home, then confirms at the supplier. Auth required.
+app.post("/api/supply/book", requireAuth, async (req: AuthRequest, res) => {
+  const schema = z.object({
+    source: z.string().default("HOTELBEDS"),
+    rateKey: z.string().min(4),
+    hotelName: z.string().min(2),
+    supplierHotelCode: z.string().min(1),
+    city: z.string().optional(),
+    checkIn: z.string().min(8), checkOut: z.string().min(8),
+    holder: z.object({ name: z.string().min(1), surname: z.string().min(1), email: z.string().optional(), phone: z.string().optional() }),
+    paxes: z.array(z.object({ type: z.enum(["AD", "CH"]), name: z.string(), surname: z.string(), age: z.coerce.number().optional() })).min(1),
+    guests: z.coerce.number().int().default(2), rooms: z.coerce.number().int().default(1),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data pemesanan tidak valid", details: p.error.issues });
+  const prov = supplyProvider(p.data.source.toUpperCase() as any);
+  try {
+    // Pay-first: verify the rate is still valid, cache the hotel/room, and create
+    // a PENDING Miruum booking. The supplier booking happens on payment settle
+    // (markPaymentPaid) so the guest pays Miruum BEFORE we commit at the bedbank.
+    const rate = await prov.checkRate(p.data.rateKey);
+    // Convert the supplier's nett (e.g. EUR) → IDR for everything the guest sees/pays.
+    const fx = await fxConverter();
+    const netIdr = fx(rate.net, rate.currency);
+    const hotel = await prisma.hotel.upsert({
+      where: { slug: `hb-${p.data.supplierHotelCode}` },
+      create: { name: p.data.hotelName, slug: `hb-${p.data.supplierHotelCode}`, city: p.data.city || "", address: p.data.city || "", source: p.data.source.toUpperCase(), supplierHotelCode: p.data.supplierHotelCode, priceFrom: netIdr, description: "", imageUrl: "" },
+      update: { name: p.data.hotelName, priceFrom: netIdr },
+    }).catch(async () => prisma.hotel.findFirst({ where: { supplierHotelCode: p.data.supplierHotelCode } }) as any);
+    let room = await prisma.room.findFirst({ where: { hotelId: hotel.id } });
+    if (!room) room = await prisma.room.create({ data: { hotelId: hotel.id, name: "Supplier Rate", price: netIdr, stock: 99, capacity: p.data.guests || 2 } });
+    const nights = Math.max(1, Math.round((+new Date(p.data.checkOut) - +new Date(p.data.checkIn)) / 86400000));
+    const total = BigInt(netIdr);
+    const booking = await prisma.booking.create({
+      data: {
+        code: makeCode(), userId: req.userId!, hotelId: hotel.id, roomId: room.id,
+        source: p.data.source.toUpperCase(),
+        supplierRef: rate.rateKey, // the checked rateKey → used to book at settle
+        roomGuests: p.data.paxes as any, // pax list for the supplier booking
+        checkIn: new Date(p.data.checkIn), checkOut: new Date(p.data.checkOut), nights,
+        guests: p.data.guests, rooms: p.data.rooms,
+        bookerName: `${p.data.holder.name} ${p.data.holder.surname}`.trim(),
+        bookerEmail: p.data.holder.email || "", bookerPhone: p.data.holder.phone || "",
+        roomPrice: total, taxFee: BigInt(0), totalPrice: total,
+        status: "PENDING",
+      },
+    });
+    // Client now pays via POST /api/bookings/:id/pay (same as any booking).
+    res.json({ ok: true, booking: { id: booking.id, code: booking.code, status: "PENDING" }, rate, needsPayment: true });
+  } catch (e: any) { res.status(502).json({ error: e.message }); }
+});
+
+// Cancel an external booking at the supplier (+ mark it cancelled locally).
+app.post("/api/supply/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
+  const b = await prisma.booking.findFirst({ where: { id: req.params.id, userId: req.userId } });
+  if (!b) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+  if (b.source === "DIRECT" || !b.supplierBookingCode) return res.status(400).json({ error: "Bukan pesanan supplier eksternal" });
+  try {
+    const r = await supplyProvider(b.source as any).cancel(b.supplierBookingCode);
+    await prisma.booking.update({ where: { id: b.id }, data: { status: "CANCELLED" } });
+    res.json({ ok: true, status: r.status });
+  } catch (e: any) { res.status(502).json({ error: e.message }); }
+});
+
+// Back Office: connectivity check for external supply + channel-manager providers.
+app.get("/api/admin/supply/status", requireRole("ADMIN"), async (_req, res) => {
+  const out: Record<string, { ok: boolean; detail: string }> = {};
+  try { out.HOTELBEDS = await supplyProvider("HOTELBEDS").status(); } catch (e: any) { out.HOTELBEDS = { ok: false, detail: e.message }; }
+  try { out.CHANNEX = await channexStatus(); } catch (e: any) { out.CHANNEX = { ok: false, detail: e.message }; }
+  res.json({ providers: out });
+});
+
+// Back Office: pull Channex properties (ARI) into the catalog as source=CHANNEX.
+app.post("/api/admin/supply/channex/sync", requireRole("ADMIN"), async (req, res) => {
+  if (!(await channexConfigured())) return res.status(400).json({ error: "Channex belum diaktifkan / API key kosong" });
+  try {
+    const r = await syncChannex(prisma, req.body?.propertyId || undefined);
+    await invalidate("miruum:");
+    audit(req, "supply.channex.sync", "Supply", "CHANNEX", r);
+    res.json({ ok: true, ...r });
+  } catch (e: any) { res.status(502).json({ error: e.message }); }
+});
+
+// Channex webhook — ARI updates + booking events keep our cache fresh. Channex
+// posts a signed payload; we re-sync the affected property (idempotent).
+app.post("/api/webhooks/channex", async (req, res) => {
+  const evt = req.body?.event || req.body?.type || "";
+  const propertyId = req.body?.property_id || req.body?.data?.property_id;
+  res.json({ ok: true }); // ack fast; Channex retries on non-2xx
+  try {
+    if (!(await channexConfigured())) return;
+    if (propertyId && (evt === "ari" || evt === "availability" || String(evt).includes("ari"))) {
+      await syncChannex(prisma, propertyId).catch((e) => console.warn("[channex webhook] sync failed", e.message));
+      await invalidate("miruum:");
+    }
+  } catch (e: any) { console.warn("[channex webhook]", e.message); }
+});
+
 app.get("/api/hotels/promo", async (_req, res) => {
-  const hotels = await prisma.hotel.findMany({ where: { isPromo: true }, select: hotelCard });
+  const hotels = await prisma.hotel.findMany({ where: { isPromo: true, ...PUBLIC_HOTEL_GATE }, select: hotelCard });
   res.json({ hotels });
 });
 
 app.get("/api/hotels/recommended", async (_req, res) => {
   const hotels = await cached("miruum:hotels:recommended", 120, () =>
-    prisma.hotel.findMany({ orderBy: { rating: "desc" }, take: 10, select: hotelCard }));
+    prisma.hotel.findMany({ where: { ...PUBLIC_HOTEL_GATE }, orderBy: { rating: "desc" }, take: 10, select: hotelCard }));
   res.json({ hotels });
 });
 
@@ -661,17 +950,22 @@ app.post("/api/hotels/:id/reviews", requireAuth, async (req: AuthRequest, res) =
   const hotel = await prisma.hotel.findUnique({ where: { id: req.params.id } });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  // Verified reviews only: the guest must have a paid stay whose check-out has
+  // passed (they actually stayed) — like Booking.com/Agoda. One review per stay.
   const stay = await prisma.booking.findFirst({
-    where: { userId: req.userId, hotelId: hotel.id, status: { in: ["PAID", "COMPLETED"] } },
-    select: { id: true },
+    where: { userId: req.userId, hotelId: hotel.id, status: { in: ["PAID", "COMPLETED"] }, checkOut: { lte: new Date() } },
+    orderBy: { checkOut: "desc" }, select: { id: true },
   });
+  if (!stay) return res.status(403).json({ error: "Hanya tamu yang telah menyelesaikan menginap di properti ini yang dapat memberi ulasan." });
+  const dup = await prisma.review.findFirst({ where: { bookingId: stay.id }, select: { id: true } });
+  if (dup) return res.status(400).json({ error: "Anda sudah memberi ulasan untuk pesanan ini." });
   const p = parsed.data;
   await prisma.review.create({
     data: {
       hotelId: hotel.id, userId: req.userId, authorName: user?.name ?? "Tamu", rating: p.rating * 2, body: p.body,
       scoreCleanliness: p.scoreCleanliness, scoreLocation: p.scoreLocation, scoreStaff: p.scoreStaff,
       scoreFacilities: p.scoreFacilities, scoreComfort: p.scoreComfort, scoreValue: p.scoreValue,
-      photos: p.photos ?? [], verified: !!stay, bookingId: stay?.id ?? null,
+      photos: p.photos ?? [], verified: true, bookingId: stay.id,
     },
   });
   const agg = await prisma.review.aggregate({ where: { hotelId: hotel.id }, _avg: { rating: true }, _count: true });
@@ -862,6 +1156,7 @@ app.get("/api/destinations", async (_req, res) => {
   const destinations = await cached("miruum:destinations", 300, async () => {
     const grouped = await prisma.hotel.groupBy({
       by: ["city"],
+      where: { ...PUBLIC_HOTEL_GATE }, // only count bookable properties
       _count: { _all: true },
       _min: { priceFrom: true },
       orderBy: { _count: { city: "desc" } },
@@ -1082,6 +1377,15 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   }
   const totalPrice = baseAmount + taxFee - discount;
 
+  // ── Anti-fraud screening ── blocklist + velocity + risk score.
+  const ip = clientIp(req), device = deviceFingerprint(req);
+  const blk = await isBlocked(prisma, { email: d.bookerEmail, ip, phone: d.bookerPhone, device });
+  if (blk.blocked) return res.status(403).json({ error: "Pesanan tidak dapat diproses. Silakan hubungi dukungan Miruum." });
+  const acct = await prisma.user.findUnique({ where: { id: req.userId }, select: { createdAt: true } });
+  const accountAgeDays = acct ? (Date.now() - acct.createdAt.getTime()) / 86400000 : 999;
+  const risk = await assessBookingRisk(redis(), { userId: req.userId!, ip, device, amount: totalPrice, accountAgeDays });
+  if (risk.block) return res.status(429).json({ error: "Terlalu banyak percobaan pemesanan dalam waktu singkat. Coba lagi nanti." });
+
   // Booking routing: DIRECT → commit to our own Channel Manager inventory.
   // OTA → route to the source (mock: allocate a supplier reference). Real
   // connectors would call the OTA booking API here.
@@ -1095,27 +1399,46 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     }
   }
 
-  const booking = await prisma.booking.create({
-    data: {
-      code: makeCode(),
-      userId: req.userId!,
-      hotelId: hotelId!,
-      roomId: roomId!,
-      packageId, packageTitle,
-      ratePlanId, ratePlanName, planRefundable, planFreeCancellation,
-      channelId, supplierRef,
-      checkIn, checkOut, nights,
-      guests: d.guests, rooms: d.rooms,
-      bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
-      forSelf: d.forSelf, specialRequest: d.specialRequest,
-      payAtHotel: d.payAtHotel, paymentMethod: d.payAtHotel ? "Bayar di Hotel" : undefined,
-      roomGuests: d.roomGuests && d.roomGuests.length ? d.roomGuests : undefined,
-      roomPrice: baseAmount, taxFee, discount, promoCode, totalPrice,
-      status: "PENDING",
-    },
-    include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
-  });
-  if (!packageId) await consume(prisma, roomId!, checkIn, checkOut, d.rooms); // decrement calendar allotment
+  // Overbooking protection: reserve inventory ATOMICALLY before creating the
+  // booking. If the room is sold out for any night, reject — never create a
+  // booking without inventory.
+  if (!packageId) {
+    const reserved = await consume(prisma, roomId!, checkIn, checkOut, d.rooms);
+    if (!reserved) return res.status(409).json({ error: "Maaf, kamar tidak lagi tersedia untuk tanggal yang dipilih." });
+  }
+  let booking;
+  try {
+    booking = await prisma.booking.create({
+      data: {
+        code: makeCode(),
+        userId: req.userId!,
+        hotelId: hotelId!,
+        roomId: roomId!,
+        packageId, packageTitle,
+        ratePlanId, ratePlanName, planRefundable, planFreeCancellation,
+        channelId, supplierRef,
+        checkIn, checkOut, nights,
+        guests: d.guests, rooms: d.rooms,
+        bookerName: d.bookerName, bookerEmail: d.bookerEmail, bookerPhone: d.bookerPhone,
+        forSelf: d.forSelf, specialRequest: d.specialRequest,
+        payAtHotel: d.payAtHotel, paymentMethod: d.payAtHotel ? "Bayar di Hotel" : undefined,
+        roomGuests: d.roomGuests && d.roomGuests.length ? d.roomGuests : undefined,
+        roomPrice: baseAmount, taxFee, discount, promoCode, totalPrice,
+        status: "PENDING",
+        flagged: risk.flagged, riskScore: risk.score, riskNote: risk.note || null,
+      },
+      include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
+    });
+  } catch (e) {
+    // Create failed after reserving inventory → give it back to avoid a phantom hold.
+    if (!packageId) await release(prisma, roomId!, checkIn, checkOut, d.rooms).catch(() => {});
+    throw e;
+  }
+  if (risk.flagged) {
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+    for (const a of admins) await dispatch(prisma, { userId: a.id, title: `Pesanan ditandai risiko (${risk.score}) — ${booking.code}`, body: `Skor risiko ${risk.score}. ${risk.note}. Tinjau di Back Office → Anti-Fraud.`, type: "cancel" });
+  }
+  // (inventory already reserved above, before the booking was created)
   if (pointsUsed > 0) {
     await prisma.$transaction([
       prisma.loyaltyTxn.create({ data: { userId: req.userId!, points: -pointsUsed, type: "REDEEM", bookingId: booking.id, note: `Tukar ${pointsUsed} poin di ${booking.code}` } }),
@@ -1439,11 +1762,11 @@ app.get("/api/hotels/:id/similar", async (req, res) => {
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
   const lo = Math.round(hotel.priceFrom * 0.6), hi = Math.round(hotel.priceFrom * 1.6);
   let similar = await prisma.hotel.findMany({
-    where: { id: { not: hotel.id }, city: hotel.city, priceFrom: { gte: lo, lte: hi } },
+    where: { id: { not: hotel.id }, city: hotel.city, priceFrom: { gte: lo, lte: hi }, ...PUBLIC_HOTEL_GATE },
     select: hotelCard, orderBy: { rating: "desc" }, take: 6,
   });
   if (similar.length < 3) {
-    const more = await prisma.hotel.findMany({ where: { id: { not: hotel.id }, city: hotel.city }, select: hotelCard, take: 6 });
+    const more = await prisma.hotel.findMany({ where: { id: { not: hotel.id }, city: hotel.city, ...PUBLIC_HOTEL_GATE }, select: hotelCard, take: 6 });
     const seen = new Set(similar.map((h) => h.id));
     similar = [...similar, ...more.filter((h) => !seen.has(h.id))].slice(0, 6);
   }
@@ -1696,6 +2019,49 @@ async function markPaymentPaid(paymentId: string) {
       type: "success",
     });
   }
+  // 2-way: a Channex-sourced property → push the confirmed reservation to the
+  // channel manager so the hotel's PMS receives it. Best-effort; a failure never
+  // unsettles the guest's paid booking — it alerts the owner for manual entry.
+  if (b && b.hotel.source === "CHANNEX" && b.hotel.supplierHotelCode && b.room?.supplierRoomTypeId && b.room?.supplierRatePlanId && (await channexConfigured())) {
+    try {
+      const [first, ...rest] = (b.bookerName || "Guest").trim().split(/\s+/);
+      const pushed = await cxCreateBooking({
+        propertyId: b.hotel.supplierHotelCode,
+        arrivalDate: b.checkIn.toISOString().slice(0, 10),
+        departureDate: b.checkOut.toISOString().slice(0, 10),
+        customer: { name: first, surname: rest.join(" ") || first, mail: b.bookerEmail || undefined, phone: b.bookerPhone || undefined },
+        rooms: [{ roomTypeId: b.room.supplierRoomTypeId, ratePlanId: b.room.supplierRatePlanId, amount: Number(b.totalPrice), occupancy: { adults: b.guests || 2 } }],
+        ota_reservation_code: b.code,
+      });
+      await prisma.booking.update({ where: { id: b.id }, data: { source: "CHANNEX", supplierBookingCode: pushed.id } });
+    } catch (e: any) {
+      console.warn(`[channex push] booking ${b.code} failed: ${e.message}`);
+      if (b.hotel.ownerId) await dispatch(prisma, { userId: b.hotel.ownerId, title: `Push Channex gagal — ${b.hotel.name}`, body: `Pesanan ${b.code} sudah lunas tetapi gagal terkirim ke Channex: ${e.message}. Mohon input manual ke PMS.`, type: "cancel", orderCode: b.code });
+    }
+  }
+  // A bedbank (Hotelbeds) booking → now that the guest has paid Miruum, commit at
+  // the supplier using the rateKey stored in supplierRef. Re-check the rate first
+  // (bedbank prices expire). Failure → alert the guest for follow-up/refund.
+  if (b && b.source === "HOTELBEDS" && b.supplierRef && !b.supplierBookingCode) {
+    try {
+      const prov = supplyProvider("HOTELBEDS");
+      const [first, ...rest] = (b.bookerName || "Guest").trim().split(/\s+/);
+      const surname = rest.join(" ") || first;
+      const paxSrc = Array.isArray(b.roomGuests) ? (b.roomGuests as any[]) : [];
+      const paxes = paxSrc.length
+        ? paxSrc.map((x: any) => ({ roomCode: "1", type: (x.type === "CH" ? "CH" : "AD") as "AD" | "CH", name: x.name || first, surname: x.surname || surname, age: x.age }))
+        : [{ roomCode: "1", type: "AD" as const, name: first, surname }];
+      const rate = await prov.checkRate(b.supplierRef);
+      const booked = await prov.book({
+        holder: { name: first, surname, email: b.bookerEmail || undefined, phone: b.bookerPhone || undefined },
+        rateKey: rate.rateKey, paxes, clientReference: b.code,
+      });
+      await prisma.booking.update({ where: { id: b.id }, data: { supplierBookingCode: booked.reference } });
+    } catch (e: any) {
+      console.warn(`[hotelbeds book] booking ${b.code} failed after payment: ${e.message}`);
+      await dispatch(prisma, { userId: b.userId, title: `Perlu tindak lanjut — ${b.hotel.name}`, body: `Pembayaran ${b.code} berhasil, namun konfirmasi ke supplier gagal: ${e.message}. Tim kami akan menindaklanjuti atau melakukan refund.`, type: "cancel", orderCode: b.code, email: b.bookerEmail });
+    }
+  }
   return updated;
 }
 
@@ -1856,7 +2222,7 @@ async function computeRefund(booking: any): Promise<{ refundPct: number; refundA
   let refundPct = 0;
   if (freeCancel && hoursToCheckIn > cutoff) refundPct = fullPct;
   else if (refundable && hoursToCheckIn > cutoff) refundPct = partialPct;
-  const refundAmount = wasPaid ? Math.round((booking.totalPrice * refundPct) / 100) : 0;
+  const refundAmount = wasPaid ? Math.round((Number(booking.totalPrice) * refundPct) / 100) : 0;
   let note: string;
   if (!wasPaid) note = "Pesanan yang belum dibayar akan dibatalkan tanpa biaya.";
   else if (refundPct > 0) note = `Kamu akan mendapat refund ${refundPct}% = ${rupiah(refundAmount)}.`;
@@ -1904,6 +2270,11 @@ app.post("/api/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) 
     const owner = await prisma.user.findUnique({ where: { id: req.userId }, select: { name: true } });
     if (!owner?.name || normName(accountHolder) !== normName(owner.name))
       return res.status(400).json({ error: "Nama rekening harus sama dengan nama di Data Pribadi Anda." });
+    // Anti-fraud: blocklisted bank account + refund velocity abuse control.
+    const bankBlk = await isBlocked(prisma, { bank: bankAccount.replace(/\s+/g, "") });
+    if (bankBlk.blocked) return res.status(403).json({ error: "Refund tidak dapat diproses ke rekening ini. Hubungi dukungan." });
+    const rv = await refundVelocity(redis(), req.userId!);
+    if (rv.block) return res.status(429).json({ error: "Terlalu banyak permintaan refund. Hubungi dukungan Miruum." });
     refundBank = { refundBankName: bankName, refundBankAccount: bankAccount, refundAccountHolder: accountHolder };
   }
 
@@ -1938,11 +2309,11 @@ async function computeReschedule(booking: any, checkInStr: string, checkOutStr: 
     return { allowed: false, reason: "Tanggal tidak valid." };
   if (checkIn.getTime() < Date.now() - 86400000) return { allowed: false, reason: "Check-in tidak boleh di masa lalu." };
   const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000));
-  const perNight = booking.roomPrice / Math.max(1, booking.nights); // price per night × rooms, from original
+  const perNight = Number(booking.roomPrice) / Math.max(1, booking.nights); // price per night × rooms, from original
   const newRoomPrice = Math.round(perNight * nights);
   const newTax = Math.round(newRoomPrice * (await getNum("taxPct")) / 100);
-  const newTotal = newRoomPrice + newTax - booking.discount;
-  return { allowed: true, nights, checkIn, checkOut, newRoomPrice, newTax, newTotal, diff: newTotal - booking.totalPrice };
+  const newTotal = newRoomPrice + newTax - Number(booking.discount);
+  return { allowed: true, nights, checkIn, checkOut, newRoomPrice, newTax, newTotal, diff: newTotal - Number(booking.totalPrice) };
 }
 
 app.get("/api/bookings/:id/reschedule-quote", requireAuth, async (req: AuthRequest, res) => {
@@ -1959,7 +2330,7 @@ app.post("/api/bookings/:id/reschedule", requireAuth, async (req: AuthRequest, r
   if (!q.allowed) return res.status(400).json({ error: q.reason });
   const updated = await prisma.booking.update({
     where: { id: booking.id },
-    data: { checkIn: q.checkIn, checkOut: q.checkOut, nights: q.nights, roomPrice: q.newRoomPrice, taxFee: q.newTax, totalPrice: q.newTotal },
+    data: { checkIn: q.checkIn, checkOut: q.checkOut, nights: q.nights, roomPrice: BigInt(q.newRoomPrice!), taxFee: BigInt(q.newTax!), totalPrice: BigInt(q.newTotal!) },
   });
   const diffNote = q.diff! > 0 ? ` Selisih ${rupiah(q.diff!)} akan ditagih.` : q.diff! < 0 ? ` Kelebihan ${rupiah(-q.diff!)} menjadi kredit.` : "";
   await dispatch(prisma, {
@@ -2034,9 +2405,13 @@ app.get("/api/corporate/overview", requireRole("CORPORATE"), async (req: AuthReq
     prisma.booking.count({ where: { corporateId: c.id, createdAt: { gte: since } } }),
     prisma.booking.findMany({ where: { corporateId: c.id }, orderBy: { createdAt: "desc" }, take: 8, include: { hotel: { select: { name: true, city: true } }, room: { select: { name: true } } } }),
   ]);
+  const me = await prisma.user.findUnique({ where: { id: req.userId }, select: { corporateRole: true } });
+  const myRole = me?.corporateRole || "MAKER";
+  const pendingApprovals = await prisma.booking.count({ where: { corporateId: c.id, approvalStatus: "PENDING" } });
   res.json({
     corporate: c,
     discountPct: await corporateDiscountPct(c as any), // effective B2B rate (own or global default)
+    myId: req.userId, myRole, canApprove: isCorpApprover(myRole), pendingApprovals,
     stats: { bookings, spend: agg._sum.totalPrice ?? 0, recent30 },
     recent,
   });
@@ -2072,6 +2447,51 @@ app.put("/api/admin/corporates/:id", requireRole("ADMIN"), async (req, res) => {
   if (p.data.active !== undefined) data.active = p.data.active;
   const c = await prisma.corporate.update({ where: { id: req.params.id }, data });
   audit(req, "corporate.update", "Corporate", c.id);
+  res.json({ ok: true });
+});
+
+// Back Office: manage a corporate account's Maker/Approver users.
+app.get("/api/admin/corporates/:id/users", requireRole("ADMIN"), async (req, res) => {
+  const corp = await prisma.corporate.findUnique({ where: { id: req.params.id }, select: { id: true, name: true } });
+  if (!corp) return res.status(404).json({ error: "Korporat tidak ditemukan" });
+  const users = await prisma.user.findMany({
+    where: { corporateId: corp.id }, orderBy: { createdAt: "asc" },
+    select: { id: true, name: true, email: true, corporateRole: true, createdAt: true },
+  });
+  res.json({ corporate: corp, users });
+});
+app.post("/api/admin/corporates/:id/users", requireRole("ADMIN"), async (req, res) => {
+  const corp = await prisma.corporate.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!corp) return res.status(404).json({ error: "Korporat tidak ditemukan" });
+  const schema = z.object({ name: z.string().min(2), email: z.string().email(), corporateRole: z.enum(["ADMIN", "APPROVER", "MAKER"]) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data pengguna tidak valid" });
+  try {
+    const { user, tempPass } = await createCorporateSubUser(corp.id, p.data.name, p.data.email, p.data.corporateRole);
+    audit(req, "corporate.user.add", "User", user.id);
+    res.json({ ok: true, credentials: { email: user.email, password: tempPass } });
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+app.put("/api/admin/corporates/:id/users/:uid", requireRole("ADMIN"), async (req, res) => {
+  const role = String(req.body?.corporateRole || "");
+  if (!["ADMIN", "APPROVER", "MAKER"].includes(role)) return res.status(400).json({ error: "Peran tidak valid" });
+  const target = await prisma.user.findFirst({ where: { id: req.params.uid, corporateId: req.params.id } });
+  if (!target) return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+  if (target.corporateRole === "ADMIN" && role !== "ADMIN") {
+    const admins = await prisma.user.count({ where: { corporateId: req.params.id, corporateRole: "ADMIN" } });
+    if (admins <= 1) return res.status(400).json({ error: "Minimal harus ada 1 Admin korporat" });
+  }
+  await prisma.user.update({ where: { id: target.id }, data: { corporateRole: role } });
+  res.json({ ok: true });
+});
+app.delete("/api/admin/corporates/:id/users/:uid", requireRole("ADMIN"), async (req, res) => {
+  const target = await prisma.user.findFirst({ where: { id: req.params.uid, corporateId: req.params.id } });
+  if (!target) return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+  if (target.corporateRole === "ADMIN") {
+    const admins = await prisma.user.count({ where: { corporateId: req.params.id, corporateRole: "ADMIN" } });
+    if (admins <= 1) return res.status(400).json({ error: "Minimal harus ada 1 Admin korporat" });
+  }
+  await prisma.user.delete({ where: { id: target.id } });
   res.json({ ok: true });
 });
 
@@ -2131,6 +2551,9 @@ app.post("/api/corporate/bookings", requireRole("CORPORATE"), async (req: AuthRe
   const nightly = b2bPrice(room.price, pct);
   const roomPrice = nightly * nights * p.data.rooms;
   const taxFee = Math.round(roomPrice * (await getNum("taxPct")) / 100); // same configurable tax as retail
+  // Maker–approver: create as a PENDING approval REQUEST — not charged, not
+  // confirmed, allotment NOT yet consumed. An Approver must approve first.
+  const maker = await prisma.user.findUnique({ where: { id: req.userId! }, select: { name: true } });
   const booking = await prisma.booking.create({
     data: {
       code: makeCode(), userId: req.userId!, hotelId: room.hotelId, roomId: room.id,
@@ -2139,11 +2562,172 @@ app.post("/api/corporate/bookings", requireRole("CORPORATE"), async (req: AuthRe
       bookerName: p.data.travelerName, bookerEmail: c.email ?? "", bookerPhone: c.phone ?? "",
       forSelf: false, specialRequest: p.data.note ?? null,
       roomPrice, taxFee, discount: 0, totalPrice: roomPrice + taxFee,
-      status: "PAID", paymentMethod: "CORPORATE", paidAt: new Date(),
+      status: "PENDING", paymentMethod: "CORPORATE",
+      approvalStatus: "PENDING", requestedById: req.userId!,
     },
   });
-  await consume(prisma, room.id, checkIn, checkOut, p.data.rooms).catch(() => {});
-  res.json({ booking });
+  // Notify every approver (APPROVER + ADMIN) except the maker.
+  const approvers = await prisma.user.findMany({
+    where: { corporateId: c.id, corporateRole: { in: ["APPROVER", "ADMIN"] }, id: { not: req.userId! } },
+    select: { id: true, email: true },
+  });
+  for (const a of approvers) {
+    await dispatch(prisma, {
+      userId: a.id, title: "Persetujuan Pesanan Dinas",
+      body: `${maker?.name ?? "Maker"} mengajukan pesanan ${room.hotel.name} (${rupiah(roomPrice + taxFee)}) a.n. ${p.data.travelerName}. Tinjau & setujui di Portal Bisnis.`,
+      type: "pending", email: a.email ?? undefined, orderCode: booking.code, hotelName: room.hotel.name,
+    });
+  }
+  res.json({ booking, needsApproval: true, noApprover: approvers.length === 0 });
+});
+
+// Corporate helper: the caller's role within their corporate account.
+async function corporateMe(req: AuthRequest) {
+  const u = await prisma.user.findUnique({
+    where: { id: req.userId }, select: { id: true, name: true, email: true, phone: true, corporateRole: true, corporate: true },
+  });
+  if (!u?.corporate) return null;
+  return { corp: u.corporate, userId: u.id, name: u.name, email: u.email, phone: u.phone, role: u.corporateRole || "MAKER" };
+}
+const isCorpApprover = (role?: string | null) => role === "APPROVER" || role === "ADMIN";
+
+// Pending approval requests for the corporate account.
+app.get("/api/corporate/approvals", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me) return res.status(404).json({ error: "Akun korporat tidak ditemukan" });
+  const rows = await prisma.booking.findMany({
+    where: { corporateId: me.corp.id, approvalStatus: "PENDING" }, orderBy: { createdAt: "desc" }, take: 100,
+    include: { hotel: { select: { name: true, city: true } }, room: { select: { name: true } } },
+  });
+  const makerIds = [...new Set(rows.map((b) => b.requestedById).filter(Boolean) as string[])];
+  const makers = await prisma.user.findMany({ where: { id: { in: makerIds } }, select: { id: true, name: true } });
+  const nameOf = Object.fromEntries(makers.map((m) => [m.id, m.name]));
+  res.json({
+    approvals: rows.map((b) => ({ ...b, makerName: b.requestedById ? nameOf[b.requestedById] : null })),
+    canApprove: isCorpApprover(me.role), myRole: me.role,
+  });
+});
+
+app.post("/api/corporate/bookings/:id/approve", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me) return res.status(404).json({ error: "Akun korporat tidak ditemukan" });
+  if (!isCorpApprover(me.role)) return res.status(403).json({ error: "Hanya Approver yang dapat menyetujui" });
+  const b = await prisma.booking.findFirst({ where: { id: req.params.id, corporateId: me.corp.id }, include: { hotel: true, room: true } });
+  if (!b) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+  if (b.approvalStatus !== "PENDING") return res.status(400).json({ error: "Pesanan sudah diproses" });
+  if (b.requestedById === me.userId) return res.status(403).json({ error: "Anda tidak boleh menyetujui pesanan yang Anda ajukan sendiri" });
+  // Credit-limit guard (soft): outstanding + this booking must fit the limit.
+  const limit = Number(me.corp.creditLimit);
+  if (limit > 0) {
+    const outAgg = await prisma.booking.aggregate({ where: { corporateId: me.corp.id, status: "PAID", corporateInvoiceId: null }, _sum: { totalPrice: true } });
+    if (Number(outAgg._sum.totalPrice ?? 0) + Number(b.totalPrice) > limit) {
+      return res.status(400).json({ error: "Melebihi limit kredit korporat. Lunasi tagihan berjalan dulu." });
+    }
+  }
+  await prisma.booking.update({
+    where: { id: b.id },
+    data: { status: "PAID", paidAt: new Date(), approvalStatus: "APPROVED", approvedById: me.userId, approvedAt: new Date() },
+  });
+  if (b.roomId) await consume(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms).catch(() => {});
+  if (b.requestedById) {
+    await dispatch(prisma, {
+      userId: b.requestedById, title: `Pesanan disetujui · ${b.hotel.name}`,
+      body: `Pesanan ${b.code} a.n. ${b.bookerName} disetujui ${me.name}. E-voucher: ${PUBLIC_ORIGIN}/api/vouchers/${b.code}`,
+      type: "success", orderCode: b.code, hotelName: b.hotel.name,
+    });
+  }
+  res.json({ ok: true });
+});
+
+app.post("/api/corporate/bookings/:id/reject", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me) return res.status(404).json({ error: "Akun korporat tidak ditemukan" });
+  if (!isCorpApprover(me.role)) return res.status(403).json({ error: "Hanya Approver yang dapat menolak" });
+  const b = await prisma.booking.findFirst({ where: { id: req.params.id, corporateId: me.corp.id }, include: { hotel: true } });
+  if (!b) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
+  if (b.approvalStatus !== "PENDING") return res.status(400).json({ error: "Pesanan sudah diproses" });
+  if (b.requestedById === me.userId) return res.status(403).json({ error: "Anda tidak boleh memproses pesanan Anda sendiri" });
+  const reason = String(req.body?.reason || "").slice(0, 300);
+  await prisma.booking.update({
+    where: { id: b.id },
+    data: { status: "CANCELLED", approvalStatus: "REJECTED", approvedById: me.userId, approvedAt: new Date(), rejectReason: reason || null },
+  });
+  if (b.requestedById) {
+    await dispatch(prisma, {
+      userId: b.requestedById, title: `Pesanan ditolak · ${b.hotel.name}`,
+      body: `Pesanan ${b.code} a.n. ${b.bookerName} ditolak ${me.name}.${reason ? ` Alasan: ${reason}` : ""}`,
+      type: "cancel", orderCode: b.code, hotelName: b.hotel.name,
+    });
+  }
+  res.json({ ok: true });
+});
+
+// ── Corporate sub-users (Maker/Approver) — self-service by the corporate ADMIN ──
+async function createCorporateSubUser(corporateId: string, name: string, email: string, role: string) {
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  if (existing) throw new Error("Email sudah terpakai akun lain");
+  const tempPass = "MRM" + Math.random().toString(36).slice(2, 8);
+  const user = await prisma.user.create({
+    data: { name, email: email.toLowerCase(), passwordHash: await bcrypt.hash(tempPass, 10), role: "CORPORATE", corporateId, corporateRole: role },
+  });
+  await dispatch(prisma, {
+    userId: user.id, title: "Akun Bisnis Miruum", email: user.email,
+    body: `Anda ditambahkan sebagai ${role} di Portal Bisnis Miruum. Login: ${user.email}, sandi sementara: ${tempPass}. Segera ganti sandi.`, type: "info",
+  });
+  return { user, tempPass };
+}
+
+app.get("/api/corporate/users", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me) return res.status(404).json({ error: "Akun korporat tidak ditemukan" });
+  const users = await prisma.user.findMany({
+    where: { corporateId: me.corp.id }, orderBy: { createdAt: "asc" },
+    select: { id: true, name: true, email: true, corporateRole: true, createdAt: true },
+  });
+  res.json({ users, me: { id: me.userId, role: me.role }, canManage: me.role === "ADMIN" });
+});
+
+app.post("/api/corporate/users", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me) return res.status(404).json({ error: "Akun korporat tidak ditemukan" });
+  if (me.role !== "ADMIN") return res.status(403).json({ error: "Hanya Admin korporat yang dapat menambah pengguna" });
+  const schema = z.object({ name: z.string().min(2), email: z.string().email(), corporateRole: z.enum(["ADMIN", "APPROVER", "MAKER"]) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data pengguna tidak valid" });
+  try {
+    const { user } = await createCorporateSubUser(me.corp.id, p.data.name, p.data.email, p.data.corporateRole);
+    res.json({ ok: true, user: { id: user.id, email: user.email } });
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+app.put("/api/corporate/users/:id", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me || me.role !== "ADMIN") return res.status(403).json({ error: "Hanya Admin korporat" });
+  const role = String(req.body?.corporateRole || "");
+  if (!["ADMIN", "APPROVER", "MAKER"].includes(role)) return res.status(400).json({ error: "Peran tidak valid" });
+  const target = await prisma.user.findFirst({ where: { id: req.params.id, corporateId: me.corp.id } });
+  if (!target) return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+  // Don't allow removing the last ADMIN.
+  if (target.corporateRole === "ADMIN" && role !== "ADMIN") {
+    const admins = await prisma.user.count({ where: { corporateId: me.corp.id, corporateRole: "ADMIN" } });
+    if (admins <= 1) return res.status(400).json({ error: "Minimal harus ada 1 Admin korporat" });
+  }
+  await prisma.user.update({ where: { id: target.id }, data: { corporateRole: role } });
+  res.json({ ok: true });
+});
+
+app.delete("/api/corporate/users/:id", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
+  const me = await corporateMe(req);
+  if (!me || me.role !== "ADMIN") return res.status(403).json({ error: "Hanya Admin korporat" });
+  if (req.params.id === me.userId) return res.status(400).json({ error: "Tidak dapat menghapus diri sendiri" });
+  const target = await prisma.user.findFirst({ where: { id: req.params.id, corporateId: me.corp.id } });
+  if (!target) return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+  if (target.corporateRole === "ADMIN") {
+    const admins = await prisma.user.count({ where: { corporateId: me.corp.id, corporateRole: "ADMIN" } });
+    if (admins <= 1) return res.status(400).json({ error: "Minimal harus ada 1 Admin korporat" });
+  }
+  await prisma.user.delete({ where: { id: target.id } });
+  res.json({ ok: true });
 });
 
 app.get("/api/corporate/bookings", requireRole("CORPORATE"), async (req: AuthRequest, res) => {
@@ -2365,7 +2949,7 @@ app.post("/api/admin/corporate-applications/:id/approve", requireRole("ADMIN"), 
   });
   const tempPass = "MRM" + Math.random().toString(36).slice(2, 8);
   await prisma.user.create({
-    data: { name: app.picName, email: app.email, passwordHash: await bcrypt.hash(tempPass, 10), role: "CORPORATE", corporateId: corp.id, phone: app.phone },
+    data: { name: app.picName, email: app.email, passwordHash: await bcrypt.hash(tempPass, 10), role: "CORPORATE", corporateId: corp.id, phone: app.phone, corporateRole: "ADMIN" },
   });
   await prisma.corporateApplication.update({ where: { id: app.id }, data: { status: "APPROVED" } });
   await dispatch(prisma, { title: "Akun Korporat Disetujui", body: `Akun korporat ${app.companyName} aktif. Login di corporate.miruum.id — email: ${app.email}, sandi: ${tempPass}`, type: "success", email: app.email });
@@ -2988,13 +3572,15 @@ app.post("/api/admin/hotels", requireRole("ADMIN"), async (req, res) => {
     productChannelManager: formBool, productPMS: formBool,
     channelId: z.string().optional(), externalId: z.string().optional(),
     propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).default("HOTEL"),
+    foreignMarkupPct: z.union([z.coerce.number().int().min(0).max(100), z.literal("")]).optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) {
     return res.status(400).json({ error: p.error.issues[0]?.message || "Data hotel tidak valid", details: p.error.issues });
   }
   const slug = p.data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 9000 + 1000);
-  const hotel = await prisma.hotel.create({ data: { ...p.data, slug, ownerId: p.data.ownerId || null } });
+  const { foreignMarkupPct: fmp, ...rest } = p.data;
+  const hotel = await prisma.hotel.create({ data: { ...rest, foreignMarkupPct: fmp === "" || fmp == null ? null : Number(fmp), slug, ownerId: p.data.ownerId || null } });
   await invalidate("miruum:");
   audit(req, "hotel.create", "Hotel", hotel.id, { name: hotel.name });
   res.json({ hotel });
@@ -3011,6 +3597,7 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
     productChannelManager: formBool.optional(), productPMS: formBool.optional(),
     channelId: z.string().optional(), externalId: z.string().optional(),
     propertyType: z.enum(["HOTEL", "VILLA", "APARTMENT", "HOMESTAY", "GUESTHOUSE", "HOSTEL", "RESORT"]).optional(),
+    foreignMarkupPct: z.union([z.coerce.number().int().min(0).max(100), z.literal("")]).optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) {
@@ -3019,6 +3606,9 @@ app.put("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   const data: any = { ...p.data };
   if (data.ownerId === "") data.ownerId = null;
   if (data.channelId === "") data.channelId = null;
+  // Empty string → clear the override (fall back to global markup).
+  if (data.foreignMarkupPct === "" || data.foreignMarkupPct == null) data.foreignMarkupPct = null;
+  else data.foreignMarkupPct = Number(data.foreignMarkupPct);
   const hotel = await prisma.hotel.update({ where: { id: req.params.id }, data });
   await invalidate("miruum:");
   audit(req, "hotel.update", "Hotel", hotel.id, { fields: Object.keys(data) });
@@ -3370,6 +3960,38 @@ app.get("/api/admin/settlements", requireRole("ADMIN"), async (_req, res) => {
   res.json({ settlements });
 });
 
+// Reconciliation: per-hotel gross → commission → net payout → settled → outstanding.
+// CSV export for accounting. `?format=csv`.
+app.get("/api/admin/reconciliation", requireRole("ADMIN"), async (req, res) => {
+  const earn = await partnerEarnings(undefined, true);
+  if (String(req.query.format) === "csv") {
+    const head = "Hotel,Pesanan,Bruto,KomisiPct,KomisiRp,Payout,Settled,Outstanding\n";
+    const rows = earn.hotels.map((h: any) => [
+      String(h.name).replace(/[",\n]/g, " "), h.bookings, h.gross, earn.platformPct, h.gross - h.payout, h.payout, h.settled, h.claimable,
+    ].join(",")).join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="rekonsiliasi-miruum.csv"');
+    return res.send(head + rows + "\n");
+  }
+  res.json(earn);
+});
+
+// Automatic batch settlement: settle every hotel's outstanding balance at once
+// (records a Settlement per hotel + notifies the owner). Reconciliation-grade.
+app.post("/api/admin/settlements/auto", requireRole("ADMIN"), async (req, res) => {
+  const earn = await partnerEarnings(undefined, true);
+  const due = earn.hotels.filter((h: any) => h.claimable > 0);
+  let count = 0, total = 0;
+  for (const h of due) {
+    await prisma.settlement.create({ data: { hotelId: h.hotelId, amount: h.claimable, bookingsCount: h.bookings, note: "Settlement otomatis (batch rekonsiliasi)" } });
+    count++; total += h.claimable;
+    const hotel = await prisma.hotel.findUnique({ where: { id: h.hotelId }, select: { ownerId: true, name: true } });
+    if (hotel?.ownerId) await dispatch(prisma, { userId: hotel.ownerId, title: `Pencairan diproses — ${hotel.name}`, body: `Payout ${rupiah(h.claimable)} untuk ${h.bookings} pesanan telah diselesaikan.`, type: "success" });
+  }
+  audit(req, "settlement.auto", "Settlement", "batch", { count, total });
+  res.json({ ok: true, count, total });
+});
+
 // ─────────────── Promo CRUD ───────────────
 app.get("/api/admin/promos", requireRole("ADMIN"), async (_req, res) => {
   res.json({ promos: await prisma.promo.findMany({ orderBy: { code: "asc" } }) });
@@ -3520,7 +4142,7 @@ app.put("/api/admin/settings", requireRole("ADMIN"), async (req, res) => {
 });
 
 // ─────────────── Integrasi (Email/SMTP, FCM, WhatsApp) — configurable in Back Office ───────────────
-const INTEGRATION_KEYS = ["mail_enabled", "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from", "fcm_enabled", "fcm_service_account", "wa_enabled", "wa_api_url", "wa_api_token", "google_client_id", "ai_enabled", "ai_api_key", "ai_model", "ai_auto", "payment_provider", "linkqu_base", "linkqu_client_id", "linkqu_client_secret", "linkqu_username", "linkqu_pin", "linkqu_server_key"];
+const INTEGRATION_KEYS = ["mail_enabled", "smtp_host", "smtp_port", "smtp_secure", "smtp_user", "smtp_pass", "smtp_from", "fcm_enabled", "fcm_service_account", "wa_enabled", "wa_api_url", "wa_api_token", "google_client_id", "ai_enabled", "ai_api_key", "ai_model", "ai_auto", "payment_provider", "linkqu_base", "linkqu_client_id", "linkqu_client_secret", "linkqu_username", "linkqu_pin", "linkqu_server_key", "hotelbeds_enabled", "hotelbeds_base", "hotelbeds_api_key", "hotelbeds_secret", "channex_enabled", "channex_base", "channex_api_key"];
 app.get("/api/admin/integrations", requireRole("ADMIN"), async (_req, res) => {
   const s = await getSettings();
   const out: Record<string, string> = {};
@@ -3741,15 +4363,36 @@ app.get("/api/partner/entitlements", requireRole("PARTNER", "ADMIN"), async (req
   });
 });
 
+// Content/onboarding completeness score (like Booking.com's Content Score): a
+// checklist that guides the partner to a go-live-ready listing. A property only
+// appears publicly once it has bookable rooms (see PUBLIC_HOTEL_GATE); this score
+// nudges them to complete the rest for better conversion.
+function hotelContentScore(h: any): { score: number; ready: boolean; items: { key: string; label: string; done: boolean }[] } {
+  const rooms = h.rooms ?? [];
+  const items = [
+    { key: "rooms", label: "Tambah kamar & harga", done: rooms.some((r: any) => Number(r.price ?? 0) > 0) },
+    { key: "photos", label: "Unggah minimal 1 foto", done: (h.photos?.length ?? h._count?.photos ?? 0) >= 1 },
+    { key: "description", label: "Isi deskripsi properti", done: String(h.description ?? "").trim().length >= 30 },
+    { key: "facilities", label: "Pilih minimal 3 fasilitas", done: (h.facilities?.length ?? 0) >= 3 },
+    { key: "location", label: "Set lokasi (peta / wilayah)", done: (h.lat != null && h.lng != null) || !!h.regionId },
+    { key: "policy", label: "Set kebijakan pembatalan", done: !!h.cancellationPolicy },
+    { key: "legal", label: "Lengkapi legalitas & NPWP", done: !!(h.legalName && h.taxId) },
+    { key: "payout", label: "Isi rekening payout", done: !!(h.payoutBankName && h.payoutBankAccount) },
+  ];
+  const done = items.filter((i) => i.done).length;
+  return { score: Math.round((done / items.length) * 100), ready: items[0].done, items };
+}
+
 app.get("/api/partner/overview", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const hotels = await prisma.hotel.findMany({
     where: { ownerId: req.userId },
-    include: { _count: { select: { rooms: true, bookings: true, reviews: true } } },
+    include: { _count: { select: { rooms: true, bookings: true, reviews: true, photos: true } }, rooms: { select: { price: true } }, facilities: { select: { facilityId: true } } },
   });
   const hotelIds = hotels.map((h) => h.id);
   const bookings = await prisma.booking.findMany({ where: { hotelId: { in: hotelIds } }, select: { totalPrice: true, status: true } });
   const revenue = bookings.filter((b) => b.status === "PAID" || b.status === "COMPLETED").reduce((s, b) => s + Number(b.totalPrice), 0);
-  res.json({ hotels, totalBookings: bookings.length, revenue });
+  const withScore = hotels.map((h) => ({ ...h, contentScore: hotelContentScore(h) }));
+  res.json({ hotels: withScore, totalBookings: bookings.length, revenue });
 });
 
 app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
@@ -3762,7 +4405,24 @@ app.get("/api/partner/hotels/:id", requireRole("PARTNER", "ADMIN"), async (req: 
     },
   });
   if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan / bukan milik Anda" });
-  res.json({ hotel });
+  res.json({ hotel, contentScore: hotelContentScore(hotel) });
+});
+
+// Partner edits legal/tax, payout bank, cancellation policy & check-in/out.
+app.put("/api/partner/hotels/:id/legal", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (!(await ownsHotel(req, req.params.id))) return res.status(403).json({ error: "Bukan properti Anda" });
+  const schema = z.object({
+    legalName: z.string().optional(), businessRegNo: z.string().optional(), taxId: z.string().optional(),
+    payoutBankName: z.string().optional(), payoutBankAccount: z.string().optional(), payoutBankHolder: z.string().optional(),
+    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "NON_REFUNDABLE"]).optional().or(z.literal("")),
+    checkInInfo: z.string().optional(), checkOutInfo: z.string().optional(),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = { ...p.data };
+  if (data.cancellationPolicy === "") data.cancellationPolicy = null;
+  await prisma.hotel.update({ where: { id: req.params.id }, data });
+  res.json({ ok: true });
 });
 
 // Verify a hotel belongs to the partner (admins pass through).
@@ -4966,6 +5626,13 @@ app.post("/api/partner-apply", async (req, res) => {
     city: z.string().min(2), address: z.string().min(2), picName: z.string().min(2),
     email: z.string().email(), phone: z.string().min(5), website: z.string().optional(),
     roomCount: z.coerce.number().int().min(0).optional(), note: z.string().optional(),
+    // Structured location + star (industry-standard)
+    regionId: z.string().optional(), lat: z.coerce.number().optional(), lng: z.coerce.number().optional(),
+    starRating: z.coerce.number().int().min(1).max(5).optional(),
+    // Legal, tax & payout
+    legalName: z.string().optional(), businessRegNo: z.string().optional(), taxId: z.string().optional(),
+    bankName: z.string().optional(), bankAccount: z.string().optional(), bankHolder: z.string().optional(),
+    cancellationPolicy: z.enum(["FLEXIBLE", "MODERATE", "STRICT", "NON_REFUNDABLE"]).optional(),
   });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Lengkapi data properti dengan benar" });
@@ -4987,9 +5654,14 @@ app.post("/api/admin/partner-applications/:id/approve", requireRole("ADMIN"), as
   const slug = slugify(a0.propertyName) + "-" + Math.random().toString(36).slice(2, 6);
   await prisma.hotel.create({ data: {
     name: a0.propertyName, slug, city: a0.city, address: a0.address,
+    regionId: a0.regionId || null, lat: a0.lat ?? null, lng: a0.lng ?? null,
     description: a0.note || `${a0.propertyName} — properti mitra Miruum di ${a0.city}.`,
-    imageUrl: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=60",
-    propertyType: a0.propertyType, ownerId: owner.id, starRating: 3, rating: 0,
+    imageUrl: "", // no stock photo — placeholder until the partner uploads real photos
+    propertyType: a0.propertyType, ownerId: owner.id, starRating: a0.starRating || 3, rating: 0,
+    // Carry over the legal/tax/payout/policy captured at registration.
+    legalName: a0.legalName, businessRegNo: a0.businessRegNo, taxId: a0.taxId,
+    payoutBankName: a0.bankName, payoutBankAccount: a0.bankAccount, payoutBankHolder: a0.bankHolder,
+    cancellationPolicy: a0.cancellationPolicy,
   } });
   await prisma.partnerApplication.update({ where: { id: a0.id }, data: { status: "APPROVED" } });
   await dispatch(prisma, { title: "Pendaftaran Properti Disetujui", body: `Properti ${a0.propertyName} aktif. Login Extranet di https://extranet.miruum.id — email: ${a0.email}, sandi: ${tempPass}`, type: "success", email: a0.email });
@@ -4999,6 +5671,42 @@ app.post("/api/admin/partner-applications/:id/approve", requireRole("ADMIN"), as
 app.post("/api/admin/partner-applications/:id/reject", requireRole("ADMIN"), async (req, res) => {
   await prisma.partnerApplication.update({ where: { id: req.params.id }, data: { status: "REJECTED" } });
   audit(req, "partner.reject", "PartnerApplication", req.params.id);
+  res.json({ ok: true });
+});
+
+// ─────────────────────────── Anti-fraud (Back Office) ───────────────────────────
+app.get("/api/admin/fraud/blocks", requireRole("ADMIN"), async (_req, res) => {
+  const blocks = await prisma.fraudBlock.findMany({ orderBy: { createdAt: "desc" } });
+  res.json({ blocks });
+});
+app.post("/api/admin/fraud/blocks", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ type: z.enum(["EMAIL", "IP", "PHONE", "BANK", "DEVICE"]), value: z.string().min(1), reason: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data blokir tidak valid" });
+  const value = p.data.type === "EMAIL" ? p.data.value.toLowerCase().trim() : p.data.value.trim();
+  const block = await prisma.fraudBlock.upsert({
+    where: { type_value: { type: p.data.type, value } },
+    create: { type: p.data.type, value, reason: p.data.reason, active: true },
+    update: { active: true, reason: p.data.reason },
+  });
+  audit(req, "fraud.block.add", "FraudBlock", block.id, { type: block.type });
+  res.json({ ok: true, block });
+});
+app.delete("/api/admin/fraud/blocks/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.fraudBlock.delete({ where: { id: req.params.id } }).catch(() => {});
+  res.json({ ok: true });
+});
+// Bookings flagged by the risk engine, awaiting manual review.
+app.get("/api/admin/fraud/flagged", requireRole("ADMIN"), async (_req, res) => {
+  const bookings = await prisma.booking.findMany({
+    where: { flagged: true }, orderBy: { createdAt: "desc" }, take: 100,
+    include: { hotel: { select: { name: true } }, user: { select: { name: true, email: true } } },
+  });
+  res.json({ bookings });
+});
+app.post("/api/admin/bookings/:id/clear-flag", requireRole("ADMIN"), async (req, res) => {
+  await prisma.booking.update({ where: { id: req.params.id }, data: { flagged: false } });
+  audit(req, "fraud.flag.clear", "Booking", req.params.id);
   res.json({ ok: true });
 });
 

@@ -10,6 +10,11 @@
       <div><label>Kota</label><input name="city" value="<%= hotel ? hotel.city : '' %>" required></div>
       <div><label>Harga / malam (Rp)</label><input name="priceFrom" type="number" value="<%= hotel ? hotel.priceFrom : 500000 %>"></div>
     </div>
+    <div>
+      <label>Markup Tamu Asing / WNA (%) — opsional</label>
+      <input name="foreignMarkupPct" type="number" min="0" max="100" step="1" value="<%= (hotel && hotel.foreignMarkupPct != null) ? hotel.foreignMarkupPct : '' %>" placeholder="kosong = pakai default global">
+      <p class="muted" style="font-size:11px;margin:4px 0 0">Override markup harga tamu asing khusus hotel ini. Kosongkan untuk mengikuti setelan global (<a href="/admin/settings">Pengaturan</a>). Hanya berlaku bila Nationality Pricing aktif.</p>
+    </div>
     <div class="nav-label" style="margin-top:20px">Wilayah *</div>
     <p class="muted" style="font-size:11px;margin:0 0 8px">Wajib dipilih sampai tingkat terdalam yang tersedia. Tanpa wilayah, properti ini <b>tidak akan muncul di pencarian area</b> pada aplikasi.</p>
     <%- include('../partials/region_picker', { regionId: hotel ? hotel.regionId : '', address: hotel ? hotel.address : '' }) %>

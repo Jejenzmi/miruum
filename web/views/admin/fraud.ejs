@@ -1,0 +1,64 @@
+<%- include('../partials/top', { title:'Anti-Fraud', heading:'Anti-Fraud & Risiko', section:'admin', active:'fraud', me }) %>
+
+<% if (saved==='block') { %><div class="notice ok">Blokir ditambahkan.</div><% } %>
+<% if (saved==='unblock') { %><div class="notice ok">Blokir dihapus.</div><% } %>
+<% if (saved==='cleared') { %><div class="notice ok">Tanda risiko dibersihkan.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal — periksa isian.</div><% } %>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Pesanan Ditandai Risiko</h2>
+    <p class="muted" style="margin-top:-8px;font-size:12.5px">Ditandai otomatis oleh mesin risiko (velocity, akun baru, nominal tinggi). Tinjau lalu bersihkan bila aman.</p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Kode</th><th>Tamu</th><th>Hotel</th><th>Skor</th><th>Alasan</th><th>Aksi</th></tr></thead>
+        <tbody>
+          <% flagged.forEach(function(b){ %>
+            <tr>
+              <td><b><%= b.code %></b><br><span class="muted" style="font-size:11px"><span class="pill <%= b.status %>"><%= b.status %></span></span></td>
+              <td style="font-size:12px"><%= (b.user && b.user.name) || b.bookerName %><br><span class="muted"><%= b.bookerEmail %></span></td>
+              <td style="font-size:12px"><%= b.hotel ? b.hotel.name : '—' %></td>
+              <td><span class="pill <%= (b.riskScore||0)>=70 ? 'CANCELLED' : 'PENDING' %>"><%= b.riskScore || 0 %></span></td>
+              <td style="font-size:11.5px;max-width:220px"><%= b.riskNote || '—' %></td>
+              <td style="white-space:nowrap">
+                <form method="post" action="/admin/fraud/flagged/<%= b.id %>/clear" style="display:inline"><button class="btn ghost sm">Tandai Aman</button></form>
+              </td>
+            </tr>
+          <% }) %>
+          <% if (!flagged.length) { %><tr><td colspan="6" class="empty">Tidak ada pesanan berisiko</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Daftar Blokir</h2>
+    <p class="muted" style="margin-top:-8px;font-size:12.5px">Email/IP/telepon/rekening yang diblokir dari transaksi.</p>
+    <form method="post" action="/admin/fraud/block" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px">
+      <div><label style="margin-top:0">Jenis</label>
+        <select name="type"><option value="EMAIL">Email</option><option value="IP">IP</option><option value="PHONE">Telepon</option><option value="BANK">Rekening</option><option value="DEVICE">Perangkat</option></select>
+      </div>
+      <div style="flex:1;min-width:150px"><label style="margin-top:0">Nilai</label><input name="value" placeholder="nilai yang diblokir" required></div>
+      <div style="flex:1;min-width:120px"><label style="margin-top:0">Alasan</label><input name="reason" placeholder="opsional"></div>
+      <button class="btn sm">Blokir</button>
+    </form>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Jenis</th><th>Nilai</th><th>Alasan</th><th></th></tr></thead>
+        <tbody>
+          <% blocks.forEach(function(bl){ %>
+            <tr>
+              <td><span class="pill ADMIN"><%= bl.type %></span></td>
+              <td style="font-size:12px"><%= bl.value %></td>
+              <td class="muted" style="font-size:11.5px"><%= bl.reason || '—' %></td>
+              <td><form method="post" action="/admin/fraud/block/<%= bl.id %>/delete" style="display:inline"><button class="btn ghost sm" style="color:var(--danger,#dc2626)" data-confirm="Hapus blokir <%= bl.value %>?" data-confirm-title="Hapus Blokir" data-confirm-ok="Ya" data-confirm-kind="logout">Hapus</button></form></td>
+            </tr>
+          <% }) %>
+          <% if (!blocks.length) { %><tr><td colspan="4" class="empty">Belum ada blokir</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>
