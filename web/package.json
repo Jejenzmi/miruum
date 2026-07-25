@@ -15,5 +15,8 @@
     "express-session": "^1.18.1",
     "helmet": "^8.3.0",
     "multer": "^2.2.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8"
   }
 }
