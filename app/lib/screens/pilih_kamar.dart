@@ -97,6 +97,21 @@ class _PilihKamarScreenState extends State<PilihKamarScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (room.photos.isNotEmpty) ...[
+            SizedBox(
+              height: 116,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: room.photos.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: NetImage(room.photos[i], width: room.photos.length == 1 ? 260 : 168, height: 116),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(room.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
           const SizedBox(height: 4),
           Text(room.bedInfo, style: TextStyle(color: MC.inkMuted, fontSize: 12.5)),

@@ -204,7 +204,9 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   Widget _hotelSummary() => cardBox(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            ClipRRect(borderRadius: BorderRadius.circular(12), child: NetImage(widget.hotel.imageUrl, width: 64, height: 64)),
+            ClipRRect(borderRadius: BorderRadius.circular(12), child: NetImage(
+              (widget.room != null && widget.room!.photos.isNotEmpty) ? widget.room!.photos.first : widget.hotel.imageUrl,
+              width: 64, height: 64)),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(widget.hotel.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),

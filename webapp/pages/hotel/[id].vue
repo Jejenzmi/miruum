@@ -60,7 +60,12 @@
           </div>
 
           <div class="space-y-4">
-            <div v-for="room in hotel.rooms" :key="room.id" class="card p-4 sm:flex gap-4">
+            <div v-for="room in hotel.rooms" :key="room.id" class="card p-4">
+              <div v-if="(room.photos || []).length" class="flex gap-2 overflow-x-auto pb-3 mb-1">
+                <img v-for="(ph, i) in room.photos" :key="i" :src="ph.url || ph" loading="lazy"
+                     class="h-28 w-44 object-cover rounded-xl shrink-0" />
+              </div>
+              <div class="sm:flex gap-4">
               <div class="sm:w-40 shrink-0 mb-3 sm:mb-0">
                 <div class="rounded-xl bg-brand-50 text-brand-700 p-3 h-full flex flex-col justify-center">
                   <div class="font-bold text-[15px] leading-tight">{{ room.name }}</div>
@@ -91,6 +96,7 @@
                     </div>
                   </div>
                 </div>
+              </div>
               </div>
             </div>
           </div>

@@ -86,11 +86,12 @@ class Room {
   final String? discountLabel;
   final bool refundable, breakfast, freeWifi, freeCancellation;
   final List<RatePlan> ratePlans;
+  final List<String> photos; // per-room photo URLs (shown on the room card + booking)
   Room({
     required this.id, required this.name, required this.bedInfo, required this.capacity,
     required this.price, required this.stock, this.originalPrice, this.discountLabel,
     required this.refundable, required this.breakfast, required this.freeWifi, required this.freeCancellation,
-    this.ratePlans = const [],
+    this.ratePlans = const [], this.photos = const [],
   });
   factory Room.fromJson(Map<String, dynamic> j) => Room(
         id: j['id'], name: j['name'], bedInfo: j['bedInfo'] ?? '',
@@ -99,6 +100,11 @@ class Room {
         refundable: j['refundable'] ?? true, breakfast: j['breakfast'] ?? false,
         freeWifi: j['freeWifi'] ?? true, freeCancellation: j['freeCancellation'] ?? true,
         ratePlans: (j['ratePlans'] as List?)?.map((p) => RatePlan.fromJson(p)).toList() ?? const [],
+        photos: (j['photos'] as List?)
+                ?.map((p) => (p is Map ? (p['url'] ?? '') : p).toString())
+                .where((s) => s.isNotEmpty)
+                .toList() ??
+            const [],
       );
 }
 
