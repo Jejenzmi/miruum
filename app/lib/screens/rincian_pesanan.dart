@@ -32,6 +32,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   late final _email = TextEditingController(text: context.read<AuthBloc>().state.user?.email ?? '');
   late final _phone = TextEditingController(text: context.read<AuthBloc>().state.user?.phone ?? '');
   final _guest = TextEditingController(); // guest name when booking for someone else
+  final _nameF = FocusNode(), _emailF = FocusNode(), _phoneF = FocusNode(), _guestF = FocusNode();
   final _request = TextEditingController();
   final _promo = TextEditingController();
   // Per-room guest details (multi-room bookings).
@@ -104,11 +105,25 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   }
 
   Future<void> _submit() async {
-    if (_name.text.trim().isEmpty || !_email.text.contains('@') || _phone.text.trim().length < 5) {
-      showSnack(context, tr('Lengkapi detail kontak pemesan.', 'Complete the booker contact details.'), kind: SnackKind.error);
+    // Field-specific validation: focus (auto-scrolls into view) + a clear message
+    // so the guest sees exactly what's missing instead of a silent no-op.
+    if (_name.text.trim().isEmpty) {
+      _nameF.requestFocus();
+      showSnack(context, tr('Isi Nama Lengkap pemesan.', 'Enter the booker\'s full name.'), kind: SnackKind.error);
+      return;
+    }
+    if (!_email.text.contains('@')) {
+      _emailF.requestFocus();
+      showSnack(context, tr('Isi Email yang valid.', 'Enter a valid email.'), kind: SnackKind.error);
+      return;
+    }
+    if (_phone.text.trim().length < 5) {
+      _phoneF.requestFocus();
+      showSnack(context, tr('Isi No. Telepon (min. 5 digit) untuk melanjutkan pesanan.', 'Enter a phone number (min. 5 digits) to continue.'), kind: SnackKind.error);
       return;
     }
     if (!_forSelf && _guest.text.trim().isEmpty) {
+      _guestF.requestFocus();
       showSnack(context, tr('Isi nama tamu yang menginap.', 'Enter the staying guest\'s name.'), kind: SnackKind.error);
       return;
     }
@@ -259,9 +274,9 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
           const SizedBox(height: 4),
           Text(tr('E-voucher & info pesanan dikirim ke sini.', 'E-voucher & order info will be sent here.'), style: TextStyle(fontSize: 11.5, color: MC.inkFaint)),
           const SizedBox(height: 14),
-          _labeled(tr('Nama Lengkap', 'Full Name'), _name),
-          _labeled(tr('Email', 'Email'), _email),
-          _labeled(tr('No. Telepon', 'Phone Number'), _phone, keyboard: TextInputType.phone),
+          _labeled(tr('Nama Lengkap', 'Full Name'), _name, focus: _nameF, required: true),
+          _labeled(tr('Email', 'Email'), _email, focus: _emailF, required: true),
+          _labeled(tr('No. Telepon', 'Phone Number'), _phone, keyboard: TextInputType.phone, focus: _phoneF, required: true),
 
           const SizedBox(height: 6),
           Divider(color: MC.line, height: 24),
@@ -313,7 +328,7 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
                         }).toList()),
                         const SizedBox(height: 14),
                       ],
-                      _labeled(tr('Nama Tamu yang Menginap', 'Staying Guest Name'), _guest, hint: tr('Sesuai identitas tamu', 'As per guest ID')),
+                      _labeled(tr('Nama Tamu yang Menginap', 'Staying Guest Name'), _guest, hint: tr('Sesuai identitas tamu', 'As per guest ID'), focus: _guestF, required: true),
                       GestureDetector(
                         onTap: () => setState(() => _saveGuest = !_saveGuest),
                         behavior: HitTestBehavior.opaque,
@@ -361,13 +376,16 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
         ),
       );
 
-  Widget _labeled(String label, TextEditingController c, {TextInputType? keyboard, String? hint}) => Padding(
+  Widget _labeled(String label, TextEditingController c, {TextInputType? keyboard, String? hint, FocusNode? focus, bool required = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: TextStyle(fontSize: 12, color: MC.inkMuted)),
+          RichText(text: TextSpan(style: TextStyle(fontSize: 12, color: MC.inkMuted), children: [
+            TextSpan(text: label),
+            if (required) const TextSpan(text: ' *', style: TextStyle(color: MC.danger, fontWeight: FontWeight.w700)),
+          ])),
           const SizedBox(height: 6),
           TextField(
-            controller: c, keyboardType: keyboard,
+            controller: c, keyboardType: keyboard, focusNode: focus,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(isDense: true, hintText: hint),
           ),

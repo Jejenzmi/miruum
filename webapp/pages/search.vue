@@ -168,10 +168,10 @@ const query = computed(() => {
   const p: Record<string, any> = { sort: sort.value }
   // Current-location search (same as the app): DIRECT hotels sorted by distance.
   if (isNear.value) { p.lat = lat.value; p.lng = lng.value; p.radius = 150 }
-  if (q.value) p.q = q.value
+  if (q.value) p.query = q.value // backend text-search param is `query` (not `q`)
   if (regionId.value) p.regionId = regionId.value
   if (propType.value) p.propertyType = propType.value
-  if (star.value) p.minStar = star.value
+  if (star.value) p.star = star.value // backend min-star param is `star` (not `minStar`)
   if (breakfast.value) p.breakfast = 1
   if (freeCancellation.value) p.freeCancellation = 1
   if (refundable.value) p.refundable = 1

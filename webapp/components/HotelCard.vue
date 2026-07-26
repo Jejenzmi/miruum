@@ -1,5 +1,5 @@
 <template>
-  <component :is="external ? 'div' : 'NuxtLink'" :to="external ? undefined : `/hotel/${hotel.id}`"
+  <component :is="external ? 'div' : NuxtLinkC" :to="external ? undefined : `/hotel/${hotel.id}`"
              @click="external ? $emit('book', hotel) : undefined"
              :class="['group card overflow-hidden hover:shadow-cardhover hover:-translate-y-0.5 transition-all flex flex-col', external ? 'cursor-pointer' : '']">
     <div class="relative aspect-[4/3] overflow-hidden bg-line">
@@ -57,6 +57,10 @@
 </template>
 
 <script setup lang="ts">
+import { resolveComponent } from 'vue'
+// Bind the real NuxtLink component — the string `:is="'NuxtLink'"` doesn't resolve
+// reliably, which made direct-hotel cards render without an href (unclickable).
+const NuxtLinkC = resolveComponent('NuxtLink')
 const props = defineProps<{ hotel: any; external?: boolean }>()
 defineEmits(['book'])
 const { t } = useLang()
