@@ -312,7 +312,7 @@ class Booking {
   final String id, code, status;
   final int nights, guests, rooms, roomPrice, taxFee, totalPrice, discount;
   final String checkIn, checkOut, bookerName, bookerEmail, bookerPhone;
-  final String? paymentMethod, bank, packageTitle, promoCode;
+  final String? paymentMethod, bank, packageTitle, promoCode, specialRequest;
   final bool onlineCheckedIn, payAtHotel;
   final String? keyCode;
   final Hotel? hotel;
@@ -322,7 +322,7 @@ class Booking {
     required this.guests, required this.rooms, required this.roomPrice, required this.taxFee,
     required this.totalPrice, required this.checkIn, required this.checkOut,
     required this.bookerName, required this.bookerEmail, required this.bookerPhone,
-    this.paymentMethod, this.bank, this.packageTitle, this.promoCode, this.discount = 0,
+    this.paymentMethod, this.bank, this.packageTitle, this.promoCode, this.specialRequest, this.discount = 0,
     this.onlineCheckedIn = false, this.payAtHotel = false, this.keyCode, this.hotel, this.room,
   });
   factory Booking.fromJson(Map<String, dynamic> j) => Booking(
@@ -333,6 +333,7 @@ class Booking {
         checkIn: j['checkIn'] ?? '', checkOut: j['checkOut'] ?? '',
         bookerName: j['bookerName'] ?? '', bookerEmail: j['bookerEmail'] ?? '', bookerPhone: j['bookerPhone'] ?? '',
         paymentMethod: j['paymentMethod'], bank: j['bank'], packageTitle: j['packageTitle'], promoCode: j['promoCode'],
+        specialRequest: j['specialRequest'],
         onlineCheckedIn: j['onlineCheckedIn'] ?? false, payAtHotel: j['payAtHotel'] ?? false, keyCode: j['keyCode'],
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,

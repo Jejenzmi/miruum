@@ -2381,7 +2381,242 @@ const DOC_CSS = `*{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-
 .foot{font-size:11px;color:#9aa0a6;margin-top:20px;text-align:center;line-height:1.6}
 .actions{max-width:560px;margin:16px auto 0;text-align:center}
 .pbtn{display:inline-block;background:#20262e;color:#fff;border:none;padding:11px 22px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none}
-@media print{body{background:#fff;padding:0}.doc{box-shadow:none;border-radius:0}.actions{display:none}}`;
+.note{background:#FFF6EC;border:1px solid #F3D8B4;border-left:4px solid #E58324;border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.55;color:#6b4a1e;white-space:pre-wrap;word-break:break-word}
+.callout{background:#F6FAF7;border:1px solid #D8ECE0;border-radius:12px;padding:13px 15px;margin-top:6px}
+.callout .ct{font-weight:700;font-size:12.5px;color:#1f262e;margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.steps{margin:0;padding-left:18px;font-size:12.5px;color:#4a525c;line-height:1.7}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.chip{background:#eef1f5;border:1px solid #dfe3ea;border-radius:20px;padding:5px 11px;font-size:11.5px;color:#3a424c;font-weight:600}
+.help{margin-top:14px;display:flex;gap:11px;align-items:center;background:#20262e;color:#fff;border-radius:12px;padding:12px 15px}
+.help b{font-size:13px}.help span{font-size:11.5px;color:#c9ced6}
+@media print{body{background:#fff;padding:0}.doc{box-shadow:none;border-radius:0}.actions{display:none}.note{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+// Escape user-supplied text before embedding it in an HTML document.
+function esc(s: unknown): string {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ─────────── Branded document family (voucher / receipt / cancellation) ───────────
+// Faithful to the Miruum template set: logo header, orange accents, grey section
+// bars, bilingual (EN + grey-italic ID) labels, app-store badges + orange wave.
+const V_ORANGE = "#F08421";
+const CS_PHONE = "0811 9628 286";
+const VCSS = `*{box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#e9ecf1;margin:0;padding:24px 14px;color:#20262e;-webkit-font-smoothing:antialiased}
+.vdoc{width:794px;max-width:100%;min-height:1123px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(20,30,50,.16);overflow:hidden;position:relative;padding:44px 44px 140px}
+.vhd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.vhd .logo img{height:66px;display:block}
+.vhd .rt{text-align:right}
+.vhd .rt h1{margin:0;font-size:26px;font-weight:800;letter-spacing:.5px}
+.vhd .rt .tl{color:#9aa1ab;font-style:italic;font-size:13px}
+.vhd .rt .time{color:#6b7178;font-size:12px;margin-top:6px}
+.tl{color:#9aa1ab;font-style:italic;font-weight:400}
+.hotrow{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-top:22px}
+.hotrow .hn{font-size:19px;font-weight:800;margin:0 0 3px}
+.stars{color:${V_ORANGE};font-size:14px;letter-spacing:1px}
+.hotrow .addr{color:#5b626b;font-size:12.5px;line-height:1.55;margin-top:5px}
+.bkid{text-align:right}.bkid .l{font-weight:800;font-size:15px}.bkid .c{color:${V_ORANGE};font-size:21px;font-weight:800;margin-top:2px}
+.obar{height:6px;background:${V_ORANGE};border-radius:6px;margin:18px 0}
+.stayrow{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.stay{flex:1;min-width:150px}
+.stay .cap{font-weight:800;font-size:14.5px}.stay .cap .tl{font-size:12px}
+.stay .d{font-size:14px;margin-top:3px}
+.stay .t{display:inline-flex;align-items:center;gap:5px;color:${V_ORANGE};font-size:12.5px;font-weight:600;margin-top:2px}
+.statebox{background:#eef1f5;border-radius:12px;padding:12px 15px;min-width:190px}
+.statebox b{font-size:14px}.statebox span{font-size:11.5px;color:#6b7178}
+.vsec{font-size:17px;font-weight:800;margin:22px 0 10px}.vsec .tl{font-size:13px}
+.vtbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.vtbl th{background:#f3f5f8;text-align:left;padding:9px 11px;font-weight:700;border:1px solid #e1e5ea;font-size:11.5px}
+.vtbl th .tl{font-weight:400;font-size:10.5px}
+.vtbl td{padding:9px 11px;border:1px solid #e1e5ea;vertical-align:top}
+.grid3{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
+.gcol{flex:1;min-width:170px}
+.gcol .h{font-weight:800;font-size:13.5px;margin-bottom:6px}.gcol .h .tl{font-size:11.5px}
+.gbox{background:#f3f5f8;border-radius:10px;padding:11px 13px;font-size:12.5px;color:#3a424c;line-height:1.5;min-height:44px;white-space:pre-wrap;word-break:break-word}
+.inc{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#3a424c;padding:3px 0}
+.cxl{margin:8px 0 0;padding:0;list-style:none}
+.cxl li{display:flex;gap:9px;font-size:12.5px;color:#3a424c;line-height:1.5;padding:4px 0}
+.cxl li:before{content:"";flex:0 0 8px;height:8px;background:${V_ORANGE};margin-top:5px;border-radius:2px}
+.vfoot{position:absolute;left:0;right:0;bottom:0;padding:0 34px 22px;display:flex;justify-content:space-between;align-items:flex-end;z-index:2}
+.badges{display:flex;gap:9px}
+.badge2{display:inline-flex;align-items:center;gap:7px;background:#000;color:#fff;border-radius:8px;padding:7px 12px;text-decoration:none;font-size:11px;line-height:1.1}
+.badge2 b{font-size:12.5px;font-weight:700}.badge2 .sm{font-size:8.5px;color:#cfcfcf;display:block}
+.cs{text-align:right}.cs .l{font-weight:800;font-size:16px}.cs .p{color:${V_ORANGE};font-size:20px;font-weight:800;margin-top:2px}
+.wave{position:absolute;left:0;right:0;bottom:0;width:100%;height:110px;z-index:1}
+.watermark{position:absolute;left:34px;bottom:150px;font-size:78px;font-weight:800;color:rgba(20,30,50,.06);letter-spacing:2px;z-index:0}
+.vact{max-width:820px;margin:16px auto 0;text-align:center}
+.vbtn{display:inline-block;background:${V_ORANGE};color:#fff;border:none;border-radius:24px;padding:11px 24px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none}
+/* NEW BOOKING / CANCELLATION + RECEIPT layouts */
+.nbhd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.nbtitle{font-size:30px;font-weight:800;margin:0;letter-spacing:.5px}
+.nbtime{color:#6b7178;font-size:12.5px;margin-top:5px}
+.bkid2{margin-top:16px}.bkid2 .l{font-weight:800;font-size:18px}.bkid2 .c{color:${V_ORANGE};font-size:22px;font-weight:800;margin-top:2px}
+.thinbar{height:5px;background:#e4e7ec;border-radius:5px;margin:16px 0 4px}
+.bighead{font-size:22px;font-weight:800;margin:20px 0 10px}.bighead .tl{font-size:13px}
+.infobox{background:#eef1f5;border-radius:12px;padding:16px 20px}
+.hotelname{text-align:center;font-weight:800;font-size:16px;margin-bottom:12px}
+.two{display:flex;gap:24px;flex-wrap:wrap}.two>div{flex:1;min-width:230px}
+.kvp{display:flex;font-size:13px;padding:3px 0;line-height:1.5}.kvp .kk{width:150px;color:#3a424c}.kvp .vv{font-weight:600;flex:1}
+.ratetbl{width:100%;border-collapse:collapse;font-size:12.5px;border:1.5px solid ${V_ORANGE};border-radius:10px;overflow:hidden}
+.ratetbl th{text-align:left;padding:12px 14px;font-weight:800;font-size:12.5px}
+.ratetbl td{padding:11px 14px;border-top:1px solid #eee}
+.ratetbl .tot td{font-weight:700}
+.rfoot{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;border-top:1.5px solid ${V_ORANGE};padding:12px 14px;font-size:12px}
+.rfoot b{font-size:12.5px}
+.reqbox{background:#eef1f5;border-radius:10px;padding:13px 16px;font-size:13px;color:#3a424c;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.gbar{background:#e4e7ec;font-weight:800;font-size:14px;padding:8px 14px;border-radius:6px;margin:16px 0 10px}
+.rtbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.rtbl th{background:#f3f5f8;text-align:left;padding:9px 11px;border:1px solid #e1e5ea;font-size:11.5px;font-weight:700}
+.rtbl td{padding:9px 11px;border:1px solid #e1e5ea}.rtbl .r{text-align:right}
+.rtbl .tot td{font-weight:800;background:#fafbfc}
+.cxlbanner{background:#fdeaea;border:1px solid #f0b8b8;color:#b02a2a;border-radius:10px;padding:11px 15px;font-weight:700;font-size:14px;margin-top:6px}
+@page{size:A4;margin:0}
+@media print{body{background:#fff;padding:0}.vdoc{width:210mm;min-height:297mm;box-shadow:none;border-radius:0;margin:0}.vact{display:none}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media(max-width:560px){.vdoc{padding:24px 18px 140px}.vhd .rt h1{font-size:21px}.nbtitle{font-size:23px}.vfoot{padding:0 18px 18px}}`;
+
+// The orange wave graphic at the foot of every branded document.
+const V_WAVE = `<svg class="wave" viewBox="0 0 820 110" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 55 C 150 10, 300 95, 470 60 C 620 30, 720 80, 820 45 L820 110 L0 110 Z" fill="${V_ORANGE}" opacity="0.95"/><path d="M0 78 C 160 45, 320 100, 500 78 C 660 58, 740 92, 820 72 L820 110 L0 110 Z" fill="${V_ORANGE}" opacity="0.55"/></svg>`;
+// App-store badges (self-contained, no external images).
+const V_BADGES = `<div class="badges"><a class="badge2" href="https://play.google.com/store/apps/details?id=id.gokar.miruum"><span style="font-size:15px">▶</span><span><span class="sm">GET IT ON</span><b>Google Play</b></span></a><a class="badge2" href="https://miruum.id"><span style="font-size:15px"></span><span><span class="sm">Download on the</span><b>App Store</b></span></a></div>`;
+const V_CS = `<div class="cs"><div class="l">Customer Service <span style="color:#2ecc71">📞</span></div><div class="p">${CS_PHONE}</div></div>`;
+function vLogo(): string { return `<div class="logo"><img src="${PUBLIC_ORIGIN}/static/logo.png" alt="Miruum"></div>`; }
+// Human cancellation-policy bullets (EN + ID) from the stored policy code.
+function cxlBullets(policy: string | null): string {
+  const P: Record<string, string[]> = {
+    FLEXIBLE: ["Free cancellation up to 24 hours before check-in. <span class='tl'>Pembatalan gratis hingga 24 jam sebelum check-in.</span>", "After that, the first night is charged. <span class='tl'>Setelahnya, dikenai biaya 1 malam pertama.</span>"],
+    MODERATE: ["Partial refund if cancelled before check-in date. <span class='tl'>Refund sebagian bila batal sebelum tanggal check-in.</span>", "No refund for no-show. <span class='tl'>Tidak ada refund untuk no-show.</span>"],
+    STRICT: ["Cancel 1 day prior to arrival: 1 night charge. <span class='tl'>Batal 1 hari sebelum tiba: biaya 1 malam.</span>", "No-show: 100% charge. <span class='tl'>No-show: dikenai 100%.</span>"],
+    NON_REFUNDABLE: ["Reservation is non-refundable. <span class='tl'>Reservasi tidak dapat direfund.</span>"],
+  };
+  const items = P[policy || ""] || ["Cancellation terms follow the property's policy. <span class='tl'>Ketentuan pembatalan mengikuti kebijakan properti.</span>"];
+  items.push("Times displayed are based on the accommodation's local time. <span class='tl'>Waktu mengikuti zona waktu properti.</span>");
+  return `<ul class="cxl">${items.map((t) => `<li><span>${t}</span></li>`).join("")}</ul>`;
+}
+const cxlText: Record<string, string> = {
+  FLEXIBLE: "Free cancellation up to 24 hours before check-in, then 1 night charge.",
+  MODERATE: "Partial refund if cancelled before check-in date. No refund for no-show.",
+  STRICT: "Cancel 1 day prior to arrival: 1 night charge. No-show: 100% charge.",
+  NON_REFUNDABLE: "Reservation is non-refundable.",
+};
+
+// NEW BOOKING (hotel) & CANCELLATION (both) — same layout with a rates table.
+function bookingDocHtml(b: any, title: string, opts: { cancelled?: boolean } = {}): string {
+  const parts = String(b.bookerName || "").trim().split(/\s+/);
+  const first = parts[0] || "-"; const last = parts.slice(1).join(" ") || "-";
+  const status = b.payAtHotel ? "Pay at hotel" : "Prepaid";
+  const rate = Number(b.roomPrice) * b.rooms; const disc = Number(b.discount);
+  const receive = Math.max(0, rate - disc);
+  const pkg = b.packageTitle ? esc(b.packageTitle) : "-";
+  const bf = b.room.breakfast ? `Yes ${b.guests} Person(s)` : "No";
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} ${b.code} — Miruum</title><style>${VCSS}</style></head><body>
+<div class="vdoc">
+  <div class="nbhd"><div><h1 class="nbtitle">${title}</h1><div class="nbtime">Time : ${fmtShort(b.createdAt)}</div></div>${vLogo()}</div>
+  <div class="bkid2"><div class="l">Booking ID</div><div class="c">${b.code}</div></div>
+  <div class="thinbar"></div>
+  ${opts.cancelled ? `<div class="cxlbanner">⚠ Booking CANCELLED <span class="tl" style="color:#b02a2a">Pesanan Dibatalkan</span></div>` : ""}
+  <div class="bighead">Reservation information</div>
+  <div class="infobox">
+    <div class="hotelname">${esc(b.hotel.name)}</div>
+    <div class="two">
+      <div>
+        <div class="kvp"><span class="kk">Hotel ID</span><span class="vv">: ${b.hotel.id.slice(-9)}</span></div>
+        <div class="kvp"><span class="kk">City</span><span class="vv">: ${esc(b.hotel.city)}</span></div>
+        <div class="kvp"><span class="kk">Status</span><span class="vv">: ${status}</span></div>
+      </div>
+      <div>
+        <div class="kvp"><span class="kk">Guest First Name</span><span class="vv">: ${esc(first)}</span></div>
+        <div class="kvp"><span class="kk">Guest Last Name</span><span class="vv">: ${esc(last)}</span></div>
+        <div class="kvp"><span class="kk">Check-in</span><span class="vv">: ${fmtDate(b.checkIn)}</span></div>
+        <div class="kvp"><span class="kk">Check-out</span><span class="vv">: ${fmtDate(b.checkOut)}</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="bighead">Booking Details</div>
+  <div class="infobox">
+    <div class="two">
+      <div>
+        <div class="kvp"><span class="kk">Room Type</span><span class="vv">: ${esc(b.room.name)}</span></div>
+        <div class="kvp"><span class="kk">Guest(s)</span><span class="vv">: ${b.guests} Adult(s)</span></div>
+        <div class="kvp"><span class="kk">No. of Room(s)</span><span class="vv">: ${b.rooms}</span></div>
+        <div class="kvp"><span class="kk">Payment</span><span class="vv">: Booked and payable by Miruum</span></div>
+      </div>
+      <div>
+        <div class="kvp"><span class="kk">Extra Bed(s) per Room</span><span class="vv">: 0</span></div>
+        <div class="kvp"><span class="kk">Breakfast Included</span><span class="vv">: ${bf}</span></div>
+        <div class="kvp"><span class="kk">Package</span><span class="vv">: ${pkg}</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:18px"><table class="ratetbl">
+    <tr><th>Date</th><th>Room Rates</th><th>Extra Bed Rates</th><th>Surcharge Rates</th></tr>
+    <tr><td>${fmtDate(b.checkIn)}</td><td>${rupiah(rate)}</td><td>${rupiah(0)}</td><td>${rupiah(0)}</td></tr>
+    <tr class="tot"><td>Total</td><td>${rupiah(rate)}</td><td>${rupiah(0)}</td><td>${rupiah(0)}</td></tr>
+  </table>
+  <div class="rfoot"><span>*Subtotal Rates : ${rupiah(rate)}</span><span>*Promotion and adjustment : ${rupiah(disc)}</span><b>*Rate you will receive : ${rupiah(receive)}</b></div>
+  </div>
+  <div class="bighead">Special Request</div>
+  <div class="reqbox">${b.specialRequest ? esc(b.specialRequest) : "-"}</div>
+  <div class="bighead">Cancellation Policy <span class="tl">*Based on your hotel check-in time</span></div>
+  <div class="reqbox">${cxlText[b.hotel.cancellationPolicy || ""] || "Follows the property's cancellation policy."}</div>
+  <div class="vfoot">${V_BADGES}${V_CS}</div>
+  ${V_WAVE}
+</div>
+<div class="vact"><button class="vbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+</body></html>`;
+}
+
+// RECEIPT (guest) — priced, with taxes and a PAID watermark.
+function receiptDocHtml(b: any): string {
+  const paid = b.status === "PAID" || b.status === "COMPLETED";
+  const accom = Number(b.roomPrice) * b.rooms;
+  const tax = Number(b.taxFee);
+  const disc = Number(b.discount);
+  const total = Number(b.totalPrice);
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt ${b.code} — Miruum</title><style>${VCSS}</style></head><body>
+<div class="vdoc">
+  <div class="nbhd">${vLogo()}<div style="text-align:right"><h1 class="nbtitle">RECEIPT</h1><div class="nbtime">Time : ${fmtShort(b.createdAt)}</div></div></div>
+  ${paid ? `<div class="watermark">PAID</div>` : ""}
+  <div class="two" style="margin-top:18px">
+    <div><div class="gbar">Hotel Details</div>
+      <div class="kvp"><span class="kk">Name</span><span class="vv">: ${esc(b.hotel.name)}</span></div>
+      <div class="kvp"><span class="kk">Address</span><span class="vv">: ${esc(b.hotel.address)}, ${esc(b.hotel.city)}</span></div>
+    </div>
+    <div><div class="gbar">Billed To</div>
+      <div class="kvp"><span class="kk">Name</span><span class="vv">: ${esc(b.bookerName)}</span></div>
+      <div class="kvp"><span class="kk">Email</span><span class="vv">: ${esc(b.bookerEmail)}</span></div>
+      <div class="kvp"><span class="kk">Contact</span><span class="vv">: ${esc(b.bookerPhone)}</span></div>
+    </div>
+  </div>
+  <div class="gbar">Guest Details</div>
+  <div class="two">
+    <div><div class="kvp"><span class="kk">Guest Name</span><span class="vv">: ${esc(b.bookerName)}</span></div>
+      <div class="kvp"><span class="kk">Room</span><span class="vv">: ${b.rooms}× ${esc(b.room.name)}</span></div></div>
+    <div><div class="kvp"><span class="kk">Check-in</span><span class="vv">: ${fmtDate(b.checkIn)}</span></div>
+      <div class="kvp"><span class="kk">Check-out</span><span class="vv">: ${fmtDate(b.checkOut)}</span></div>
+      <div class="kvp"><span class="kk">Duration</span><span class="vv">: ${b.nights} night(s)</span></div></div>
+  </div>
+  <div class="gbar">Payment Details</div>
+  <div class="two">
+    <div><div class="kvp"><span class="kk">Payment Method</span><span class="vv">: ${b.paymentMethod ? esc(b.paymentMethod) + (b.bank ? " · " + esc(b.bank) : "") : "-"}</span></div>
+      <div class="kvp"><span class="kk">Transaction Status</span><span class="vv">: ${paid ? "PAID" : "PENDING"}</span></div></div>
+    <div><div class="kvp"><span class="kk">Transaction ID</span><span class="vv">: ${b.code}</span></div>
+      ${b.paidAt ? `<div class="kvp"><span class="kk">Paid At</span><span class="vv">: ${fmtShort(b.paidAt)}</span></div>` : ""}</div>
+  </div>
+  <table class="rtbl" style="margin-top:12px">
+    <tr><th>No</th><th>Type of Item</th><th>Item Description</th><th class="r">Qty</th><th class="r">Price / item (Rp)</th><th class="r">Total (Rp)</th></tr>
+    <tr><td>1</td><td>Accommodation</td><td>${esc(b.room.name)} (${b.rooms} × ${b.nights} night)</td><td class="r">${b.rooms}</td><td class="r">${rupiah(accom).replace("Rp", "").trim()}</td><td class="r">${rupiah(accom).replace("Rp", "").trim()}</td></tr>
+    <tr><td>2</td><td>Taxes and Service</td><td>Taxes and Service</td><td class="r">1</td><td class="r">${rupiah(tax).replace("Rp", "").trim()}</td><td class="r">${rupiah(tax).replace("Rp", "").trim()}</td></tr>
+    ${disc > 0 ? `<tr><td>3</td><td>Discount${b.promoCode ? " (" + esc(b.promoCode) + ")" : ""}</td><td>Promotion</td><td class="r">1</td><td class="r" style="color:#1E7E38">-${rupiah(disc).replace("Rp", "").trim()}</td><td class="r" style="color:#1E7E38">-${rupiah(disc).replace("Rp", "").trim()}</td></tr>` : ""}
+    <tr class="tot"><td colspan="5">Total Amount</td><td class="r">${rupiah(total).replace("Rp", "").trim()}</td></tr>
+  </table>
+  <div style="font-size:11px;color:#8a8f98;margin-top:7px">*Total Amount is exclude surcharge rate (if any). <span class="tl">Total belum termasuk surcharge (jika ada).</span></div>
+  <div class="vfoot">${V_BADGES}${V_CS}</div>
+  ${V_WAVE}
+</div>
+<div class="vact"><a href="/api/vouchers/${b.code}" class="vbtn" style="background:#fff;color:#20262e;border:1px solid #d7dae1;margin-right:6px">Hotel Voucher</a><button class="vbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+</body></html>`;
+}
 
 async function qrSvg(text: string): Promise<string> {
   try { return await QRCode.toString(text, { type: "svg", margin: 0, color: { dark: "#20262e", light: "#00000000" } }); }
@@ -3040,32 +3275,41 @@ app.get("/api/vouchers/:code", async (req, res) => {
   if (!b) return res.status(404).send("<h1>Voucher tidak ditemukan</h1>");
   const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
   const qr = await qrSvg(b.code);
+  const bf = b.room.breakfast ? "Yes <span class='tl'>Ya</span>" : "No <span class='tl'>Tidak</span>";
+  const inc = [b.room.freeWifi ? "📶 Free Wifi <span class='tl'>Wifi Gratis</span>" : "", b.room.breakfast ? "🍳 Breakfast <span class='tl'>Sarapan</span>" : ""].filter(Boolean).join("<br>") || "-";
   res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>E-Voucher ${b.code} — Miruum</title><style>${DOC_CSS}</style></head><body>
-<div class="doc"><div class="hd">
-  <div class="logo-plate"><img src="${PUBLIC_ORIGIN}/static/logo.png" alt="Miruum"></div>
-  <div class="kind" style="margin-top:14px">E-Voucher Hotel</div>
-  <h1>${b.hotel.name}</h1>
-  <div class="sub">${b.hotel.city}</div>
-  <span class="badge ${paid ? "ok" : "wait"}">${paid ? "TERKONFIRMASI" : b.status}</span>
-</div>
-<div class="bd">
-  <div class="qrbox">
-    <div class="qr">${qr}</div>
-    <div><div class="cd">No. Pesanan</div><div class="cc">${b.code}</div>
-    <div class="hint">Tunjukkan / pindai kode ini di resepsionis saat check-in.</div></div>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Voucher Hotel ${b.code} — Miruum</title><style>${VCSS}</style></head><body>
+<div class="vdoc">
+  <div class="vhd">${vLogo()}<div class="rt"><h1>HOTEL VOUCHER</h1><div class="tl">Voucher Hotel</div></div></div>
+  <div class="hotrow">
+    <div><div class="hn">${esc(b.hotel.name)}</div><div class="stars">${"★".repeat(b.hotel.starRating)}</div>
+      <div class="addr">${esc(b.hotel.address)}<br>${esc(b.hotel.city)}, Indonesia</div></div>
+    <div class="bkid"><div class="l">Booking ID</div><div class="c">${b.code}</div></div>
   </div>
-  <div class="sec">Detail Menginap</div>
-  <div class="row"><span class="k">Tamu</span><span class="v2">${b.bookerName} · ${b.guests} tamu</span></div>
-  <div class="row"><span class="k">Kamar</span><span class="v2">${b.rooms}× ${b.room.name}</span></div>
-  <div class="row"><span class="k">Check-in</span><span class="v2">${fmtDate(b.checkIn)}</span></div>
-  <div class="row"><span class="k">Check-out</span><span class="v2">${fmtDate(b.checkOut)}</span></div>
-  <div class="row"><span class="k">Durasi</span><span class="v2">${b.nights} malam</span></div>
-  <div class="row"><span class="k">Alamat</span><span class="v2">${b.hotel.address}</span></div>
-  ${b.hotel.checkInInfo ? `<div class="sec">Informasi Check-in</div><div style="font-size:12.5px;color:#5a6069;line-height:1.6">${b.hotel.checkInInfo}</div>` : ""}
-  <div class="foot">E-voucher resmi Miruum — bukti pemesanan menginap. Tunjukkan saat check-in.<br>Butuh bantuan? Live Chat CS di aplikasi Miruum · miruum.id</div>
-</div></div>
-<div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+  <div class="obar"></div>
+  <div class="stayrow">
+    <div class="stay"><div class="cap">Check-in <span class="tl">Check-in</span></div><div class="d">${fmtDate(b.checkIn)}</div>${b.hotel.checkInInfo ? `<div class="t">⏰ ${esc(b.hotel.checkInInfo)}</div>` : ""}</div>
+    <div class="stay"><div class="cap">Check-out <span class="tl">Check-out</span></div><div class="d">${fmtDate(b.checkOut)}</div></div>
+    <div class="statebox"><b>${paid ? "Confirmed" : "New Booking"}</b><br><span>Booked and Payable by Miruum</span></div>
+  </div>
+  <div class="vsec">Booking Details <span class="tl">Detail Pesanan</span></div>
+  <table class="vtbl"><tr>
+    <th>No. <span class="tl">No.</span></th><th>Room Name <span class="tl">Nama Kamar</span></th>
+    <th>Guest(s) <span class="tl">Tamu</span></th><th>Guest(s) per room <span class="tl">Tamu/kamar</span></th>
+    <th>Breakfast? <span class="tl">Sarapan</span></th></tr>
+    <tr><td>1</td><td>${esc(b.room.name)}</td><td>${esc(b.bookerName)}</td><td>${b.guests} Adult(s) <span class="tl">${b.guests} Dewasa</span></td><td>${bf}</td></tr>
+  </table>
+  <div class="grid3">
+    <div class="gcol"><div class="h">Includes <span class="tl">Termasuk</span></div><div class="gbox">${inc}</div></div>
+    <div class="gcol"><div class="h">Special request <span class="tl">Permintaan khusus</span></div><div class="gbox">${b.specialRequest ? esc(b.specialRequest) : "-"}</div></div>
+    <div class="gcol"><div class="h">Package <span class="tl">Paket</span></div><div class="gbox">${b.packageTitle ? esc(b.packageTitle) : "-"}</div></div>
+  </div>
+  <div class="vsec">Hotel Cancellation Policy <span class="tl">Kebijakan Pembatalan Hotel</span></div>
+  ${cxlBullets(b.hotel.cancellationPolicy)}
+  <div class="vfoot">${V_BADGES}${V_CS}</div>
+  ${V_WAVE}
+</div>
+<div class="vact"><button class="vbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
 });
 
@@ -3123,41 +3367,17 @@ app.get("/api/vouchers/:code/pdf", async (req, res) => {
   doc.end();
 });
 
-// Public invoice (printable HTML), by booking code.
+// Guest RECEIPT (printable A4 HTML), by booking code.
 app.get("/api/invoices/:code", async (req, res) => {
   const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
-  if (!b) return res.status(404).send("<h1>Invoice tidak ditemukan</h1>");
-  const paid = b.status === "PAID" || b.status === "COMPLETED";
-  const subtotal = Number(b.roomPrice);
-  res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice INV-${b.code} — Miruum</title><style>${DOC_CSS}</style></head><body>
-<div class="doc"><div class="hd">
-  <div class="logo-plate"><img src="${PUBLIC_ORIGIN}/static/logo.png" alt="Miruum"></div>
-  <div class="kind" style="margin-top:14px">Invoice</div>
-  <h1>INV-${b.code}</h1>
-  <div class="sub">Tanggal ${fmtShort(b.createdAt)}</div>
-  <span class="badge ${paid ? "ok" : "wait"}">${paid ? "LUNAS" : "MENUNGGU BAYAR"}</span>
-</div>
-<div class="bd">
-  <div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">
-    <div><div class="sec" style="margin-top:0">Ditagihkan kepada</div><div style="font-weight:700">${b.bookerName}</div><div class="muted" style="color:#8a8f98;font-size:12px">${b.bookerEmail}<br>${b.bookerPhone}</div></div>
-    <div style="text-align:right"><div class="sec" style="margin-top:0">Penerbit</div><div style="font-weight:700">Miruum OTA</div><div class="muted" style="color:#8a8f98;font-size:12px">miruum.id<br>support@miruum.id</div></div>
-  </div>
-  <div class="sec">Rincian</div>
-  <table class="items">
-    <tr><td>${b.room.name} <span class="muted">(${b.rooms} kamar × ${b.nights} malam)</span><br><span class="muted">${b.hotel.name} · ${b.hotel.city}</span></td><td class="r">${rupiah(subtotal)}</td></tr>
-    <tr><td>Pajak & biaya layanan</td><td class="r">${rupiah(Number(b.taxFee))}</td></tr>
-    ${Number(b.discount) > 0 ? `<tr><td>Diskon${b.promoCode ? ` (${b.promoCode})` : ""}</td><td class="r" style="color:#1E7E38">−${rupiah(Number(b.discount))}</td></tr>` : ""}
-  </table>
-  <div class="tot"><span>Total</span><span>${rupiah(Number(b.totalPrice))}</span></div>
-  <div class="sec">Pembayaran</div>
-  <div class="row"><span class="k">Status</span><span class="v2">${paid ? "Lunas" : "Menunggu pembayaran"}</span></div>
-  ${b.paymentMethod ? `<div class="row"><span class="k">Metode</span><span class="v2">${b.paymentMethod}${b.bank ? " · " + b.bank : ""}</span></div>` : ""}
-  ${b.paidAt ? `<div class="row"><span class="k">Dibayar pada</span><span class="v2">${fmtShort(b.paidAt)}</span></div>` : ""}
-  <div class="foot">Invoice ini diterbitkan secara elektronik oleh Miruum dan sah tanpa tanda tangan.<br>miruum.id</div>
-</div></div>
-<div class="actions"><a href="/api/vouchers/${b.code}" class="pbtn" style="background:#fff;color:#20262e;border:1px solid #d7dae1;margin-right:8px">Lihat E-Voucher</a><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
-</body></html>`);
+  if (!b) return res.status(404).send("<h1>Receipt tidak ditemukan</h1>");
+  res.set("Content-Type", "text/html; charset=utf-8").send(receiptDocHtml(b));
+});
+// Cancellation voucher (for BOTH guest & hotel), by booking code.
+app.get("/api/cancellations/:code", async (req, res) => {
+  const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
+  if (!b) return res.status(404).send("<h1>Dokumen tidak ditemukan</h1>");
+  res.set("Content-Type", "text/html; charset=utf-8").send(bookingDocHtml(b, "CANCELLATION", { cancelled: true }));
 });
 
 // Per-booking commission split (hotel-facing figures).
@@ -3176,47 +3396,8 @@ app.get("/api/hotels/receipt/:code", async (req, res) => {
     where: { code: req.params.code },
     include: { hotel: true, room: true, channel: { select: { code: true, name: true, type: true, commissionPct: true } } },
   });
-  if (!b) return res.status(404).send("<h1>Receipt tidak ditemukan</h1>");
-  const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
-  const qr = await qrSvg(b.code);
-  const f = await bookingSplit(b);
-  const chLabel = f.isDirect ? "Direct (Channel Manager Miruum)" : (b.channel?.name ?? "OTA");
-  const payoutLine = f.isDirect
-    ? `<div class="row"><span class="k">Dibayarkan ke hotel (settlement)</span><span class="v2" style="color:#1E7E38">${rupiah(f.hotelNet)}</span></div>`
-    : `<div class="row"><span class="k">Diterima hotel via ${b.channel?.name ?? "OTA"}</span><span class="v2">${rupiah(f.hotelNet)}</span></div>`;
-  res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Konfirmasi Hotel ${b.code} — Miruum</title><style>${DOC_CSS}</style></head><body>
-<div class="doc"><div class="hd">
-  <div class="logo-plate"><img src="${PUBLIC_ORIGIN}/static/logo.png" alt="Miruum"></div>
-  <div class="kind" style="margin-top:14px">Konfirmasi Pemesanan — Untuk Hotel</div>
-  <h1>${b.hotel.name}</h1>
-  <div class="sub">${b.hotel.city} · Kanal: ${chLabel}</div>
-  <span class="badge ${paid ? "ok" : "wait"}">${paid ? "TERKONFIRMASI" : b.status}</span>
-</div>
-<div class="bd">
-  <div class="qrbox">
-    <div class="qr">${qr}</div>
-    <div><div class="cd">No. Pesanan</div><div class="cc">${b.code}</div>
-    <div class="hint">Pindai untuk verifikasi tamu saat check-in.</div></div>
-  </div>
-  <div class="sec">Detail Menginap</div>
-  <div class="row"><span class="k">Tamu</span><span class="v2">${b.bookerName} · ${b.guests} tamu</span></div>
-  <div class="row"><span class="k">Kontak tamu</span><span class="v2">${b.bookerPhone || "-"}</span></div>
-  <div class="row"><span class="k">Kamar</span><span class="v2">${b.rooms}× ${b.room.name}</span></div>
-  <div class="row"><span class="k">Check-in</span><span class="v2">${fmtDate(b.checkIn)}</span></div>
-  <div class="row"><span class="k">Check-out</span><span class="v2">${fmtDate(b.checkOut)}</span></div>
-  <div class="row"><span class="k">Durasi</span><span class="v2">${b.nights} malam</span></div>
-  <div class="sec">Rincian Keuangan</div>
-  <table class="items">
-    <tr><td>Harga kamar <span class="muted">(${b.rooms} × ${b.nights} malam)</span></td><td class="r">${rupiah(f.gross)}</td></tr>
-    <tr><td>Komisi Miruum <span class="muted">(${f.pct}%)</span></td><td class="r" style="color:#C0392B">−${rupiah(f.commission)}</td></tr>
-  </table>
-  ${payoutLine}
-  <div class="tot"><span>Net untuk Hotel</span><span>${rupiah(f.hotelNet)}</span></div>
-  <div class="foot">Dokumen internal untuk pihak hotel. Nominal komisi mengikuti perjanjian kanal.<br>Miruum OTA · miruum.id</div>
-</div></div>
-<div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
-</body></html>`);
+  if (!b) return res.status(404).send("<h1>Dokumen tidak ditemukan</h1>");
+  res.set("Content-Type", "text/html; charset=utf-8").send(bookingDocHtml(b, "NEW BOOKING"));
 });
 
 // ═══════════════════════════ Tour module ═══════════════════════════

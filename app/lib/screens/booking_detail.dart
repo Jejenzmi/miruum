@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api.dart';
 import '../feedback.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../ui_kit.dart';
-import '../voucher_pdf.dart';
 import '../widgets.dart';
 import 'pembayaran.dart';
 
@@ -81,23 +81,18 @@ class BookingDetailScreen extends StatelessWidget {
             PrimaryButton(tr('Lanjutkan Pembayaran', 'Continue Payment'), icon: Icons.payment_rounded,
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PembayaranScreen(bookingId: b.id))))
           else if (b.status == 'PAID' || b.status == 'COMPLETED' || b.payAtHotel) ...[
-            PrimaryButton(tr('Lihat E-Voucher (PDF)', 'View E-Voucher (PDF)'), icon: Icons.picture_as_pdf_rounded, onPressed: () async {
-              try {
-                final bytes = await buildGuestVoucherPdf(b);
-                await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'Voucher-${b.code}.pdf');
-              } catch (_) {
-                if (context.mounted) showSnack(context, tr('Gagal membuka voucher PDF.', 'Failed to open PDF voucher.'), kind: SnackKind.error);
-              }
+            PrimaryButton(tr('Lihat E-Voucher', 'View E-Voucher'), icon: Icons.picture_as_pdf_rounded, onPressed: () async {
+              final ok = await launchUrl(Uri.parse('${Api.base}/vouchers/${b.code}'), mode: LaunchMode.externalApplication);
+              if (!ok && context.mounted) showSnack(context, tr('Gagal membuka voucher.', 'Failed to open voucher.'), kind: SnackKind.error);
             }),
             const SizedBox(height: 10),
-            OutlineButtonX(tr('Bagikan Voucher (PDF)', 'Share Voucher (PDF)'), icon: Icons.ios_share_rounded, onPressed: () async {
-              try {
-                final bytes = await buildGuestVoucherPdf(b);
-                await Printing.sharePdf(bytes: bytes, filename: 'Voucher-${b.code}.pdf');
-              } catch (_) {
-                if (context.mounted) showSnack(context, tr('Gagal membagikan voucher.', 'Failed to share voucher.'), kind: SnackKind.error);
-              }
+            OutlineButtonX(tr('Lihat Receipt', 'View Receipt'), icon: Icons.receipt_long_rounded, onPressed: () async {
+              final ok = await launchUrl(Uri.parse('${Api.base}/invoices/${b.code}'), mode: LaunchMode.externalApplication);
+              if (!ok && context.mounted) showSnack(context, tr('Gagal membuka receipt.', 'Failed to open receipt.'), kind: SnackKind.error);
             }),
+            const SizedBox(height: 10),
+            OutlineButtonX(tr('Bagikan Voucher', 'Share Voucher'), icon: Icons.ios_share_rounded, onPressed: () =>
+                Share.share('${tr('E-Voucher Miruum', 'Miruum E-Voucher')} — ${b.hotel?.name ?? ''}\n${Api.base}/vouchers/${b.code}')),
             const SizedBox(height: 10),
             OutlineButtonX(tr('Lihat Invoice', 'View Invoice'), icon: Icons.description_rounded, onPressed: () async {
               final ok = await openUrl(context.read<Api>().invoiceUrl(b.code));
