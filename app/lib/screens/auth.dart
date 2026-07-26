@@ -399,12 +399,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField(tr('Email terdaftar', 'Registered email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Email terdaftar', 'Registered email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress, required: true),
               if (_sent) ...[
                 const SizedBox(height: 14),
-                AuthTextField(tr('Kode reset dari email', 'Reset code from email'), Icons.pin_rounded, _code, keyboard: TextInputType.number),
+                AuthTextField(tr('Kode reset dari email', 'Reset code from email'), Icons.pin_rounded, _code, keyboard: TextInputType.number, required: true),
                 const SizedBox(height: 14),
-                AuthTextField(tr('Kata sandi baru', 'New password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
+                AuthTextField(tr('Kata sandi baru', 'New password'), Icons.lock_outline_rounded, _pass, obscure: _obscure, required: true,
                     suffix: IconButton(
                       icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                       onPressed: () => setState(() => _obscure = !_obscure),
@@ -466,11 +466,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField(tr('Kata sandi saat ini', 'Current password'), Icons.lock_outline_rounded, _current, obscure: _o1,
+              AuthTextField(tr('Kata sandi saat ini', 'Current password'), Icons.lock_outline_rounded, _current, obscure: _o1, required: true,
                   suffix: IconButton(icon: Icon(_o1 ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                       onPressed: () => setState(() => _o1 = !_o1))),
               const SizedBox(height: 14),
-              AuthTextField(tr('Kata sandi baru', 'New password'), Icons.lock_reset_rounded, _next, obscure: _o2,
+              AuthTextField(tr('Kata sandi baru', 'New password'), Icons.lock_reset_rounded, _next, obscure: _o2, required: true,
                   suffix: IconButton(icon: Icon(_o2 ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                       onPressed: () => setState(() => _o2 = !_o2))),
               const SizedBox(height: 22),

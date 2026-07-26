@@ -32,6 +32,7 @@ class _ReviewForm extends StatefulWidget {
 class _ReviewFormState extends State<_ReviewForm> {
   int _rating = 5;
   final _text = TextEditingController();
+  final _textF = FocusNode();
   bool _loading = false;
   // Category sub-scores (0–10), default to a neutral 8.
   static const _cats = {
@@ -54,6 +55,7 @@ class _ReviewFormState extends State<_ReviewForm> {
 
   Future<void> _submit() async {
     if (_text.text.trim().length < 3) {
+      _textF.requestFocus();
       showSnack(context, tr('Tulis ulasan minimal 3 karakter', 'Write a review of at least 3 characters'), kind: SnackKind.error);
       return;
     }
@@ -88,8 +90,16 @@ class _ReviewFormState extends State<_ReviewForm> {
           );
         })),
         const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6, left: 2),
+          child: RichText(text: TextSpan(style: TextStyle(fontSize: 12.5, color: MC.inkMuted), children: [
+            TextSpan(text: tr('Ulasan Anda', 'Your review')),
+            const TextSpan(text: ' *', style: TextStyle(color: MC.danger, fontWeight: FontWeight.w800)),
+          ])),
+        ),
         TextField(
           controller: _text,
+          focusNode: _textF,
           maxLines: 4,
           decoration: InputDecoration(hintText: tr('Ceritakan pengalamanmu...', 'Tell us about your experience...')),
         ),

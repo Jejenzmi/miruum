@@ -163,15 +163,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
-  Widget _label(String t) => Padding(
+  Widget _label(String t, {bool required = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 6, top: 2),
-        child: Text(t, style: TextStyle(fontSize: 12.5, color: MC.inkMuted)),
+        child: RichText(text: TextSpan(style: TextStyle(fontSize: 12.5, color: MC.inkMuted), children: [
+          TextSpan(text: t),
+          if (required) const TextSpan(text: ' *', style: TextStyle(color: MC.danger, fontWeight: FontWeight.w800)),
+        ])),
       );
 
-  Widget _field(String label, TextEditingController c, {TextInputType? keyboard, String? hint, int maxLines = 1}) => Padding(
+  Widget _field(String label, TextEditingController c, {TextInputType? keyboard, String? hint, int maxLines = 1, bool required = false}) => Padding(
         padding: const EdgeInsets.only(bottom: 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _label(label),
+          _label(label, required: required),
           TextField(controller: c, keyboardType: keyboard, maxLines: maxLines,
               decoration: InputDecoration(hintText: hint)),
         ]),
@@ -199,7 +202,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(children: [
           Expanded(child: ListView(padding: const EdgeInsets.all(20), children: [
             _dropdown(tr('Sapaan', 'Title'), _title, {'Tuan': tr('Tuan', 'Mr.'), 'Nyonya': tr('Nyonya', 'Mrs.'), 'Nona': tr('Nona', 'Ms.')}, (v) => setState(() => _title = v)),
-            _field(tr('Nama Lengkap', 'Full Name'), _name, hint: tr('Sesuai identitas', 'As on your ID')),
+            _field(tr('Nama Lengkap', 'Full Name'), _name, hint: tr('Sesuai identitas', 'As on your ID'), required: true),
             _dropdown(tr('Jenis Kelamin', 'Gender'), _gender, {'Laki-laki': tr('Laki-laki', 'Male'), 'Perempuan': tr('Perempuan', 'Female')}, (v) => setState(() => _gender = v)),
             GestureDetector(
               onTap: _pickBirth,
