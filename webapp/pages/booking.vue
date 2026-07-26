@@ -14,9 +14,9 @@
         <div class="card p-5">
           <h2 class="font-bold text-lg mb-3">{{ t('Data Pemesan', 'Booker Details') }}</h2>
           <div class="grid sm:grid-cols-2 gap-3">
-            <div><label class="label">{{ t('Nama Lengkap', 'Full Name') }}</label><input v-model="form.bookerName" class="input" :placeholder="t('Sesuai identitas', 'As on your ID')" /></div>
-            <div><label class="label">{{ t('Nomor HP', 'Phone Number') }}</label><input v-model="form.bookerPhone" class="input" placeholder="08xxxx" /></div>
-            <div class="sm:col-span-2"><label class="label">{{ t('Email', 'Email') }}</label><input v-model="form.bookerEmail" type="email" class="input" :placeholder="t('email@contoh.com', 'email@example.com')" /></div>
+            <div><label class="label">{{ t('Nama Lengkap', 'Full Name') }}</label><input id="bk-name" v-model="form.bookerName" class="input" :placeholder="t('Sesuai identitas', 'As on your ID')" required /></div>
+            <div><label class="label">{{ t('Nomor HP', 'Phone Number') }}</label><input id="bk-phone" v-model="form.bookerPhone" class="input" placeholder="08xxxx" inputmode="tel" required /></div>
+            <div class="sm:col-span-2"><label class="label">{{ t('Email', 'Email') }}</label><input id="bk-email" v-model="form.bookerEmail" type="email" class="input" :placeholder="t('email@contoh.com', 'email@example.com')" required /></div>
           </div>
         </div>
 
@@ -46,7 +46,7 @@
             </div>
             <div>
               <label class="label">{{ t('Nama Tamu yang Menginap', "Staying Guest's Name") }}</label>
-              <input v-model="form.guestName" class="input" :placeholder="t('Sesuai identitas tamu', 'As on the guest ID')" />
+              <input id="bk-guest" v-model="form.guestName" class="input" :placeholder="t('Sesuai identitas tamu', 'As on the guest ID')" />
             </div>
             <label class="flex items-center gap-2 cursor-pointer text-[13px] text-ink-muted">
               <input type="checkbox" v-model="form.saveGuest" class="accent-brand w-4 h-4" />
@@ -252,11 +252,12 @@ const loading = ref(false)
 const err = ref('')
 async function submit() {
   err.value = ''
-  if (!form.bookerName.trim() || !form.bookerEmail.includes('@') || form.bookerPhone.trim().length < 6) {
-    err.value = t('Lengkapi nama, email & nomor HP yang valid.', 'Please enter a valid name, email & phone number.'); return
-  }
+  const focusField = (id: string) => { if (typeof document !== 'undefined') { const el = document.getElementById(id) as HTMLElement | null; if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); try { el.focus() } catch (_) {} } } }
+  if (!form.bookerName.trim()) { err.value = t('Isi Nama Lengkap.', 'Enter your full name.'); focusField('bk-name'); return }
+  if (!form.bookerEmail.includes('@')) { err.value = t('Isi Email yang valid.', 'Enter a valid email.'); focusField('bk-email'); return }
+  if (form.bookerPhone.trim().length < 6) { err.value = t('Isi Nomor HP (min. 6 digit).', 'Enter a phone number (min. 6 digits).'); focusField('bk-phone'); return }
   if (!form.forSelf && !form.guestName.trim()) {
-    err.value = t('Isi nama tamu yang menginap.', "Please enter the staying guest's name."); return
+    err.value = t('Isi nama tamu yang menginap.', "Please enter the staying guest's name."); focusField('bk-guest'); return
   }
   loading.value = true
   try {

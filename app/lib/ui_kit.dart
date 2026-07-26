@@ -172,27 +172,39 @@ class AuthTextField extends StatelessWidget {
   final bool obscure;
   final Widget? suffix;
   final TextInputType? keyboard;
+  final FocusNode? focusNode;
+  final bool required; // mandatory → shows a red asterisk indicator
   const AuthTextField(this.hint, this.icon, this.controller,
-      {super.key, this.obscure = false, this.suffix, this.keyboard});
+      {super.key, this.obscure = false, this.suffix, this.keyboard, this.focusNode, this.required = false});
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboard,
-        decoration: InputDecoration(
-          hintText: hint,
-          filled: true,
-          fillColor: MC.surface,
-          prefixIcon: Icon(icon, color: MC.primary, size: 20),
-          suffixIcon: suffix,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: MC.primary, width: 1.4)),
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: [softShadow]),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            obscureText: obscure,
+            keyboardType: keyboard,
+            decoration: InputDecoration(
+              hintText: hint,
+              filled: true,
+              fillColor: MC.surface,
+              prefixIcon: Icon(icon, color: MC.primary, size: 20),
+              suffixIcon: suffix,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: MC.primary, width: 1.4)),
+            ),
+          ),
         ),
-      ),
+        if (required)
+          const Positioned(
+            top: 6, right: 10,
+            child: Text('*', style: TextStyle(color: MC.danger, fontWeight: FontWeight.w800, fontSize: 15)),
+          ),
+      ],
     );
   }
 }

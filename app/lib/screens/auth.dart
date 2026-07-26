@@ -99,6 +99,10 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _loading = false, _obscure = true;
 
   Future<void> _submit({String? code}) async {
+    if (_email.text.trim().isEmpty || _pass.text.isEmpty) {
+      _toast(context, tr('Isi email & kata sandi terlebih dahulu.', 'Enter your email & password first.'));
+      return;
+    }
     setState(() => _loading = true);
     try {
       final (token, user) = await context.read<Api>().login(_email.text.trim(), _pass.text, code: code);
@@ -155,9 +159,9 @@ class _SignInScreenState extends State<SignInScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField(tr('Masukkan email', 'Enter email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Masukkan email', 'Enter email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress, required: true),
               const SizedBox(height: 14),
-              AuthTextField(tr('Masukkan kata sandi', 'Enter Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField(tr('Masukkan kata sandi', 'Enter Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure, required: true,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
@@ -284,11 +288,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: stagger([
-              AuthTextField(tr('Nama Lengkap', 'Full Name'), Icons.person_outline_rounded, _name),
+              AuthTextField(tr('Nama Lengkap', 'Full Name'), Icons.person_outline_rounded, _name, required: true),
               const SizedBox(height: 14),
-              AuthTextField(tr('Email', 'Email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress),
+              AuthTextField(tr('Email', 'Email'), Icons.mail_outline_rounded, _email, keyboard: TextInputType.emailAddress, required: true),
               const SizedBox(height: 14),
-              AuthTextField(tr('Kata Sandi', 'Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure,
+              AuthTextField(tr('Kata Sandi', 'Password'), Icons.lock_outline_rounded, _pass, obscure: _obscure, required: true,
                   suffix: IconButton(
                     icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: MC.inkFaint),
                     onPressed: () => setState(() => _obscure = !_obscure),
