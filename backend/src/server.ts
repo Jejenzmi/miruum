@@ -2402,7 +2402,7 @@ const V_ORANGE = "#F08421";
 const CS_PHONE = "0811 9628 286";
 const VCSS = `*{box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#e9ecf1;margin:0;padding:24px 14px;color:#20262e;-webkit-font-smoothing:antialiased}
-.vdoc{width:794px;max-width:100%;min-height:1123px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(20,30,50,.16);overflow:hidden;position:relative;padding:44px 44px 140px}
+.vdoc{width:794px;max-width:100%;min-height:1123px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(20,30,50,.16);overflow:hidden;position:relative;padding:44px 44px 180px}
 .vhd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
 .vhd .logo img{height:66px;display:block}
 .vhd .rt{text-align:right}
@@ -2436,12 +2436,12 @@ body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-
 .cxl{margin:8px 0 0;padding:0;list-style:none}
 .cxl li{display:flex;gap:9px;font-size:12.5px;color:#3a424c;line-height:1.5;padding:4px 0}
 .cxl li:before{content:"";flex:0 0 8px;height:8px;background:${V_ORANGE};margin-top:5px;border-radius:2px}
-.vfoot{position:absolute;left:0;right:0;bottom:0;padding:0 34px 22px;display:flex;justify-content:space-between;align-items:flex-end;z-index:2}
+.vfoot{position:absolute;left:0;right:0;bottom:112px;padding:0 44px;display:flex;justify-content:space-between;align-items:flex-end;z-index:2}
 .badges{display:flex;gap:9px}
 .badge2{display:inline-flex;align-items:center;gap:7px;background:#000;color:#fff;border-radius:8px;padding:7px 12px;text-decoration:none;font-size:11px;line-height:1.1}
 .badge2 b{font-size:12.5px;font-weight:700}.badge2 .sm{font-size:8.5px;color:#cfcfcf;display:block}
-.cs{text-align:right}.cs .l{font-weight:800;font-size:16px}.cs .p{color:${V_ORANGE};font-size:20px;font-weight:800;margin-top:2px}
-.wave{position:absolute;left:0;right:0;bottom:0;width:100%;height:110px;z-index:1}
+.cs{text-align:right}.cs .l{font-weight:700;font-size:14px;color:#8a919b}.cs .p{color:#9aa1ab;font-size:19px;font-weight:700;margin-top:2px;letter-spacing:.3px}
+.wave{position:absolute;left:0;right:0;bottom:0;width:100%;height:100px;z-index:1}
 .watermark{position:absolute;left:34px;bottom:150px;font-size:78px;font-weight:800;color:rgba(20,30,50,.06);letter-spacing:2px;z-index:0}
 .vact{max-width:820px;margin:16px auto 0;text-align:center}
 .vbtn{display:inline-block;background:${V_ORANGE};color:#fff;border:none;border-radius:24px;padding:11px 24px;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none}
@@ -3038,27 +3038,33 @@ app.get("/api/corporate-invoices/:id", async (req, res) => {
   });
   if (!inv) return res.status(404).send("<h1>Tagihan tidak ditemukan</h1>");
   const paid = inv.status === "PAID";
-  const rows = inv.bookings.map((b) => `<tr><td>${b.code} · ${b.hotel.name} <span class="muted">(${b.room.name})</span><br><span class="muted">${b.bookerName} · ${b.nights} malam</span></td><td class="r">${rupiah(Number(b.totalPrice))}</td></tr>`).join("");
+  const rows = inv.bookings.map((b, i) => `<tr><td>${i + 1}</td><td>${b.code}</td><td>${esc(b.hotel.name)} <span class="tl">${esc(b.room.name)}</span><br><span class="tl">${esc(b.bookerName)} · ${b.nights} night(s)</span></td><td class="r">${rupiah(Number(b.totalPrice)).replace("Rp", "").trim()}</td></tr>`).join("");
   res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Tagihan ${inv.number} — Miruum</title><style>${DOC_CSS}</style></head><body>
-<div class="doc"><div class="hd">
-  <div class="logo-plate"><img src="${PUBLIC_ORIGIN}/static/logo.png" alt="Miruum"></div>
-  <div class="kind" style="margin-top:14px">Tagihan / Invoice Korporat</div>
-  <h1>${inv.number}</h1>
-  <div class="sub">Terbit ${fmtShort(inv.createdAt)}${inv.dueDate ? ` · Jatuh tempo ${fmtShort(inv.dueDate)}` : ""}</div>
-  <span class="badge ${paid ? "ok" : "wait"}">${paid ? "LUNAS" : inv.status === "CANCELLED" ? "DIBATALKAN" : "BELUM DIBAYAR"}</span>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Corporate Invoice ${inv.number} — Miruum</title><style>${VCSS}</style></head><body>
+<div class="vdoc">
+  <div class="nbhd">${vLogo()}<div style="text-align:right"><h1 class="nbtitle">CORPORATE INVOICE</h1><div class="nbtime">Time : ${fmtShort(inv.createdAt)}${inv.dueDate ? ` · Due : ${fmtShort(inv.dueDate)}` : ""}</div></div></div>
+  ${paid ? `<div class="watermark">PAID</div>` : ""}
+  <div class="bkid2"><div class="l">Invoice No.</div><div class="c">${esc(inv.number)}</div></div>
+  <div class="thinbar"></div>
+  <div class="gbar">Billed To <span class="tl">Ditagihkan kepada</span></div>
+  <div class="two">
+    <div><div class="kvp"><span class="kk">Company</span><span class="vv">: ${esc(inv.corporate.name)}</span></div>
+      ${inv.corporate.taxId ? `<div class="kvp"><span class="kk">NPWP</span><span class="vv">: ${esc(inv.corporate.taxId)}</span></div>` : ""}</div>
+    <div><div class="kvp"><span class="kk">Address</span><span class="vv">: ${esc(inv.corporate.address ?? "-")}</span></div>
+      <div class="kvp"><span class="kk">Status</span><span class="vv">: ${paid ? "PAID" : inv.status === "CANCELLED" ? "CANCELLED" : "UNPAID"}</span></div></div>
+  </div>
+  <div class="gbar">Booking Details <span class="tl">Rincian Pemesanan</span> (${inv.bookingsCount})</div>
+  <table class="rtbl" style="margin-top:6px">
+    <tr><th>No</th><th>Code</th><th>Hotel / Guest</th><th class="r">Total (Rp)</th></tr>
+    ${rows}
+    <tr class="tot"><td colspan="3">Total Amount <span class="tl">Total Tagihan</span></td><td class="r">${rupiah(Number(inv.amount)).replace("Rp", "").trim()}</td></tr>
+  </table>
+  ${inv.note ? `<div class="reqbox" style="margin-top:12px">${esc(inv.note)}</div>` : ""}
+  <div style="font-size:11px;color:#8a8f98;margin-top:8px">Mohon lakukan pembayaran sebelum jatuh tempo. <span class="tl">Please settle before the due date.</span> Diterbitkan elektronik oleh Miruum, sah tanpa tanda tangan.</div>
+  <div class="vfoot">${V_BADGES}${V_CS}</div>
+  ${V_WAVE}
 </div>
-<div class="bd">
-  <div class="sec" style="margin-top:0">Ditagihkan kepada</div>
-  <div style="font-weight:700">${inv.corporate.name}</div>
-  <div class="muted" style="color:#8a8f98;font-size:12px">${inv.corporate.address ?? ""}${inv.corporate.taxId ? `<br>NPWP: ${inv.corporate.taxId}` : ""}</div>
-  <div class="sec">Rincian Pemesanan (${inv.bookingsCount})</div>
-  <table class="items">${rows}</table>
-  <div class="tot"><span>Total Tagihan</span><span>${rupiah(Number(inv.amount))}</span></div>
-  ${inv.note ? `<div class="muted" style="font-size:12px;margin-top:10px">${inv.note}</div>` : ""}
-  <div class="foot">Mohon lakukan pembayaran sebelum jatuh tempo. Diterbitkan elektronik oleh Miruum, sah tanpa tanda tangan.<br>miruum.id · support@miruum.id</div>
-</div></div>
-<div class="actions"><button class="pbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
+<div class="vact"><button class="vbtn" onclick="window.print()">Cetak / Simpan PDF</button></div>
 </body></html>`);
 });
 
