@@ -32,6 +32,24 @@
     </div>
     <p class="muted" style="font-size:11.5px;margin-top:4px">Konversi harga Hotelbeds (EUR/USD) → rupiah. Kosongkan tabel = pakai kurs bawaan. Buffer % menyerap fluktuasi kurs. Tidak memengaruhi harga DIRECT/B2C/B2B.</p>
 
+    <label style="margin-top:18px">Kebijakan Multi-sumber (hotel direct + sub-agent)</label>
+    <div class="row2">
+      <div>
+        <label style="margin-top:0;font-size:12px">Parity Guard</label>
+        <% var pm = settings.supplyParityMode || 'PROTECT'; %>
+        <select name="supplyParityMode" style="max-width:100%">
+          <option value="PROTECT" <%= pm==='PROTECT'?'selected':'' %>>PROTECT — sembunyikan rate bedbank di bawah harga direct (lindungi mitra)</option>
+          <option value="TRANSPARENT" <%= pm==='TRANSPARENT'?'selected':'' %>>TRANSPARENT — tampilkan semua harga (termurah menang)</option>
+          <option value="DIRECT_FIRST" <%= pm==='DIRECT_FIRST'?'selected':'' %>>DIRECT_FIRST — bedbank hanya saat direct kosong</option>
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0;font-size:12px">Markup Jual Bedbank (%)</label>
+        <input name="bedbankMarkupPct" type="number" min="0" max="60" step="1" value="<%= settings.bedbankMarkupPct %>" placeholder="mis. 10">
+      </div>
+    </div>
+    <p class="muted" style="font-size:11.5px;margin-top:4px">Untuk hotel yang <b>direct</b> sekaligus ada di <b>sub-agent</b>. Parity Guard mengatur bagaimana rate sub-agent diperlakukan vs harga direct. Markup = margin Miruum di atas net bedbank untuk harga jual ke tamu.</p>
+
     <label>Mata Uang</label>
     <input name="currency" value="<%= settings.currency %>">
 

@@ -183,6 +183,11 @@ class Api {
   Future<Map<String, dynamic>> supplyBook(Map<String, dynamic> body) async =>
       (await _post('/supply/book', body)) as Map<String, dynamic>;
 
+  // Merged rate list (direct + sub-agent/bedbank) for a stay. Bedbank rows carry
+  // a `rateKey`; direct rows carry `roomId`. Source is hidden by the server.
+  Future<List<dynamic>> hotelRates(String id, {required String checkIn, required String checkOut, int adults = 2, int rooms = 1}) async =>
+      ((await _get('/hotels/$id/rates', {'checkIn': checkIn, 'checkOut': checkOut, 'adults': adults, 'rooms': rooms}))['rates'] as List?) ?? [];
+
   /// Corporate portal: account + stats + recent bookings.
   Future<Map<String, dynamic>> corporateOverview() async =>
       (await _get('/corporate/overview')) as Map<String, dynamic>;

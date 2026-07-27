@@ -169,7 +169,7 @@ class Hotel {
   final int reviewCount, priceFrom, starRating;
   final int? priceBefore;
   final bool isPromo;
-  final String? promoLabel, description, checkInInfo, checkOutInfo;
+  final String? promoLabel, description, checkInInfo, checkOutInfo, bedbankCode;
   final List<String> photos;
   final List<Facility> facilities;
   final List<Room> rooms;
@@ -185,7 +185,7 @@ class Hotel {
     required this.id, required this.name, required this.city, required this.address,
     required this.imageUrl, required this.rating, required this.reviewCount,
     required this.priceFrom, required this.starRating, required this.isPromo, this.priceBefore,
-    this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo,
+    this.promoLabel, this.description, this.checkInInfo, this.checkOutInfo, this.bedbankCode,
     this.photos = const [], this.facilities = const [], this.rooms = const [], this.reviews = const [],
     this.channel, this.offers = const [], this.lat, this.lng,
     this.propertyType = 'HOTEL', this.nearby = const [], this.reviewScores = const {},
@@ -197,7 +197,7 @@ class Hotel {
         reviewCount: j['reviewCount'] ?? 0, priceFrom: j['priceFrom'] ?? 0, priceBefore: j['priceBefore'],
         starRating: j['starRating'] ?? 3, isPromo: j['isPromo'] ?? false,
         promoLabel: j['promoLabel'], description: j['description'],
-        checkInInfo: j['checkInInfo'], checkOutInfo: j['checkOutInfo'],
+        checkInInfo: j['checkInInfo'], checkOutInfo: j['checkOutInfo'], bedbankCode: j['bedbankCode'],
         photos: (j['photos'] as List?)?.map((p) => p is String ? p : p['url'] as String).toList() ?? [],
         facilities: (j['facilities'] as List?)?.map((f) => Facility.fromJson(f)).toList() ?? [],
         rooms: (j['rooms'] as List?)?.map((r) => Room.fromJson(r)).toList() ?? [],
