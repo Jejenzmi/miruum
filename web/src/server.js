@@ -229,6 +229,16 @@ app.post("/admin/rooms/:id/delete", adminGuard, async (req, res) => {
   } catch (e) { res.redirect(`/admin/hotels/${req.body.hotelId}/edit?err=` + encodeURIComponent(e.message) + `#kamar`); }
 });
 
+// Admin: link a direct hotel to its Hotelbeds (sub-agent) code + auto-match.
+app.post("/admin/hotels/:id/bedbank-map", adminGuard, async (req, res) => {
+  try { await api(`/admin/hotels/${req.params.id}/bedbank-map`, { method: "PUT", token: res.locals.token, body: { bedbankCode: req.body.bedbankCode } }); } catch (_) {}
+  res.redirect(`/admin/hotels/${req.params.id}/edit?saved=1#bedbank`);
+});
+app.get("/admin/hotels/:id/bedbank-suggest", adminGuard, async (req, res) => {
+  try { const r = await api(`/admin/hotels/${req.params.id}/bedbank-suggest`, { token: res.locals.token }); res.json(r); }
+  catch (e) { res.json({ candidates: [], note: e.message }); }
+});
+
 // Admin: categorized + per-room photo management (mirrors the Extranet, admin token).
 app.post("/admin/hotels/:id/photos", adminGuard, upload.array("photos", 20), async (req, res) => {
   try {

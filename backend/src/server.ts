@@ -767,6 +767,14 @@ app.post("/api/supply/search", async (req, res) => {
     if (h.maxRate != null) h.maxRateIdr = fx(h.maxRate, h.currency);
     for (const rm of h.rooms || []) rm.netIdr = fx(rm.net, h.currency);
   }
+  // Dedup flag: mark externals that map to a DIRECT hotel (same physical property)
+  // so the client shows ONE card (the direct one) instead of a duplicate.
+  const codes = external.map((h) => h.supplierHotelCode).filter(Boolean);
+  if (codes.length) {
+    const mapped = await prisma.hotel.findMany({ where: { bedbankCode: { in: codes }, source: "DIRECT" }, select: { id: true, slug: true, bedbankCode: true } });
+    const byCode = new Map(mapped.map((m) => [m.bedbankCode!, m]));
+    for (const h of external) { const m = byCode.get(h.supplierHotelCode); if (m) { h.mappedDirectId = m.id; h.mappedDirectSlug = m.slug; } }
+  }
   res.json({ external, externalConfigured: true, sources: providers.map((pr) => pr.code), errors });
 });
 
@@ -3812,6 +3820,49 @@ app.delete("/api/admin/hotels/:id", requireRole("ADMIN"), async (req, res) => {
   await invalidate("miruum:");
   audit(req, "hotel.delete", "Hotel", req.params.id);
   res.json({ ok: true });
+});
+
+// ─────── Direct ↔ Sub-agent (Hotelbeds) property mapping ───────
+// Link a DIRECT hotel to its Hotelbeds code (same physical property) so search
+// can dedup to one card and the detail can merge rates from both sources.
+app.put("/api/admin/hotels/:id/bedbank-map", requireRole("ADMIN"), async (req, res) => {
+  const code = String(req.body?.bedbankCode ?? "").trim() || null;
+  const hotel = await prisma.hotel.update({ where: { id: req.params.id }, data: { bedbankCode: code } });
+  await invalidate("miruum:");
+  audit(req, "hotel.bedbankMap", "Hotel", hotel.id, { bedbankCode: code });
+  res.json({ ok: true, bedbankCode: hotel.bedbankCode });
+});
+
+// Auto-match suggestions: find Hotelbeds hotels near this direct hotel's GPS,
+// ranked by name similarity + distance, for the admin to confirm a mapping.
+app.get("/api/admin/hotels/:id/bedbank-suggest", requireRole("ADMIN"), async (req, res) => {
+  const h = await prisma.hotel.findUnique({ where: { id: req.params.id }, select: { name: true, city: true, lat: true, lng: true } });
+  if (!h) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  if (h.lat == null || h.lng == null) return res.json({ candidates: [], note: "Hotel belum punya titik GPS (lat/lng). Set lokasi peta dulu untuk auto-match." });
+  const prov = supplyProvider("HOTELBEDS");
+  if (!(await prov.configured())) return res.json({ candidates: [], note: "Hotelbeds belum dikonfigurasi di Integrasi." });
+  // Dummy stay ~30 days out (1 night, 2 adults) just to enumerate nearby hotels.
+  const d = new Date(Date.now() + 30 * 86400_000);
+  const ci = d.toISOString().slice(0, 10);
+  const co = new Date(d.getTime() + 86400_000).toISOString().slice(0, 10);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\b(hotel|the|by|resort|inn|jakarta|bali|bandung)\b/g, "").replace(/\s+/g, " ").trim();
+  const tokens = (s: string) => new Set(norm(s).split(" ").filter(Boolean));
+  const sim = (a: string, b: string) => { const A = tokens(a), B = tokens(b); if (!A.size || !B.size) return 0; let inter = 0; A.forEach((t) => { if (B.has(t)) inter++; }); return inter / Math.max(A.size, B.size); };
+  try {
+    const results = await prov.search({ geo: { latitude: h.lat, longitude: h.lng, radiusKm: 2 }, stay: { checkIn: ci, checkOut: co }, occupancies: [{ rooms: 1, adults: 2, children: 0 }] });
+    const fx = await fxConverter();
+    const candidates = results.map((r) => ({
+      supplierHotelCode: r.supplierHotelCode, name: r.name, category: r.categoryName, zone: r.zoneName,
+      distanceKm: (r.latitude != null && r.longitude != null) ? Math.round(havKm(h.lat!, h.lng!, r.latitude, r.longitude) * 100) / 100 : null,
+      nameScore: Math.round(sim(h.name, r.name) * 100),
+      minRateIdr: r.minRate != null ? fx(r.minRate, r.currency) : null,
+    }))
+      .sort((a, b) => (b.nameScore - a.nameScore) || ((a.distanceKm ?? 99) - (b.distanceKm ?? 99)))
+      .slice(0, 12);
+    res.json({ candidates, hotel: { name: h.name, city: h.city } });
+  } catch (e: any) {
+    res.json({ candidates: [], note: `Gagal mencari kandidat: ${e.message}` });
+  }
 });
 
 // Re-pull rate & availability from every supply source.

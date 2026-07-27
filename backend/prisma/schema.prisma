@@ -426,6 +426,7 @@ model Hotel {
   foreignMarkupPct Int? // per-hotel foreign (WNA) markup %; null = use global setting
   source      String   @default("DIRECT") // DIRECT (own inventory) | HOTELBEDS (external bedbank cache)
   supplierHotelCode String? // provider hotel id when source != DIRECT
+  bedbankCode String?  // for a DIRECT hotel: the Hotelbeds hotel code it maps to (same physical property) → dedup + merge rates
   @@index([source])
   rateShopFreq Int     @default(0) // Miruum Intelligent auto rate-check: 0=off, 1/2/3 per day
   rateShoppedAt DateTime?          // last AI rate-shop for this hotel

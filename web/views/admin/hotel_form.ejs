@@ -179,6 +179,17 @@
   </div>
 </div>
 
+<div class="card" id="bedbank" style="max-width:720px">
+  <h2 style="margin:0 0 4px">Tautkan ke Sub-agent (Bedbank)</h2>
+  <p class="muted" style="margin-top:0;font-size:12px">Jika hotel direct ini juga ada di Hotelbeds, tautkan <b>kode Hotelbeds</b>-nya. Sistem akan <b>menyatukan jadi 1 kartu</b> di pencarian (dedup) dan menggabungkan harga di detail (Increment berikutnya). Gunakan <b>Cari kandidat</b> untuk pencocokan otomatis via nama + GPS.</p>
+  <form method="post" action="/admin/hotels/<%= hotel.id %>/bedbank-map" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+    <div><label style="margin:0 0 4px">Kode Hotelbeds</label><input id="bbCode" name="bedbankCode" value="<%= hotel.bedbankCode || '' %>" placeholder="mis. 108108" style="max-width:200px"></div>
+    <button class="btn sm">Simpan Tautan</button>
+    <button type="button" class="btn ghost sm" id="bbSuggest" data-id="<%= hotel.id %>">🔎 Cari kandidat</button>
+  </form>
+  <div id="bbResults" style="margin-top:10px"></div>
+</div>
+
 <div class="card" id="foto" style="max-width:720px">
   <h2 style="margin:0 0 4px">Foto Hotel (berkategori)</h2>
   <p class="muted" style="margin-top:0;font-size:12px">Bantu mitra melengkapi galeri. Foto dipisah per kategori (Gedung, Lobby, Kamar, dll) &amp; bisa unggah banyak sekaligus. Foto khusus kamar diatur di kartu <b>Kamar</b> di atas.</p>
@@ -199,6 +210,32 @@
       if(window.mToast) window.mToast('error','Wilayah wajib dipilih — properti tidak akan muncul di pencarian area.');
       var prov=f.querySelector('.rp-prov'); if(prov){ prov.focus(); prov.scrollIntoView({behavior:'smooth',block:'center'}); }
     }
+  });
+})();
+// Bedbank auto-match suggestions
+(function(){
+  var btn=document.getElementById('bbSuggest'); if(!btn) return;
+  var box=document.getElementById('bbResults'), input=document.getElementById('bbCode');
+  btn.addEventListener('click', function(){
+    box.innerHTML='<span class="muted" style="font-size:12px">Mencari kandidat di Hotelbeds…</span>';
+    fetch('/admin/hotels/'+btn.dataset.id+'/bedbank-suggest',{headers:{'accept':'application/json'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.note){ box.innerHTML='<div class="muted" style="font-size:12px">'+d.note+'</div>'; }
+        var c=d.candidates||[];
+        if(!c.length){ if(!d.note) box.innerHTML='<div class="muted" style="font-size:12px">Tidak ada kandidat ditemukan.</div>'; return; }
+        var html='<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Kandidat (nama + jarak GPS):</div>';
+        c.forEach(function(x){
+          var rp = x.minRateIdr!=null ? ' · dari Rp '+Number(x.minRateIdr).toLocaleString('id-ID') : '';
+          html+='<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px">'
+            +'<div style="flex:1"><b>'+(x.name||'-')+'</b> <span class="muted">('+(x.category||'')+')</span><br>'
+            +'<span class="muted">kode '+x.supplierHotelCode+(x.distanceKm!=null?(' · '+x.distanceKm+' km'):'')+' · kecocokan nama '+(x.nameScore||0)+'%'+rp+'</span></div>'
+            +'<button type="button" class="btn sm" data-code="'+x.supplierHotelCode+'">Pakai</button></div>';
+        });
+        box.innerHTML=html;
+        box.querySelectorAll('button[data-code]').forEach(function(b){ b.addEventListener('click', function(){ input.value=b.dataset.code; input.scrollIntoView({behavior:'smooth',block:'center'}); if(window.mToast) window.mToast('success','Kode terisi — klik Simpan Tautan.'); }); });
+      })
+      .catch(function(){ box.innerHTML='<div class="muted" style="font-size:12px">Gagal memuat kandidat.</div>'; });
   });
 })();
 </script>

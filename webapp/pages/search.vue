@@ -219,8 +219,13 @@ const externalHotels = computed<any[]>(() => ((extData.value as any)?.external |
 function starOf(cat?: string): number { const m = /([1-5])/.exec(cat || ''); return m ? Number(m[1]) : 3 }
 
 // Merged list — external appended so filters/sort on DIRECT still behave; both
-// render through the identical HotelCard with no source hint.
-const hotels = computed<any[]>(() => [...directHotels.value, ...externalHotels.value])
+// render through the identical HotelCard with no source hint. Dedup: drop a
+// bedbank hotel that maps to a DIRECT hotel already in the results (one card).
+const hotels = computed<any[]>(() => {
+  const directIds = new Set(directHotels.value.map((h: any) => h.id))
+  const ext = externalHotels.value.filter((h: any) => !(h._raw?.mappedDirectId && directIds.has(h._raw.mappedDirectId)))
+  return [...directHotels.value, ...ext]
+})
 
 // ── Booking flow for external (live) properties ──
 const sel = ref<any>(null)
