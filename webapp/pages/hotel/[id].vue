@@ -60,7 +60,7 @@
           </div>
 
           <div class="space-y-4">
-            <div v-for="room in hotel.rooms" :key="room.id" class="card p-4">
+            <div v-for="room in sortedRooms" :key="room.id" class="card p-4">
               <div v-if="(room.photos || []).length" class="flex gap-2 overflow-x-auto pb-3 mb-1">
                 <img v-for="(ph, i) in room.photos" :key="i" :src="ph.url || ph" loading="lazy"
                      class="h-28 w-44 object-cover rounded-xl shrink-0" />
@@ -327,10 +327,13 @@ function applyCalendar(r: { checkIn: string; checkOut: string }) {
 
 function ratePlansOf(room: any) {
   const plans = (room.ratePlans || []).filter((p: any) => p.active !== false)
+    .slice().sort((a: any, b: any) => Number(a.priceDelta || 0) - Number(b.priceDelta || 0)) // cheapest first
   // `t()` is evaluated here during render, so it follows the active language.
   return plans.length ? plans : [{ id: null, name: t('Harga Standar', 'Standard Rate'), boardBasis: room.breakfast ? 'BREAKFAST' : 'ROOM_ONLY', priceDelta: 0, freeCancellation: room.freeCancellation }]
 }
 const planPrice = (room: any, plan: any) => Number(room.price) + Number(plan?.priceDelta || 0)
+// Rooms sorted by price, cheapest at the top.
+const sortedRooms = computed<any[]>(() => [...(hotel.value?.rooms || [])].sort((a, b) => Number(a.price) - Number(b.price)))
 const boardBasis = (b: string) => boardBasisLabel(b)
 
 function pick(room: any, plan: any) {

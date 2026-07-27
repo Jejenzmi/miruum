@@ -905,8 +905,8 @@ app.get("/api/hotels/:id", async (req, res) => {
     include: {
       photos: { orderBy: { sort: "asc" } },
       facilities: { include: { facility: true } },
-      rooms: { include: {
-        ratePlans: { where: { active: true }, orderBy: { sortOrder: "asc" } },
+      rooms: { orderBy: { price: "asc" }, include: { // cheapest room first
+        ratePlans: { where: { active: true }, orderBy: { priceDelta: "asc" } }, // cheapest rate plan first
         photos: { orderBy: { sort: "asc" } }, // per-room photos (shown on the room card + booking)
       } },
       reviews: { orderBy: { createdAt: "desc" }, take: 8 },
