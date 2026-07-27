@@ -44,6 +44,7 @@ class VoucherScreen extends StatelessWidget {
                         textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     Divider(height: 24, color: MC.line),
                     _row(tr('No. Pesanan', 'Order No.'), booking.code),
+                    if (booking.ratePlanName != null && booking.ratePlanName!.isNotEmpty) _row(tr('Rate Plan', 'Rate Plan'), booking.ratePlanName!),
                     _row(tr('Tanggal Transaksi', 'Transaction Date'), date),
                     if (_fmt(booking.checkIn) != null) _row(tr('Check-in', 'Check-in'), _fmt(booking.checkIn)!),
                     if (_fmt(booking.checkOut) != null) _row(tr('Check-out', 'Check-out'), _fmt(booking.checkOut)!),
