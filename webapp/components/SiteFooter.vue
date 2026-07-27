@@ -18,7 +18,7 @@
       <div>
         <h4 class="text-sm font-bold mb-3">{{ t('Bantuan', 'Help') }}</h4>
         <ul class="space-y-2 text-sm text-ink-muted">
-          <li><NuxtLink to="/content/about" class="hover:text-brand-600">{{ t('Tentang Miruum', 'About Miruum') }}</NuxtLink></li>
+          <li><NuxtLink to="/tentang-kami" class="hover:text-brand-600">{{ t('Tentang Kami', 'About Us') }}</NuxtLink></li>
           <li><NuxtLink to="/content/terms" class="hover:text-brand-600">{{ t('Syarat & Ketentuan', 'Terms & Conditions') }}</NuxtLink></li>
           <li><NuxtLink to="/content/privacy" class="hover:text-brand-600">{{ t('Kebijakan Privasi', 'Privacy Policy') }}</NuxtLink></li>
           <li><a href="mailto:support@miruum.id" class="hover:text-brand-600">support@miruum.id</a></li>
