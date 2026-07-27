@@ -2,85 +2,105 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Company Profile — Miruum · PT. Muara Mandita Indonesia</title>
 <style>
-  :root{--navy:#1C3A52;--navy2:#16303f;--gold:#FDCB3C;--o:#F08421;--ink:#25303b;--muted:#6b7178;--soft:#eef1f5;--line:#e4e7ec}
+  :root{--navy:#1C3A52;--navy2:#122736;--gold:#FDCB3C;--o:#F08421;--ink:#25303b;--muted:#6b7178;--soft:#f1f4f8;--line:#e4e7ec}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#dfe3ea;color:var(--ink);-webkit-font-smoothing:antialiased;padding:22px 12px}
-  .page{width:794px;min-height:1123px;max-width:100%;margin:0 auto 22px;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(20,30,50,.16);position:relative;overflow:hidden;padding:56px 58px 92px}
-  .logo{height:50px;display:block}
-  .kicker{color:var(--o);font-weight:800;letter-spacing:2px;font-size:12px;text-transform:uppercase}
-  h1{font-size:32px;font-weight:800;line-height:1.15;margin:8px 0}
-  h2{font-size:26px;font-weight:800;margin:0 0 6px;color:var(--navy)}
-  h3{font-size:16px;font-weight:800;margin:0 0 4px}
-  p{font-size:13.5px;line-height:1.75;color:#3a424c}
-  .lead{font-size:14.5px;line-height:1.8;color:#2b333d}
-  .muted{color:var(--muted)}
-  .divider{height:4px;width:66px;background:var(--gold);border-radius:4px;margin:10px 0 20px}
-  .sec{margin-top:30px}
-  .row{display:flex;gap:18px;flex-wrap:wrap}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  .card{background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .page{width:794px;min-height:1123px;max-width:100%;margin:0 auto 22px;background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(20,30,50,.16);position:relative;overflow:hidden;padding:56px 60px 96px}
+  .brandbar{position:absolute;top:0;left:0;right:0;height:8px;background:linear-gradient(90deg,var(--o),var(--gold))}
+  .logo{height:48px;display:block}
+  .headrow{display:flex;justify-content:space-between;align-items:center}
+  .webtag{font-size:11px;letter-spacing:2px;color:var(--muted);font-weight:700}
+  .kicker{color:var(--o);font-weight:800;letter-spacing:2.5px;font-size:12px;text-transform:uppercase}
+  h1{font-size:30px;font-weight:800;line-height:1.15;margin:8px 0;color:var(--navy)}
+  h2{font-size:24px;font-weight:800;color:var(--navy);line-height:1.2}
+  h2 .en{color:var(--muted);font-weight:600;font-size:15px;font-style:italic}
+  h3{font-size:15.5px;font-weight:800;margin:0 0 4px}
+  .divider{height:4px;width:66px;background:var(--gold);border-radius:4px;margin:12px 0 20px}
+  p{font-size:13px;line-height:1.75;color:#39424d;text-align:justify;text-justify:inter-word;hyphens:auto}
+  .sec{margin-top:28px}
+  .bi{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:6px}
+  .bi .lang{font-size:10.5px;letter-spacing:1.5px;font-weight:800;color:var(--o);margin-bottom:5px}
+  .bi .en .lang{color:#9aa1ab}
+  .bi .en p{color:#5c646d}
+  .row{display:flex;gap:16px;flex-wrap:wrap}
+  .card{flex:1;min-width:220px;background:var(--soft);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
   .card .ic{font-size:24px;display:block;margin-bottom:8px}
-  .goldbox{background:var(--gold);border-radius:16px;padding:22px 24px;color:#3a2f08}
-  .goldbox h2{color:#3a2f08}
-  .navybox{background:var(--navy);color:#fff;border-radius:16px;padding:22px 24px}
-  .navybox .k{font-size:11px;color:#9fc0d6}.navybox .v{font-weight:800;font-size:15px}
+  .card p{font-size:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .chip{display:inline-block;background:#fff3e8;color:#b5670f;border:1px solid #f3d8b4;border-radius:20px;padding:6px 13px;font-size:12px;font-weight:700;margin:0 6px 8px 0}
   .li{display:flex;gap:11px;align-items:flex-start;margin:9px 0}
   .li .b{flex:0 0 22px;height:22px;border-radius:7px;background:var(--o);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
-  .li .t{font-size:13.5px;line-height:1.6}
-  .foot{position:absolute;left:58px;right:58px;bottom:30px;display:flex;justify-content:space-between;align-items:flex-end;z-index:2;font-size:11px;color:var(--muted);letter-spacing:.5px}
-  .brandbar{position:absolute;top:0;left:0;right:0;height:8px;background:linear-gradient(90deg,var(--o),var(--gold))}
-  /* cover */
-  .cover{padding:0;display:flex}
-  .cover .left{width:42%;background:linear-gradient(180deg,#c9d2da,#8f9aa4);position:relative}
-  .cover .left img{width:100%;height:100%;object-fit:cover;opacity:.9}
-  .cover .right{flex:1;background:var(--navy);color:#fff;position:relative;padding:0}
-  .cover .goldblock{position:absolute;top:0;right:0;width:58%;height:230px;background:var(--gold)}
-  .cover .logowrap{position:absolute;top:150px;left:44px;right:44px;background:var(--navy);padding:26px 30px;border-radius:6px;z-index:2}
-  .cover .logowrap img{height:88px;display:block;margin:0 auto}
-  .cover .addr{position:absolute;bottom:70px;left:44px;right:44px;text-align:right}
-  .cover .addr .co{font-size:22px;font-weight:800}
-  .cover .addr .ad{font-size:12px;color:#bcd0de;letter-spacing:1px;margin-top:6px;line-height:1.7}
-  .headrow{display:flex;justify-content:space-between;align-items:center}
-  .webtag{font-size:11px;letter-spacing:2px;color:var(--muted);font-weight:700}
+  .li .t{font-size:12.5px;line-height:1.55;text-align:left}
+  .li .t b{font-weight:800}.li .t .e{color:#8a919b;font-style:italic}
+  .navybox{background:var(--navy);color:#fff;border-radius:16px;padding:22px 26px}
+  .navybox .k{font-size:10.5px;color:#9fc0d6;letter-spacing:1px}.navybox .v{font-weight:800;font-size:15px}
+  .navybox p{color:#d6e4ee;text-align:justify}
+  .foot{position:absolute;left:60px;right:60px;bottom:30px;display:flex;justify-content:space-between;align-items:flex-end;z-index:2;font-size:10.5px;color:var(--muted);letter-spacing:.5px}
+  /* ── Cover (clean, original) ── */
+  .cover{padding:0;background:radial-gradient(120% 80% at 80% 0%,#26506e 0%,var(--navy) 45%,var(--navy2) 100%);color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+  .cover .ring{position:absolute;border-radius:50%;border:1.5px solid rgba(253,203,60,.18)}
+  .cover .r1{width:520px;height:520px;top:-160px;right:-160px}
+  .cover .r2{width:340px;height:340px;top:-70px;right:-70px;border-color:rgba(240,132,33,.22)}
+  .cover .r3{width:240px;height:240px;bottom:120px;left:-90px;border-color:rgba(255,255,255,.10)}
+  .cover .plate{background:#fff;border-radius:16px;padding:22px 34px;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:2}
+  .cover .plate img{height:92px;display:block}
+  .cover .kick{color:var(--gold);letter-spacing:5px;font-size:14px;font-weight:800;margin-top:34px;z-index:2}
+  .cover h1{color:#fff;font-size:30px;margin:14px 0 6px;z-index:2}
+  .cover .tag{color:#cdd8e2;font-size:14px;line-height:1.7;max-width:520px;z-index:2}
+  .cover .tag .en{display:block;color:#8fa6b8;font-style:italic;font-size:12.5px;margin-top:6px}
+  .cover .base{position:absolute;bottom:0;left:0;right:0;z-index:2}
+  .cover .baseinfo{display:flex;justify-content:space-between;padding:0 54px 34px;font-size:11px;letter-spacing:1.5px;color:#a9bccb}
   @page{size:A4;margin:0}
   @media print{body{background:#fff;padding:0}.page{box-shadow:none;border-radius:0;margin:0;width:210mm;min-height:297mm;page-break-after:always}.pbtn{display:none}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   .pbtn{position:fixed;right:18px;bottom:18px;z-index:99;background:var(--o);color:#fff;border:none;border-radius:26px;padding:13px 22px;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 8px 22px rgba(240,132,33,.45)}
-  @media(max-width:560px){.page{padding:30px 22px 80px}.grid2{grid-template-columns:1fr}.cover{flex-direction:column}.cover .left{width:100%;height:200px}}
+  @media(max-width:560px){.page{padding:30px 22px 80px}.bi,.grid2{grid-template-columns:1fr}.cover .plate img{height:64px}}
 </style></head>
 <body>
 
-<!-- ══════════ PAGE 1 — COVER ══════════ -->
+<!-- ══════════ PAGE 1 — COVER (clean & original) ══════════ -->
 <section class="page cover">
-  <div class="left"><img src="https://api.miruum.id/static/logo.png" style="object-fit:none;background:#e7ebef" alt=""></div>
-  <div class="right">
-    <div class="goldblock"></div>
-    <div class="logowrap">
-      <div style="background:#fff;border-radius:10px;padding:16px 20px"><img src="https://api.miruum.id/static/logo.png" alt="Miruum"></div>
-    </div>
-    <div class="addr">
-      <div class="co">PT. Muara Mandita Indonesia</div>
-      <div class="ad">GRIYA D'ROS 2ND FL. TEBET UTARA #34<br>SOUTH JAKARTA — INDONESIA 12820</div>
-    </div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="plate"><img src="https://api.miruum.id/static/logo.png" alt="Miruum"></div>
+  <div class="kick">COMPANY PROFILE</div>
+  <h1>PT. Muara Mandita Indonesia</h1>
+  <div class="tag">Dari hotel mewah sampai budget, semua ada di Miruum.
+    <span class="en">From luxury to budget hotels — everything is on Miruum.</span></div>
+  <div class="base">
+    <svg viewBox="0 0 794 120" preserveAspectRatio="none" style="width:100%;height:120px;display:block"><path d="M0 60 C150 18,300 96,470 64 C620 36,720 86,794 52 L794 120 L0 120 Z" fill="#F08421" opacity=".92"/><path d="M0 84 C160 52,320 104,500 84 C660 66,740 96,794 76 L794 120 L0 120 Z" fill="#FDCB3C" opacity=".55"/></svg>
+    <div class="baseinfo" style="position:absolute;bottom:0;left:0;right:0;color:#3a2f08"><span>WWW.MIRUUM.ID</span><span>EST. 2021 · JAKARTA, INDONESIA</span></div>
   </div>
 </section>
 
-<!-- ══════════ PAGE 2 — OUR BACKGROUND + OUR SERVICE ══════════ -->
+<!-- ══════════ PAGE 2 — LATAR BELAKANG ══════════ -->
 <section class="page">
   <div class="brandbar"></div>
   <div class="headrow"><img class="logo" src="https://api.miruum.id/static/logo.png" alt="Miruum"><span class="webtag">WWW.MIRUUM.ID</span></div>
 
   <div class="sec">
-    <h2>Our Background</h2>
+    <div class="kicker">Tentang Kami · About Us</div>
+    <h2 style="margin-top:8px">Latar Belakang <span class="en">/ Our Background</span></h2>
     <div class="divider"></div>
-    <p class="lead">Sejak berdiri pada <b>tahun 2021</b>, dengan founder asal Indonesia <b>Bapak Iman R. Soegandono</b>, <b>PT. Muara Mandita Indonesia</b> membangun Miruum bersama tim — dan kini dikenal atas komitmen tanpa banding terhadap kepuasan pelanggan dengan layanan <i>hospitality</i> yang unggul. Standar keunggulan inilah yang mendorong kami tumbuh menjadi bisnis seperti hari ini.</p>
-    <p class="lead" style="margin-top:12px">Kami percaya bahwa <b>pelanggan selalu yang utama</b> — dan itu berarti produk yang luar biasa serta layanan yang luar biasa. Hubungi kami hari ini untuk mengetahui lebih banyak tentang apa yang kami tawarkan.</p>
+    <div class="bi">
+      <div class="id"><div class="lang">BAHASA INDONESIA</div>
+        <p>Miruum adalah platform <b>Online Travel Agent (OTA)</b> yang dikembangkan oleh <b>PT. Muara Mandita Indonesia</b>. Berdiri sejak tahun <b>2021</b> dengan founder asal Indonesia, <b>Bapak Iman R. Soegandono</b>, Miruum lahir dari komitmen terhadap kepuasan pelanggan dan layanan perhotelan yang unggul.</p>
+        <p style="margin-top:10px">Standar keunggulan inilah yang mendorong kami tumbuh menjadi bisnis seperti hari ini. Kami percaya bahwa <b>pelanggan selalu yang utama</b> — dan itu berarti produk yang luar biasa serta layanan yang luar biasa.</p></div>
+      <div class="en"><div class="lang">ENGLISH</div>
+        <p>Miruum is an <b>Online Travel Agent (OTA)</b> platform developed by <b>PT. Muara Mandita Indonesia</b>. Established in <b>2021</b> by its Indonesian founder, <b>Mr. Iman R. Soegandono</b>, Miruum was born from a commitment to customer satisfaction and excellent hospitality service.</p>
+        <p style="margin-top:10px">This standard of excellence has provided the impetus for us to grow into the business we are today. We believe that <b>the customer always comes first</b> — and that means exceptional products and exceptional service.</p></div>
+    </div>
   </div>
 
-  <div class="goldbox sec">
-    <h2>Our Service</h2>
-    <h3 style="margin-top:2px">We Put Your Needs First</h3>
-    <p style="color:#4a3c10;margin-top:8px">Kami berkomitmen membantu pelanggan di setiap langkah dan menyediakan layanan yang bermanfaat untuk memenuhi semua kebutuhan mereka. Kami terus tumbuh dan memperluas pilihan layanan — jika ada yang Anda butuhkan namun belum kami sediakan, kami senang mendengarnya.</p>
+  <div class="sec">
+    <h2>Visi &amp; Misi <span class="en">/ Vision &amp; Mission</span></h2>
+    <div class="divider"></div>
+    <div class="row">
+      <div class="card"><span class="ic">🎯</span><h3>Visi · Vision</h3>
+        <p>Menjadi platform pemesanan akomodasi yang paling tepercaya, mudah, dan transparan di Indonesia.</p>
+        <p style="color:#8a919b;font-style:italic;margin-top:4px">To be the most trusted, easy, and transparent accommodation-booking platform in Indonesia.</p></div>
+      <div class="card"><span class="ic">🚀</span><h3>Misi · Mission</h3>
+        <p>Menghadirkan harga terbaik, pembayaran aman, teknologi distribusi modern untuk mitra, dan layanan pelanggan yang responsif 24/7.</p>
+        <p style="color:#8a919b;font-style:italic;margin-top:4px">To deliver the best prices, secure payments, modern distribution technology for partners, and responsive 24/7 customer service.</p></div>
+    </div>
   </div>
 
   <div class="foot"><span>PT. MUARA MANDITA INDONESIA</span><span>01</span></div>
@@ -92,31 +112,33 @@
   <div class="headrow"><img class="logo" src="https://api.miruum.id/static/logo.png" alt="Miruum"><span class="webtag">WWW.MIRUUM.ID</span></div>
 
   <div class="sec">
-    <div class="kicker">Layanan Kami</div>
-    <h2 style="font-size:28px">Solusi Perjalanan &amp; Perhotelan</h2>
+    <div class="kicker">Layanan Kami · Our Services</div>
+    <h2 style="margin-top:8px">Solusi Perjalanan &amp; Perhotelan <span class="en">/ Travel &amp; Hospitality Solutions</span></h2>
     <div class="divider"></div>
+    <div class="bi">
+      <div class="id"><div class="lang">BAHASA INDONESIA</div><p>Miruum menggabungkan inventaris langsung dari mitra hotel melalui Channel Manager kami sendiri dengan jaringan supplier global, lalu menampilkan harga terbaik yang tersedia secara otomatis kepada tamu.</p></div>
+      <div class="en"><div class="lang">ENGLISH</div><p>Miruum combines direct inventory from hotel partners via our own Channel Manager with a global supplier network, then automatically presents the best available price to guests.</p></div>
+    </div>
   </div>
 
-  <div class="grid2 sec">
-    <div class="card"><span class="ic">🏨</span>
-      <h3>Hotel Reservation</h3>
-      <p class="muted" style="font-size:12px;font-weight:700;margin:2px 0 6px">Hospitality Service</p>
-      <p style="font-size:12.5px">Layanan yang paling sering digunakan pelanggan kami dan telah menjadi kunci keberhasilan di banyak kesempatan. Untuk seluruh layanan, Anda dapat mengandalkan kami memenuhi setiap kebutuhan. Kami bangga atas layanan pelanggan yang istimewa.</p>
-    </div>
-    <div class="card"><span class="ic">🔗</span>
-      <h3>Channel Manager System</h3>
-      <p class="muted" style="font-size:12px;font-weight:700;margin:2px 0 6px">Simply System</p>
-      <p style="font-size:12.5px">Salah satu layanan terpopuler kami. Dengan sistem ini kami memastikan semua detail sederhana, mulus, dan ditangani tepat waktu — distribusi satu inventaris ke banyak OTA, anti-overbooking.</p>
-    </div>
+  <div class="row sec">
+    <div class="card"><span class="ic">🏨</span><h3>Hotel Reservation</h3>
+      <p style="font-weight:700;color:var(--muted);font-size:11.5px;margin:2px 0 6px">Hospitality Service</p>
+      <p>Layanan inti kami untuk memesan akomodasi dengan mudah dan tepercaya.</p>
+      <p style="color:#8a919b;font-style:italic;margin-top:3px">Our core service for easy, trusted accommodation booking.</p></div>
+    <div class="card"><span class="ic">🔗</span><h3>Channel Manager System</h3>
+      <p style="font-weight:700;color:var(--muted);font-size:11.5px;margin:2px 0 6px">Simply System</p>
+      <p>Distribusi satu inventaris ke banyak OTA secara host-to-host — anti-overbooking.</p>
+      <p style="color:#8a919b;font-style:italic;margin-top:3px">Host-to-host inventory distribution across many OTAs — overbooking-proof.</p></div>
   </div>
 
   <div class="sec">
-    <h3 style="color:var(--navy);font-size:15px;margin-bottom:10px">Ekosistem Miruum yang Lengkap</h3>
+    <h3 style="color:var(--navy);font-size:15px;margin-bottom:10px">Ekosistem Lengkap · Complete Ecosystem</h3>
     <div class="grid2">
-      <div class="li"><span class="b">📱</span><span class="t"><b>Aplikasi Mobile &amp; Web</b> — cari, pesan, bayar, e-voucher, loyalti.</span></div>
-      <div class="li"><span class="b">🏨</span><span class="t"><b>Extranet Mitra</b> — kelola kamar, harga, foto, kalender, promo.</span></div>
-      <div class="li"><span class="b">🛎️</span><span class="t"><b>PMS / Front Office</b> — check-in/out, housekeeping, POS.</span></div>
-      <div class="li"><span class="b">🏢</span><span class="t"><b>Corporate &amp; Government</b> — perjalanan dinas, tagihan terpusat.</span></div>
+      <div class="li"><span class="b">📱</span><span class="t"><b>Aplikasi Mobile &amp; Web</b> — cari, pesan, bayar, e-voucher, loyalti. <span class="e">Mobile &amp; web app.</span></span></div>
+      <div class="li"><span class="b">🏨</span><span class="t"><b>Extranet Mitra</b> — kelola kamar, harga, foto, kalender, promo. <span class="e">Partner Extranet.</span></span></div>
+      <div class="li"><span class="b">🛎️</span><span class="t"><b>PMS / Front Office</b> — check-in/out, housekeeping, POS. <span class="e">Property management.</span></span></div>
+      <div class="li"><span class="b">🏢</span><span class="t"><b>Corporate &amp; Government</b> — perjalanan dinas, tagihan terpusat. <span class="e">Corporate travel.</span></span></div>
     </div>
     <div style="margin-top:12px"><span class="chip">Hotel</span><span class="chip">Villa</span><span class="chip">Apartemen</span><span class="chip">Homestay</span><span class="chip">Guest House</span><span class="chip">Hostel</span><span class="chip">Resort</span></div>
   </div>
@@ -124,70 +146,96 @@
   <div class="foot"><span>PT. MUARA MANDITA INDONESIA</span><span>02</span></div>
 </section>
 
-<!-- ══════════ PAGE 4 — TECHNOLOGY PARTNER + KEUNGGULAN ══════════ -->
+<!-- ══════════ PAGE 4 — UNTUK TAMU & MITRA ══════════ -->
 <section class="page">
   <div class="brandbar"></div>
   <div class="headrow"><img class="logo" src="https://api.miruum.id/static/logo.png" alt="Miruum"><span class="webtag">WWW.MIRUUM.ID</span></div>
 
   <div class="sec">
-    <div class="kicker">Kemitraan Teknologi</div>
-    <h2 style="font-size:28px">Technology Partner</h2>
+    <h2>Untuk Tamu <span class="en">/ For Guests</span></h2>
     <div class="divider"></div>
-    <div class="navybox">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:11px;color:#9fc0d6;letter-spacing:1px">DIKEMBANGKAN BERSAMA</div>
-          <div style="font-size:22px;font-weight:800;margin-top:3px">PT. Zen Multimedia Indonesia</div>
-        </div>
-        <div style="background:var(--gold);color:#3a2f08;font-weight:800;font-size:12px;padding:8px 14px;border-radius:20px">Technology Partner</div>
-      </div>
-      <p style="color:#d6e4ee;font-size:13px;line-height:1.7;margin-top:12px">Platform Miruum — mulai dari aplikasi mobile, website, Channel Manager, hingga Extranet mitra — dibangun melalui <b style="color:#fff">kolaborasi teknologi dengan PT. Zen Multimedia Indonesia</b> sebagai mitra pengembangan (partnership). Kolaborasi ini menghadirkan sistem OTA yang andal, aman, dan siap tumbuh.</p>
+    <div class="grid2">
+      <div class="li"><span class="b">✓</span><span class="t"><b>Harga terbaik otomatis.</b> <span class="e">Best price, automatically.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Pembayaran aman</b> — VA, e-wallet, QRIS. <span class="e">Secure payments.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>E-voucher instan.</b> <span class="e">Instant e-voucher.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Ulasan terverifikasi.</b> <span class="e">Verified reviews.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Loyalti &amp; voucher.</b> <span class="e">Loyalty &amp; vouchers.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Live Chat CS 24/7.</b> <span class="e">24/7 live chat support.</span></span></div>
     </div>
   </div>
 
   <div class="sec">
-    <h3 style="color:var(--navy);font-size:16px;margin-bottom:8px">Mengapa Miruum</h3>
+    <h2>Untuk Mitra Properti <span class="en">/ For Property Partners</span></h2>
+    <div class="divider"></div>
     <div class="grid2">
-      <div class="li"><span class="b">✓</span><span class="t"><b>Harga terbaik otomatis</b> — bandingkan semua sumber.</span></div>
-      <div class="li"><span class="b">✓</span><span class="t"><b>Pembayaran aman</b> — VA bank, e-wallet, QRIS (terenkripsi).</span></div>
-      <div class="li"><span class="b">✓</span><span class="t"><b>Gratis untuk mitra</b> — komisi hanya saat ada pesanan.</span></div>
-      <div class="li"><span class="b">✓</span><span class="t"><b>Anti-overbooking</b> — distribusi host-to-host.</span></div>
-      <div class="li"><span class="b">✓</span><span class="t"><b>Perlindungan data</b> — kepatuhan UU PDP &amp; anti-fraud.</span></div>
-      <div class="li"><span class="b">✓</span><span class="t"><b>Dukungan 24/7</b> — untuk tamu &amp; mitra.</span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Gratis mendaftar</b> — komisi hanya saat ada pesanan. <span class="e">Free to join.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Extranet lengkap.</b> <span class="e">Full Extranet.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Channel Manager</b> — anti-overbooking. <span class="e">Overbooking-proof.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Pembayaran tepat waktu.</b> <span class="e">On-time payouts.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Analitik &amp; Miruum Intelligent.</b> <span class="e">Analytics &amp; rate intelligence.</span></span></div>
+      <div class="li"><span class="b">✓</span><span class="t"><b>Dukungan mitra.</b> <span class="e">Partner support.</span></span></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Teknologi &amp; Keamanan <span class="en">/ Technology &amp; Security</span></h2>
+    <div class="divider"></div>
+    <div class="grid2">
+      <div class="li"><span class="b">•</span><span class="t"><b>Inventaris real-time</b> &amp; distribusi host-to-host. <span class="e">Real-time inventory.</span></span></div>
+      <div class="li"><span class="b">•</span><span class="t"><b>Proteksi anti-fraud.</b> <span class="e">Anti-fraud protection.</span></span></div>
+      <div class="li"><span class="b">•</span><span class="t"><b>Kepatuhan UU PDP.</b> <span class="e">Data-privacy compliant.</span></span></div>
+      <div class="li"><span class="b">•</span><span class="t"><b>Rekonsiliasi &amp; auto-settlement.</b> <span class="e">Reconciliation &amp; settlement.</span></span></div>
     </div>
   </div>
 
   <div class="foot"><span>PT. MUARA MANDITA INDONESIA</span><span>03</span></div>
 </section>
 
-<!-- ══════════ PAGE 5 — GET IN TOUCH ══════════ -->
+<!-- ══════════ PAGE 5 — TECHNOLOGY PARTNER + KONTAK ══════════ -->
 <section class="page">
   <div class="brandbar"></div>
   <div class="headrow"><img class="logo" src="https://api.miruum.id/static/logo.png" alt="Miruum"><span class="webtag">WWW.MIRUUM.ID</span></div>
 
-  <div class="sec" style="margin-top:40px">
-    <h1 style="font-size:36px;color:var(--navy)">Get In Touch</h1>
+  <div class="sec">
+    <div class="kicker">Kemitraan Teknologi · Technology Partnership</div>
+    <h2 style="margin-top:8px">Technology Partner</h2>
     <div class="divider"></div>
-    <p class="lead" style="max-width:560px">PT. Muara Mandita Indonesia berkomitmen melampaui kebutuhan Anda. Ada pertanyaan, masukan, atau permintaan khusus? Kami senang mendengar dari Anda — jangan ragu menghubungi kami hari ini.</p>
-  </div>
-
-  <div class="navybox sec" style="margin-top:26px">
-    <div class="grid2" style="gap:14px">
-      <div><div class="k">ALAMAT</div><div class="v" style="font-size:14px;line-height:1.5">Griya D'Ros 2nd Fl. Tebet Utara #34,<br>South Jakarta — Indonesia 12820</div></div>
-      <div><div class="k">EMAIL</div><div class="v">pt.muaramandita.id@gmail.com</div>
-           <div class="k" style="margin-top:12px">WEBSITE</div><div class="v">miruum.id</div></div>
-      <div><div class="k">CUSTOMER SERVICE</div><div class="v" style="color:var(--gold)">0811 9628 286</div></div>
-      <div><div class="k">PORTAL MITRA</div><div class="v">extranet.miruum.id</div></div>
+    <div class="navybox">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <div><div class="k">DIKEMBANGKAN BERSAMA · DEVELOPED WITH</div>
+          <div style="font-size:21px;font-weight:800;margin-top:3px">PT. Zen Multimedia Indonesia</div></div>
+        <div style="background:var(--gold);color:#3a2f08;font-weight:800;font-size:12px;padding:8px 14px;border-radius:20px">Technology Partner</div>
+      </div>
+      <p style="margin-top:12px;font-size:12.5px">Platform Miruum — aplikasi mobile, website, Channel Manager, dan Extranet mitra — dibangun melalui kolaborasi teknologi dengan <b style="color:#fff">PT. Zen Multimedia Indonesia</b> sebagai mitra pengembangan.</p>
+      <p style="margin-top:8px;font-size:12px;color:#a9c3d4;font-style:italic">The Miruum platform — mobile app, website, Channel Manager, and partner Extranet — is built through a technology collaboration with <b style="color:#dfeaf1">PT. Zen Multimedia Indonesia</b> as development partner.</p>
     </div>
   </div>
 
-  <div class="sec" style="margin-top:44px;text-align:center">
-    <div style="display:inline-block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 22px"><img src="https://api.miruum.id/static/logo.png" style="height:56px;display:block" alt="Miruum"></div>
-    <p class="muted" style="margin-top:16px">Terima kasih — mari tumbuh bersama Miruum.</p>
+  <div class="sec">
+    <h2>Hubungi Kami <span class="en">/ Get In Touch</span></h2>
+    <div class="divider"></div>
+    <div class="bi">
+      <div class="id"><div class="lang">BAHASA INDONESIA</div><p>PT. Muara Mandita Indonesia berkomitmen melampaui kebutuhan Anda. Ada pertanyaan, masukan, atau permintaan khusus? Kami senang mendengar dari Anda.</p></div>
+      <div class="en"><div class="lang">ENGLISH</div><p>PT. Muara Mandita Indonesia is committed to exceeding your needs. Questions, comments, or special requests? We'd love to hear from you.</p></div>
+    </div>
+    <div class="navybox" style="margin-top:16px">
+      <div class="grid2" style="gap:14px">
+        <div><div class="k">ALAMAT · ADDRESS</div><div class="v" style="font-size:14px;line-height:1.5">Griya D'Ros 2nd Fl. Tebet Utara #34,<br>South Jakarta — Indonesia 12820</div></div>
+        <div><div class="k">EMAIL</div><div class="v">business@miruum.id</div>
+             <div class="k" style="margin-top:12px">WEBSITE</div><div class="v">miruum.id</div></div>
+        <div><div class="k">CUSTOMER SERVICE</div><div class="v" style="color:var(--gold)">0811 9628 286</div></div>
+        <div><div class="k">PORTAL MITRA · PARTNER PORTAL</div><div class="v">extranet.miruum.id</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec" style="margin-top:40px;text-align:center">
+    <div style="display:inline-block;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 22px"><img src="https://api.miruum.id/static/logo.png" style="height:54px;display:block" alt="Miruum"></div>
+    <p style="margin-top:14px;text-align:center;color:var(--muted)">Terima kasih — mari tumbuh bersama Miruum.<br><span style="font-style:italic;font-size:12px">Thank you — let's grow together with Miruum.</span></p>
   </div>
 
   <div class="foot"><span>PT. MUARA MANDITA INDONESIA · in technology partnership with PT. Zen Multimedia Indonesia</span><span>04</span></div>
 </section>
 
-<button class="pbtn" onclick="window.print()">⬇ Simpan / Cetak PDF</button>
+<button class="pbtn" onclick="window.print()">⬇ Simpan / Cetak PDF · Save / Print PDF</button>
 </body></html>
