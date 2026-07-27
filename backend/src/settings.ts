@@ -56,6 +56,8 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   // FX for external (bedbank) prices → IDR. JSON rate table + volatility buffer.
   supply_fx_rates: "",        // e.g. {"EUR":17500,"USD":16200} (empty = built-in defaults)
   supply_fx_markup_pct: "3",  // buffer % added on top of the raw FX rate
+  supplyParityMode: "PROTECT", // PROTECT (hide bedbank cheaper than direct floor) | TRANSPARENT | DIRECT_FIRST
+  bedbankMarkupPct: "10",     // Miruum selling margin added on top of bedbank net → guest price
 };
 
 let cache: Record<string, string> | null = null;

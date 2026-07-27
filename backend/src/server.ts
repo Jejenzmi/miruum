@@ -939,6 +939,80 @@ app.get("/api/hotels/:id", async (req, res) => {
   });
 });
 
+// Merged rate list for a stay: DIRECT rooms + (if mapped) live BEDBANK rates,
+// tagged by source, with row-dedup + parity-guard. Powers the "one card → all
+// prices" detail. Each row carries what's needed to route the booking.
+app.get("/api/hotels/:id/rates", async (req, res) => {
+  const hotel = await prisma.hotel.findUnique({
+    where: { id: req.params.id },
+    include: { rooms: { orderBy: { price: "asc" }, include: { ratePlans: { where: { active: true }, orderBy: { sortOrder: "asc" } } } } },
+  });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  const q = req.query as Record<string, string>;
+  const checkIn = q.checkIn, checkOut = q.checkOut;
+  const adults = Number(q.adults) || 2, children = Number(q.children) || 0, rooms = Number(q.rooms) || 1;
+  let nights = 1;
+  if (checkIn && checkOut) { const a = new Date(checkIn), b = new Date(checkOut); nights = Math.max(1, Math.round((+b - +a) / 86400000)); }
+
+  const boardLabel = (bb?: string) => ({ ROOM_ONLY: "Kamar Saja", BREAKFAST: "Sarapan", HALF_BOARD: "Half Board", FULL_BOARD: "Full Board" } as any)[bb || ""] || bb || "Kamar Saja";
+  type Rate = { source: "DIRECT" | "BEDBANK"; roomName: string; board: string; refundable: boolean; freeCancellation: boolean; pricePerNight: number; priceTotal: number; roomId?: string; ratePlanId?: string; rateKey?: string };
+  const rates: Rate[] = [];
+
+  // ── DIRECT rows ──
+  for (const r of hotel.rooms) {
+    if (r.price <= 0) continue;
+    if (r.ratePlans.length) {
+      for (const p of r.ratePlans) {
+        const per = r.price + (p.priceDelta || 0);
+        rates.push({ source: "DIRECT", roomName: r.name, board: boardLabel(p.boardBasis), refundable: p.refundable, freeCancellation: p.freeCancellation, pricePerNight: per, priceTotal: per * nights * rooms, roomId: r.id, ratePlanId: p.id });
+      }
+    } else {
+      rates.push({ source: "DIRECT", roomName: r.name, board: r.breakfast ? "Sarapan" : "Kamar Saja", refundable: r.refundable, freeCancellation: r.freeCancellation, pricePerNight: r.price, priceTotal: r.price * nights * rooms, roomId: r.id });
+    }
+  }
+  const minDirect = rates.length ? Math.min(...rates.map((x) => x.pricePerNight)) : Infinity;
+
+  // ── BEDBANK rows (same physical hotel via mapping) ──
+  let bedbankTried = false, bedbankError: string | null = null;
+  if (hotel.bedbankCode && checkIn && checkOut) {
+    const prov = supplyProvider("HOTELBEDS");
+    if (await prov.configured()) {
+      bedbankTried = true;
+      try {
+        const [results, fx, markup] = await Promise.all([
+          prov.search({ hotelCodes: [hotel.bedbankCode], stay: { checkIn, checkOut }, occupancies: [{ rooms, adults, children }] }),
+          fxConverter(), getNum("bedbankMarkupPct"),
+        ]);
+        const hb = results[0];
+        for (const rm of hb?.rooms || []) {
+          const netIdrTotal = fx(rm.net, hb.currency);
+          const totalWithMargin = Math.round(netIdrTotal * (1 + (markup || 0) / 100));
+          const per = Math.round(totalWithMargin / nights);
+          rates.push({ source: "BEDBANK", roomName: rm.name, board: rm.boardName || "Kamar Saja", refundable: rm.refundable ?? true, freeCancellation: rm.refundable ?? false, pricePerNight: per, priceTotal: totalWithMargin, rateKey: rm.rateKey });
+        }
+      } catch (e: any) { bedbankError = e.message; }
+    }
+  }
+
+  // ── Parity-guard + row dedup ──
+  const mode = (await getSettings()).supplyParityMode || "PROTECT";
+  let out = rates;
+  if (mode === "DIRECT_FIRST" && minDirect !== Infinity) {
+    out = rates.filter((x) => x.source === "DIRECT"); // bedbank only when no direct at all
+  } else if (mode === "PROTECT" && minDirect !== Infinity) {
+    // Don't let bedbank undercut the hotel's direct floor price.
+    out = rates.filter((x) => x.source === "DIRECT" || x.pricePerNight >= minDirect);
+  }
+  // Drop near-identical bedbank rows (same board+refundable, price within 2% of a direct row).
+  out = out.filter((x) => {
+    if (x.source !== "BEDBANK") return true;
+    return !out.some((d) => d.source === "DIRECT" && d.board === x.board && d.refundable === x.refundable && Math.abs(d.pricePerNight - x.pricePerNight) / Math.max(1, d.pricePerNight) < 0.02);
+  });
+  out.sort((a, b) => a.pricePerNight - b.pricePerNight);
+
+  res.json({ hotelId: hotel.id, nights, rooms, currency: "IDR", parityMode: mode, rates: out, meta: { direct: out.filter((x) => x.source === "DIRECT").length, bedbank: out.filter((x) => x.source === "BEDBANK").length, bedbankTried, bedbankError } });
+});
+
 app.get("/api/hotels/:id/reviews", async (req, res) => {
   const reviews = await prisma.review.findMany({
     where: { hotelId: req.params.id },
