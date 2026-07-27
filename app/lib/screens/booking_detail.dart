@@ -80,7 +80,7 @@ class BookingDetailScreen extends StatelessWidget {
             _row(tr('Telepon', 'Phone'), b.bookerPhone),
             if ((b.specialRequest ?? '').trim().isNotEmpty) ...[
               Divider(height: 20, color: MC.line),
-              Align(alignment: Alignment.centerLeft, child: Text(tr('Permintaan Khusus', 'Special Request'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: MC.inkMuted))),
+              Align(alignment: Alignment.centerLeft, child: Text(tr('Permintaan Khusus', 'Special Request'), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: MC.inkMuted))),
               const SizedBox(height: 4),
               Align(alignment: Alignment.centerLeft, child: Text(b.specialRequest!.trim(), style: const TextStyle(fontSize: 13, height: 1.5))),
             ],
