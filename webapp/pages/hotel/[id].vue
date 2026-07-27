@@ -102,6 +102,30 @@
           </div>
         </div>
 
+        <!-- Merged offers from other sources (sub-agent / bedbank) -->
+        <div v-if="bedbankRates.length" id="offers" class="mt-8">
+          <h2 class="font-bold text-xl mb-1">{{ t('Penawaran Lain', 'Other Offers') }}</h2>
+          <p class="text-ink-muted text-sm mb-3">{{ t('Tarif tambahan untuk hotel ini, tanggal terpilih.', 'Additional rates for this hotel, for your selected dates.') }}</p>
+          <div class="card divide-y divide-line">
+            <div v-for="(r, i) in bedbankRates" :key="i" class="flex items-center justify-between gap-3 p-4">
+              <div class="min-w-0">
+                <div class="font-semibold text-[14px] truncate">{{ r.roomName }}</div>
+                <div class="flex flex-wrap gap-1.5 mt-1">
+                  <span class="pill bg-paper text-ink-muted border border-line text-[11px]">{{ r.board }}</span>
+                  <span v-if="r.freeCancellation" class="pill bg-leaf-soft text-leaf-dark text-[11px]">{{ t('Batal Gratis', 'Free Cancellation') }}</span>
+                  <span v-else-if="r.refundable" class="pill bg-paper text-ink-muted border border-line text-[11px]">{{ t('Refundable', 'Refundable') }}</span>
+                  <span v-else class="pill bg-red-50 text-red-600 text-[11px]">{{ t('Non-refundable', 'Non-refundable') }}</span>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-brand-700 font-extrabold text-[16px]">{{ rupiah(r.pricePerNight) }}</div>
+                <div class="text-[11px] text-ink-faint mb-1">{{ t('/malam', '/night') }} · {{ t('total', 'total') }} {{ rupiah(r.priceTotal) }}</div>
+                <button @click="pickBedbank(r)" class="btn-brand btn-sm">{{ t('Pilih', 'Select') }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Reviews -->
         <div v-if="hotel.reviews?.length" class="mt-8">
           <h2 class="font-bold text-xl mb-3">{{ t('Ulasan Tamu', 'Guest Reviews') }} ({{ hotel.reviewCount }})</h2>
@@ -232,6 +256,25 @@
       </div>
     </div>
 
+    <!-- Bedbank booking (holder details) -->
+    <div v-if="bbSel" class="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" @click.self="bbSel = null">
+      <div class="card p-5 w-full max-w-md">
+        <h2 class="font-bold text-lg">{{ bbSel.roomName }}</h2>
+        <p class="text-ink-muted text-sm mb-3">{{ bbSel.board }} · <b>{{ rupiah(bbSel.priceTotal) }}</b> {{ t('total', 'total') }}</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label !mb-0.5">{{ t('Nama Depan','First name') }}</label><input v-model="holder.name" class="input !py-2 !text-sm" /></div>
+          <div><label class="label !mb-0.5">{{ t('Nama Belakang','Surname') }}</label><input v-model="holder.surname" class="input !py-2 !text-sm" /></div>
+        </div>
+        <div class="mt-2"><label class="label !mb-0.5">Email</label><input v-model="holder.email" type="email" class="input !py-2 !text-sm" /></div>
+        <div class="mt-2"><label class="label !mb-0.5">{{ t('Telepon','Phone') }}</label><input v-model="holder.phone" class="input !py-2 !text-sm" /></div>
+        <p v-if="bbErr" class="text-red-600 text-sm mt-2">{{ bbErr }}</p>
+        <div class="flex gap-2 mt-4">
+          <button @click="bbSel = null" class="btn-ghost flex-1">{{ t('Batal','Cancel') }}</button>
+          <button @click="reserveBedbank" :disabled="bbBooking" class="btn-brand flex-1">{{ bbBooking ? t('Memproses…','Processing…') : t('Lanjut Bayar','Continue to Pay') }}</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Kalender Harga -->
     <PriceCalendar
       v-if="calOpen"
@@ -296,6 +339,41 @@ function pick(room: any, plan: any) {
     hotel: hotel.value.id, room: room.id, plan: plan?.id || undefined,
     checkIn: checkIn.value, checkOut: checkOut.value, guests: guests.value, rooms: 1,
   } })
+}
+
+// ── Merged rates (direct + sub-agent/bedbank) for the chosen stay ──
+const { data: ratesData } = await useAsyncData(
+  `rates-${id}`,
+  () => $api(`/hotels/${id}/rates`, { query: { checkIn: checkIn.value, checkOut: checkOut.value, adults: guests.value, rooms: 1 } }).catch(() => ({ rates: [] })),
+  { watch: [checkIn, checkOut, guests] },
+)
+// bedbank rows carry a rateKey (direct rows carry roomId); source is hidden by the API.
+const bedbankRates = computed<any[]>(() => ((ratesData.value as any)?.rates || []).filter((r: any) => r.rateKey))
+
+const bbSel = ref<any>(null)
+const bbBooking = ref(false)
+const bbErr = ref('')
+const holder = reactive({ name: '', surname: '', email: '', phone: '' })
+function pickBedbank(r: any) {
+  if (!isLoggedIn.value) { navigateTo(`/login?next=${encodeURIComponent(route.fullPath)}`); return }
+  bbErr.value = ''; bbSel.value = r
+}
+async function reserveBedbank() {
+  bbErr.value = ''
+  if (!holder.name || !holder.surname) { bbErr.value = t('Isi nama depan & belakang.', 'Enter first & surname.'); return }
+  bbBooking.value = true
+  try {
+    const paxes = Array.from({ length: guests.value }, (_, i) => ({ type: 'AD', name: i === 0 ? holder.name : 'Guest', surname: i === 0 ? holder.surname : String(i + 1) }))
+    const r: any = await $api('/supply/book', { method: 'POST', body: {
+      source: 'HOTELBEDS', rateKey: bbSel.value.rateKey,
+      hotelName: hotel.value.name, supplierHotelCode: hotel.value.bedbankCode, city: hotel.value.city || '',
+      checkIn: checkIn.value, checkOut: checkOut.value, holder: { ...holder }, paxes,
+      guests: guests.value, rooms: 1,
+    } })
+    if (r?.booking?.id) await navigateTo(`/payment/${r.booking.id}`)
+    else bbErr.value = t('Gagal membuat pesanan.', 'Failed to create booking.')
+  } catch (e: any) { bbErr.value = e?.data?.error || t('Reservasi gagal (rate mungkin kedaluwarsa).', 'Reservation failed (rate may have expired).') }
+  finally { bbBooking.value = false }
 }
 
 const mapUrl = computed(() => {
