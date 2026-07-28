@@ -124,6 +124,10 @@
             <div class="text-[14px] space-y-1.5">
               <div class="flex justify-between"><span class="text-ink-muted">{{ t('Harga kamar', 'Room price') }}</span><span>{{ rupiah(subtotal) }}</span></div>
               <div class="flex justify-between"><span class="text-ink-muted">{{ t('Pajak & layanan', 'Tax & service') }} ({{ taxPct }}%)</span><span>{{ rupiah(tax) }}</span></div>
+              <div v-if="memberDiscount > 0" class="flex justify-between text-emerald-600 font-semibold">
+                <span>{{ t('Diskon member & program', 'Member & program discount') }}</span>
+                <span>- {{ rupiah(memberDiscount) }}</span>
+              </div>
               <div v-if="discount > 0" class="flex justify-between text-emerald-600 font-semibold">
                 <span>{{ t('Diskon promo', 'Promo discount') }}{{ appliedPromo ? ` (${appliedPromo})` : '' }}</span>
                 <span>- {{ rupiah(discount) }}</span>
@@ -194,9 +198,32 @@ const freeCancellation = computed(() => {
   return room.value?.freeCancellation === true
 })
 
+// Authoritative price from the backend — SAME math the booking will charge
+// (weekend surcharge per the availability calendar, rate-plan delta, tax). Client
+// math (room.price × nights) ignored the weekend surcharge, so the quoted total was
+// lower than what got charged. Fall back to client math only if the quote fails.
+const quoteQs = computed(() => {
+  const p = new URLSearchParams({ roomId, checkIn, checkOut, rooms: String(rooms) })
+  if (planId) p.set('ratePlanId', planId)
+  return p.toString()
+})
+const { data: quoteData } = await useAsyncData(`bk-quote-${hotelId}`,
+  () => $api(`/bookings/quote?${quoteQs.value}`).catch(() => null))
 const unit = computed(() => (room.value ? Number(room.value.price) + Number(plan.value?.priceDelta || 0) : 0))
-const subtotal = computed(() => unit.value * nights * rooms)
-const tax = computed(() => Math.round(subtotal.value * taxPct.value / 100))
+const subtotal = computed(() => {
+  const q = quoteData.value as any
+  return q && Number.isFinite(q.roomPrice) ? Number(q.roomPrice) : unit.value * nights * rooms
+})
+const tax = computed(() => {
+  const q = quoteData.value as any
+  return q && Number.isFinite(q.taxFee) ? Number(q.taxFee) : Math.round(subtotal.value * taxPct.value / 100)
+})
+// Member (tier) + program discount already baked into the authoritative quote —
+// surface it so the summary reflects what's actually charged, not a higher figure.
+const memberDiscount = computed(() => {
+  const q = quoteData.value as any
+  return q && Number.isFinite(q.discount) ? Number(q.discount) : 0
+})
 
 // Promo validation preview (same flow as the app's Rincian Pesanan screen).
 const appliedPromo = ref<string | null>(null)
@@ -204,7 +231,7 @@ const discount = ref(0)
 const checkingPromo = ref(false)
 const promoErr = ref('')
 
-const total = computed(() => Math.max(0, subtotal.value + tax.value - discount.value))
+const total = computed(() => Math.max(0, subtotal.value + tax.value - memberDiscount.value - discount.value))
 
 const form = reactive({
   bookerName: '', bookerEmail: '', bookerPhone: '',

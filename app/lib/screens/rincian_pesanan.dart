@@ -47,6 +47,9 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   List<SavedGuest> _savedGuests = [];
   bool _saveGuest = true;
   double _taxPct = 11; // fetched from server so the breakdown matches the booking exactly
+  // Authoritative base price + tax from /bookings/quote (weekend surcharge, WNA
+  // markup, rate-plan delta) — display these so the total matches what's charged.
+  int? _qRoomPrice, _qTax;
   // Loyalty
   bool _usePoints = false;
   int _points = 0, _redeemValue = 100, _maxRedeemPct = 30;
@@ -60,6 +63,20 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
       final t = (c['taxPct'] as num?)?.toDouble();
       if (t != null && mounted) setState(() => _taxPct = t);
     }).catchError((_) {});
+    // Direct-room bookings: pull the authoritative base + tax (packages have a fixed price).
+    if (!_isPackage && widget.room != null) {
+      context.read<Api>().bookingQuote(
+        roomId: widget.room!.id, ratePlanId: widget.ratePlan?.id,
+        checkIn: widget.checkIn.toIso8601String(), checkOut: widget.checkOut.toIso8601String(),
+        rooms: widget.rooms, guests: widget.adults,
+      ).then((q) {
+        if (!mounted) return;
+        setState(() {
+          _qRoomPrice = (q['roomPrice'] as num?)?.toInt();
+          _qTax = (q['taxFee'] as num?)?.toInt();
+        });
+      }).catchError((_) {});
+    }
     context.read<Api>().loyalty().then((l) {
       if (!mounted) return;
       setState(() {
@@ -82,10 +99,10 @@ class _RincianPesananScreenState extends State<RincianPesananScreen> {
   final _fmt = DateFormat('EEEE, d MMMM', 'id_ID');
 
   bool get _isPackage => widget.package != null;
-  int get _roomPrice => _isPackage
+  int get _roomPrice => _qRoomPrice ?? (_isPackage
       ? widget.package!.price * widget.rooms
-      : (widget.room!.price + (widget.ratePlan?.priceDelta ?? 0)) * widget.nights * widget.rooms;
-  int get _tax => (_roomPrice * _taxPct / 100).round();
+      : (widget.room!.price + (widget.ratePlan?.priceDelta ?? 0)) * widget.nights * widget.rooms);
+  int get _tax => _qTax ?? (_roomPrice * _taxPct / 100).round();
   int get _total => _roomPrice + _tax - _discount - _pointsDiscount;
 
   Future<void> _applyPromo() async {

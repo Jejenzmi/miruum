@@ -9,7 +9,10 @@ import type { Redis } from "ioredis";
 // unless an explicit block or a hard velocity ceiling is hit.
 
 export function clientIp(req: any): string {
-  return String(req.headers?.["x-forwarded-for"] || "").split(",")[0].trim() || req.socket?.remoteAddress || "";
+  // Use Express's `req.ip`, which is derived under the configured `trust proxy`
+  // setting (1 hop = our nginx). A raw X-Forwarded-For is client-controlled and
+  // trivially spoofable, so it must NOT be trusted for blocklist/velocity checks.
+  return String(req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
 }
 
 /** Stable per-request device fingerprint from client hints (best-effort). */

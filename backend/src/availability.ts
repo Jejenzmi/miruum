@@ -68,8 +68,13 @@ export async function quote(
       perNight.push({ date: key, price: row.price });
       total += row.price * rooms;
     } else {
-      perNight.push({ date: key, price: room.price }); // fallback flat rate
-      total += room.price * rooms;
+      // No calendar row (e.g. beyond the seeded horizon): price the night with the
+      // SAME weekend surcharge the calendar would apply, so the quote matches the
+      // amount consume() will later charge for those dates.
+      const dow = d.getUTCDay();
+      const p = round1k(room.price * (dow === 5 || dow === 6 ? 1.15 : 1));
+      perNight.push({ date: key, price: p });
+      total += p * rooms;
     }
   }
   return { available: true, nights: dates.length, total, perNight };
@@ -83,17 +88,27 @@ export async function quote(
 // are always sellable. Auto close-out: a date that hits 0 is marked closed.
 export async function consume(prisma: PrismaClient, roomId: string, checkIn: Date, checkOut: Date, rooms: number): Promise<boolean> {
   const dates = nights(checkIn, checkOut);
+  const room = await prisma.room.findUnique({ where: { id: roomId }, select: { price: true, stock: true } });
+  if (!room) return false;
   let ok = true;
   for (const d of dates) {
+    // Ensure a calendar row EXISTS for this night before decrementing. Dates beyond
+    // the seeded horizon had no row and were treated as infinitely sellable — an
+    // unbounded overbooking hole. Materialise it lazily from the room's stock so
+    // every sold night is tracked against real allotment.
+    const dow = d.getUTCDay();
+    await prisma.roomAvailability.upsert({
+      where: { roomId_date: { roomId, date: d } },
+      create: { roomId, date: d, price: round1k(room.price * (dow === 5 || dow === 6 ? 1.15 : 1)), allotment: room.stock },
+      update: {},
+    });
     const r = await prisma.roomAvailability.updateMany({
       where: { roomId, date: d, allotment: { gte: rooms }, closed: false },
       data: { allotment: { decrement: rooms } },
     });
     if (r.count === 0) {
-      // Nothing decremented: either no calendar row (flat rate → sellable) or the
-      // row exists but is sold out/closed → overbooking risk, fail.
-      const exists = await prisma.roomAvailability.findFirst({ where: { roomId, date: d }, select: { id: true } });
-      if (exists) ok = false;
+      // A row now always exists → count 0 means sold out/closed → overbooking risk, fail.
+      ok = false;
     }
     // Close out any date whose allotment has reached zero (no more sales here or
     // on mapped channels once distribution is connected).
@@ -106,9 +121,11 @@ export async function consume(prisma: PrismaClient, roomId: string, checkIn: Dat
 export async function release(prisma: PrismaClient, roomId: string, checkIn: Date, checkOut: Date, rooms: number): Promise<void> {
   const dates = nights(checkIn, checkOut);
   for (const d of dates) {
+    // Give the allotment back AND re-open the date — otherwise a date that sold
+    // out (closed=true) stays permanently unsellable after a cancellation/expiry.
     await prisma.roomAvailability.updateMany({
       where: { roomId, date: d },
-      data: { allotment: { increment: rooms } },
+      data: { allotment: { increment: rooms }, closed: false },
     });
   }
 }

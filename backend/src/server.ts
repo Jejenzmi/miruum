@@ -118,6 +118,9 @@ function stripB2B(node: any): any {
   return node;
 }
 const PRIVILEGED_PATH = /^\/api\/(admin|partner)(\/|$)/;
+// Supply search/book legitimately needs supplierHotelCode/source in the response
+// for the booking round-trip — do NOT strip B2B keys from these (they'd 400 the book).
+const SUPPLY_PATH = /^\/api\/supply(\/|$)/;
 
 // ── Nationality (market) pricing — PUBLIC catalog only, OTA-style ──
 // Foreign (WNA) guests see the public rate + a markup %. Domestic (WNI) see the
@@ -170,12 +173,43 @@ function applyMarket(node: any, pct: number): any {
   return node;
 }
 
+// Effective foreign (WNA) markup % for a specific hotel on THIS request — used to
+// charge the booking the SAME marked-up price a foreign guest was shown. Returns 0
+// for domestic guests or when the market feature is off. Mirrors applyMarket's
+// per-hotel override → global default precedence.
+async function foreignMarkupFor(req: Request, hotelId: string): Promise<number> {
+  try {
+    const s = await getSettings();
+    if (s.foreign_market_enabled !== "1") return 0;
+    if ((await resolveMarket(req)) !== "FOREIGN") return 0;
+    const globalPct = Math.min(Math.max(Number(s.foreign_markup_pct) || 0, 0), 100);
+    const hotel = await prisma.hotel.findUnique({ where: { id: hotelId }, select: { foreignMarkupPct: true } });
+    const own = (hotel as any)?.foreignMarkupPct;
+    const pct = own === null || own === undefined ? globalPct : Number(own);
+    return Math.min(Math.max(pct, 0), 100);
+  } catch { return 0; }
+}
+
+// Active Miruum program/campaign discount % a hotel has JOINED (advertised via
+// /api/programs). Returned so the booking actually deducts what was promoted.
+async function programDiscountPct(hotelId: string): Promise<number> {
+  const now = new Date();
+  const part = await prisma.promoParticipation.findFirst({
+    where: {
+      hotelId, status: "JOINED",
+      program: { active: true, AND: [{ OR: [{ startDate: null }, { startDate: { lte: now } }] }, { OR: [{ endDate: null }, { endDate: { gte: now } }] }] },
+    },
+    orderBy: { offerPct: "desc" }, select: { offerPct: true },
+  });
+  return Math.min(Math.max(part?.offerPct ?? 0, 0), 90);
+}
+
 app.use((req, res, next) => {
   const orig = res.json.bind(res);
   const privileged = PRIVILEGED_PATH.test(req.path);
   res.json = (body: any) => {
     let out = flattenFacilities(body);
-    if (!privileged) {
+    if (!privileged && !SUPPLY_PATH.test(req.path)) {
       // Foreign market markup (public catalog only), applied BEFORE stripB2B
       // removes the policy field. Domestic / disabled → no change.
       if (res.locals.market === "FOREIGN" && Number(res.locals.foreignPct) > 0 && MARKET_PATH.test(req.path)) {
@@ -222,6 +256,12 @@ const authLimiter = rateLimit({
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, limit: 6, standardHeaders: true, legacyHeaders: false, skip: isInternal, store: rlStore(),
   message: { error: "Terlalu banyak permintaan kode. Coba lagi nanti." },
+});
+// Public document endpoints (voucher/receipt/invoice by booking code) — throttle
+// to blunt enumeration of PII/net figures even with unguessable codes.
+const docLimiter = rateLimit({
+  windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false, skip: isInternal, store: rlStore(),
+  message: "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
 });
 
 const PORT = config.port;
@@ -757,15 +797,22 @@ app.post("/api/supply/search", async (req, res) => {
   const errors: { source: string; error: string }[] = [];
   results.forEach((r, i) => {
     if (r.status === "fulfilled") external.push(...r.value);
-    else errors.push({ source: providers[i].code, error: r.reason?.message || "gagal" });
+    else errors.push({ source: "SUPPLIER", error: r.reason?.message || "gagal" });
   });
-  // Convert supplier currency → IDR so the app shows rupiah; keep the original
-  // net + currency for reference/transparency.
+  // Convert supplier currency → IDR AND add Miruum's selling margin, so the price
+  // the client shows is the GUEST price it will actually be charged (bedbank book
+  // charges net×markup). Never expose the raw supplier net cost or its currency —
+  // that leaks our margin and the supplier's identity/pricing.
   const fx = await fxConverter();
+  const bbMarkup = await getNum("bedbankMarkupPct");
+  const withMargin = (idr: number) => Math.round(idr * (1 + (bbMarkup || 0) / 100));
   for (const h of external) {
-    h.minRateIdr = fx(h.minRate, h.currency);
-    if (h.maxRate != null) h.maxRateIdr = fx(h.maxRate, h.currency);
-    for (const rm of h.rooms || []) rm.netIdr = fx(rm.net, h.currency);
+    h.minRateIdr = withMargin(fx(h.minRate, h.currency));
+    if (h.maxRate != null) h.maxRateIdr = withMargin(fx(h.maxRate, h.currency));
+    for (const rm of h.rooms || []) { rm.netIdr = withMargin(fx(rm.net, h.currency)); delete rm.net; }
+    // Strip supplier cost basis from the public payload (keep rateKey/hotel code
+    // for the booking round-trip — those are opaque tokens, not prices).
+    delete h.minRate; delete h.maxRate; h.currency = "IDR";
   }
   // Dedup flag: mark externals that map to a DIRECT hotel (same physical property)
   // so the client shows ONE card (the direct one) instead of a duplicate.
@@ -775,7 +822,8 @@ app.post("/api/supply/search", async (req, res) => {
     const byCode = new Map(mapped.map((m) => [m.bedbankCode!, m]));
     for (const h of external) { const m = byCode.get(h.supplierHotelCode); if (m) { h.mappedDirectId = m.id; h.mappedDirectSlug = m.slug; } }
   }
-  res.json({ external, externalConfigured: true, sources: providers.map((pr) => pr.code), errors });
+  // Don't name the underlying bedbank(s) to a public client — expose only the count.
+  res.json({ external, externalConfigured: true, sources: providers.map(() => "SUPPLIER"), errors });
 });
 
 // Re-price a rateKey right before booking (bedbank prices can move).
@@ -814,15 +862,19 @@ app.post("/api/supply/book", requireAuth, async (req: AuthRequest, res) => {
     // Convert the supplier's nett (e.g. EUR) → IDR for everything the guest sees/pays.
     const fx = await fxConverter();
     const netIdr = fx(rate.net, rate.currency);
+    // Guest price = supplier net + Miruum's bedbank selling margin (same as the
+    // /rates card shows). Without this the margin was displayed but never charged.
+    const bbMarkup = await getNum("bedbankMarkupPct");
+    const guestIdr = Math.round(netIdr * (1 + (bbMarkup || 0) / 100));
     const hotel = await prisma.hotel.upsert({
       where: { slug: `hb-${p.data.supplierHotelCode}` },
-      create: { name: p.data.hotelName, slug: `hb-${p.data.supplierHotelCode}`, city: p.data.city || "", address: p.data.city || "", source: p.data.source.toUpperCase(), supplierHotelCode: p.data.supplierHotelCode, priceFrom: netIdr, description: "", imageUrl: "" },
-      update: { name: p.data.hotelName, priceFrom: netIdr },
+      create: { name: p.data.hotelName, slug: `hb-${p.data.supplierHotelCode}`, city: p.data.city || "", address: p.data.city || "", source: p.data.source.toUpperCase(), supplierHotelCode: p.data.supplierHotelCode, priceFrom: guestIdr, description: "", imageUrl: "" },
+      update: { name: p.data.hotelName, priceFrom: guestIdr },
     }).catch(async () => prisma.hotel.findFirst({ where: { supplierHotelCode: p.data.supplierHotelCode } }) as any);
     let room = await prisma.room.findFirst({ where: { hotelId: hotel.id } });
-    if (!room) room = await prisma.room.create({ data: { hotelId: hotel.id, name: "Supplier Rate", price: netIdr, stock: 99, capacity: p.data.guests || 2 } });
+    if (!room) room = await prisma.room.create({ data: { hotelId: hotel.id, name: "Supplier Rate", price: guestIdr, stock: 99, capacity: p.data.guests || 2 } });
     const nights = Math.max(1, Math.round((+new Date(p.data.checkOut) - +new Date(p.data.checkIn)) / 86400000));
-    const total = BigInt(netIdr);
+    const total = BigInt(guestIdr);
     const booking = await prisma.booking.create({
       data: {
         code: makeCode(), userId: req.userId!, hotelId: hotel.id, roomId: room.id,
@@ -838,7 +890,8 @@ app.post("/api/supply/book", requireAuth, async (req: AuthRequest, res) => {
       },
     });
     // Client now pays via POST /api/bookings/:id/pay (same as any booking).
-    res.json({ ok: true, booking: { id: booking.id, code: booking.code, status: "PENDING" }, rate, needsPayment: true });
+    // Return only the guest-facing price + opaque rateKey — never the supplier net/currency.
+    res.json({ ok: true, booking: { id: booking.id, code: booking.code, status: "PENDING" }, guestPrice: guestIdr, rateKey: rate.rateKey, needsPayment: true });
   } catch (e: any) { res.status(502).json({ error: e.message }); }
 });
 
@@ -959,15 +1012,26 @@ app.get("/api/hotels/:id/rates", async (req, res) => {
   const rates: Rate[] = [];
 
   // ── DIRECT rows ──
+  // Price DIRECT rooms with the SAME calendar-aware quote the booking will charge
+  // (weekend surcharge, per-date allotment), so the rate card matches the checkout
+  // total instead of a flat room.price. Sold-out/closed rooms are hidden.
   for (const r of hotel.rooms) {
     if (r.price <= 0) continue;
+    // Base accommodation total for `rooms` rooms across the stay.
+    let baseTotal = r.price * nights * rooms;
+    if (checkIn && checkOut) {
+      const qa = await quote(prisma, r.id, new Date(checkIn), new Date(checkOut), rooms);
+      if (!qa.available) continue; // not sellable for these dates → don't advertise it
+      baseTotal = qa.total;
+    }
+    const perBase = Math.round(baseTotal / nights / rooms); // per room / night
     if (r.ratePlans.length) {
       for (const p of r.ratePlans) {
-        const per = r.price + (p.priceDelta || 0);
-        rates.push({ source: "DIRECT", roomName: r.name, board: boardLabel(p.boardBasis), refundable: p.refundable, freeCancellation: p.freeCancellation, pricePerNight: per, priceTotal: per * nights * rooms, roomId: r.id, ratePlanId: p.id });
+        const total = baseTotal + (p.priceDelta || 0) * nights * rooms;
+        rates.push({ source: "DIRECT", roomName: r.name, board: boardLabel(p.boardBasis), refundable: p.refundable, freeCancellation: p.freeCancellation, pricePerNight: perBase + (p.priceDelta || 0), priceTotal: total, roomId: r.id, ratePlanId: p.id });
       }
     } else {
-      rates.push({ source: "DIRECT", roomName: r.name, board: r.breakfast ? "Sarapan" : "Kamar Saja", refundable: r.refundable, freeCancellation: r.freeCancellation, pricePerNight: r.price, priceTotal: r.price * nights * rooms, roomId: r.id });
+      rates.push({ source: "DIRECT", roomName: r.name, board: r.breakfast ? "Sarapan" : "Kamar Saja", refundable: r.refundable, freeCancellation: r.freeCancellation, pricePerNight: perBase, priceTotal: baseTotal, roomId: r.id });
     }
   }
   const minDirect = rates.length ? Math.min(...rates.map((x) => x.pricePerNight)) : Infinity;
@@ -1358,7 +1422,9 @@ app.delete("/api/favorites/:hotelId", requireAuth, async (req: AuthRequest, res)
 
 // ─────────────────────────── Bookings ───────────────────────────
 function makeCode() {
-  return "MRM-" + Math.floor(1000000 + Math.random() * 8999999);
+  // Cryptographically-random, unguessable code (was a 7-digit Math.random →
+  // enumerable, leaking guest PII + hotel net via the public voucher endpoints).
+  return "MRM-" + crypto.randomBytes(6).toString("hex").toUpperCase();
 }
 
 app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
@@ -1433,6 +1499,11 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     }
   }
 
+  // Foreign (WNA) guests are CHARGED the same marked-up rate they were shown — the
+  // markup was display-only before, so a WNA guest paid the domestic base.
+  const fMarkup = await foreignMarkupFor(req, hotelId!);
+  if (fMarkup > 0) baseAmount = Math.round(baseAmount * (1 + fMarkup / 100));
+
   const taxFee = Math.round(baseAmount * (await getNum("taxPct")) / 100); // configurable tax & service
   // Apply promo code (discount off the accommodation subtotal).
   let discount = 0;
@@ -1441,6 +1512,11 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
     const promo = await prisma.promo.findUnique({ where: { code: d.promoCode.toUpperCase() } });
     if (promo) { discount = Math.round((baseAmount * promo.discountPct) / 100); promoCode = promo.code; }
   }
+
+  // Miruum program/campaign the hotel JOINED — advertised on /api/programs but
+  // never deducted before. Apply it as a discount so the guest pays the promoted price.
+  const progPct = await programDiscountPct(hotelId!);
+  if (progPct > 0) discount += Math.round((baseAmount * progPct) / 100);
 
   // Membership tier discount (Perak/Emas/Platinum) off the accommodation subtotal.
   const meTier = await prisma.user.findUnique({ where: { id: req.userId }, select: { lifetimePoints: true } });
@@ -1460,7 +1536,9 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       discount += pointsUsed * redeemValue;
     }
   }
-  const totalPrice = baseAmount + taxFee - discount;
+  // Never let stacked discounts (promo + program + tier + points) exceed the bill.
+  discount = Math.min(discount, baseAmount + taxFee);
+  const totalPrice = Math.max(0, baseAmount + taxFee - discount);
 
   // ── Anti-fraud screening ── blocklist + velocity + risk score.
   const ip = clientIp(req), device = deviceFingerprint(req);
@@ -1529,6 +1607,25 @@ app.post("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
       prisma.loyaltyTxn.create({ data: { userId: req.userId!, points: -pointsUsed, type: "REDEEM", bookingId: booking.id, note: `Tukar ${pointsUsed} poin di ${booking.code}` } }),
       prisma.user.update({ where: { id: req.userId! }, data: { loyaltyPoints: { decrement: pointsUsed } } }),
     ]);
+  }
+  // Pay-at-hotel is a CONFIRMED reservation (settled in cash at the property), not a
+  // pending online payment — so send the e-voucher to the guest and notify the hotel
+  // NOW. Previously these sat PENDING forever with no confirmation to anyone.
+  if (d.payAtHotel) {
+    const full = await prisma.booking.findUnique({ where: { id: booking.id }, include: { hotel: true, room: true } });
+    const voucherEmail = full ? await buildVoucherEmail(full).catch(() => null) : null;
+    await dispatch(prisma, {
+      userId: req.userId!, title: `E-Voucher · ${booking.hotel.name}`,
+      body: `Reservasi terkonfirmasi (Bayar di Hotel). No. Pesanan ${booking.code}.\nE-voucher: ${PUBLIC_ORIGIN}/api/vouchers/${booking.code}`,
+      type: "success", hotelName: booking.hotel.name, orderCode: booking.code,
+      phone: booking.bookerPhone, email: booking.bookerEmail,
+      html: voucherEmail?.html, attachments: voucherEmail?.attachments,
+    });
+    if (full?.hotel.ownerId) await dispatch(prisma, {
+      userId: full.hotel.ownerId, title: `Reservasi baru (Bayar di Hotel) — ${booking.hotel.name}`,
+      body: `${booking.bookerName} · ${booking.nights} malam · No. ${booking.code}. Tamu membayar tunai saat check-in.`,
+      type: "success", orderCode: booking.code,
+    });
   }
   res.json({ booking, pointsUsed });
 });
@@ -2023,6 +2120,45 @@ app.get("/api/bookings", requireAuth, async (req: AuthRequest, res) => {
   res.json({ bookings });
 });
 
+// Authoritative price quote — the SAME calendar-aware math the booking will charge
+// (weekend surcharge from the availability calendar, rate-plan delta, tax, promo,
+// membership tier). Clients must DISPLAY this instead of computing prices locally
+// (client math diverged from the charged amount, e.g. weekend nights).
+app.get("/api/bookings/quote", optionalAuth, async (req: AuthRequest, res) => {
+  const q = req.query as Record<string, string>;
+  if (!q.roomId || !q.checkIn || !q.checkOut) return res.status(400).json({ error: "Parameter kurang" });
+  const checkIn = new Date(q.checkIn), checkOut = new Date(q.checkOut);
+  const rooms = Math.max(1, Number(q.rooms) || 1);
+  const nightsN = Math.max(1, Math.round((+checkOut - +checkIn) / 86400000));
+  const room = await prisma.room.findUnique({ where: { id: q.roomId }, select: { id: true, hotelId: true } });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  const qa = await quote(prisma, q.roomId, checkIn, checkOut, rooms);
+  let baseAmount = qa.total;
+  if (q.ratePlanId) {
+    const plan = await prisma.ratePlan.findUnique({ where: { id: q.ratePlanId } });
+    if (plan) baseAmount += plan.priceDelta * nightsN * rooms;
+  }
+  // Same adjustments the booking will charge: WNA markup, then tax, then discounts.
+  const fMarkup = await foreignMarkupFor(req, room.hotelId);
+  if (fMarkup > 0) baseAmount = Math.round(baseAmount * (1 + fMarkup / 100));
+  const taxFee = Math.round((baseAmount * (await getNum("taxPct"))) / 100);
+  let discount = 0; let promoCode: string | null = null;
+  if (q.promoCode) {
+    const promo = await prisma.promo.findUnique({ where: { code: q.promoCode.toUpperCase() } });
+    if (promo) { discount = Math.round((baseAmount * promo.discountPct) / 100); promoCode = promo.code; }
+  }
+  const progPct = await programDiscountPct(room.hotelId);
+  if (progPct > 0) discount += Math.round((baseAmount * progPct) / 100);
+  if (req.userId) {
+    const me = await prisma.user.findUnique({ where: { id: req.userId }, select: { lifetimePoints: true } });
+    const tier = tierOf(me?.lifetimePoints ?? 0);
+    if (tier.discountPct > 0) discount += Math.round((baseAmount * tier.discountPct) / 100);
+  }
+  discount = Math.min(discount, baseAmount + taxFee);
+  const totalPrice = Math.max(0, baseAmount + taxFee - discount);
+  res.json({ nights: nightsN, rooms, roomPrice: baseAmount, taxFee, discount, promoCode, totalPrice });
+});
+
 app.get("/api/bookings/:id", requireAuth, async (req: AuthRequest, res) => {
   const booking = await prisma.booking.findFirst({
     where: { id: req.params.id, userId: req.userId },
@@ -2043,6 +2179,15 @@ app.post("/api/bookings/:id/pay", requireAuth, async (req: AuthRequest, res) => 
   const booking = await prisma.booking.findFirst({ where: { id: req.params.id, userId: req.userId } });
   if (!booking) return res.status(404).json({ error: "Pesanan tidak ditemukan" });
   if (booking.status === "PAID") return res.status(400).json({ error: "Pesanan sudah dibayar" });
+
+  // Avoid issuing two payable instruments for one booking (both could be paid →
+  // double charge). Reuse a live PENDING payment for the same method; if the guest
+  // switched method, retire the old pending one so only ONE stays payable.
+  const existing = await prisma.payment.findFirst({ where: { bookingId: booking.id, status: "PENDING" }, orderBy: { createdAt: "desc" } });
+  if (existing && (!existing.expiresAt || existing.expiresAt > new Date())) {
+    if (existing.method === method.code) return res.json({ payment: clientPayment(existing) });
+    await prisma.payment.update({ where: { id: existing.id }, data: { status: "EXPIRED" } });
+  }
 
   const provider = await activeProvider();
   let ins;
@@ -2078,13 +2223,20 @@ function clientPayment(p: any) {
 // Settle a payment as PAID and confirm its booking (+notification). Shared by the
 // provider webhook and the mock "I've paid" action.
 async function markPaymentPaid(paymentId: string) {
+  // Atomically CLAIM this payment — a concurrent/duplicate webhook loses the race
+  // (count 0) and must not re-run any side effect (double supplier booking / voucher).
+  const claim = await prisma.payment.updateMany({ where: { id: paymentId, status: { not: "PAID" } }, data: { status: "PAID", paidAt: new Date() } });
   const payment = await prisma.payment.findUnique({ where: { id: paymentId }, include: { booking: { include: { hotel: true } } } });
-  if (!payment || payment.status === "PAID") return payment;
-  const updated = await prisma.payment.update({ where: { id: paymentId }, data: { status: "PAID", paidAt: new Date() } });
-  await prisma.booking.update({
-    where: { id: payment.bookingId },
+  if (!payment) return null;
+  if (claim.count === 0) return payment; // already settled by another call
+  // Confirm the booking EXACTLY once. If a second payment for the same booking
+  // settles later, this claim is 0 → skip all side effects (no double voucher/commit).
+  const bookingClaim = await prisma.booking.updateMany({
+    where: { id: payment.bookingId, status: { not: "PAID" } },
     data: { status: "PAID", paidAt: new Date(), paymentMethod: payment.methodLabel },
   });
+  const updated = payment;
+  if (bookingClaim.count === 0) return updated; // booking already settled → stop here
   const b = await prisma.booking.findUnique({ where: { id: payment.bookingId }, include: { hotel: true, room: true } });
   const voucherEmail = b ? await buildVoucherEmail(b) : null;
   await dispatch(prisma, {
@@ -2147,6 +2299,9 @@ async function markPaymentPaid(paymentId: string) {
       await dispatch(prisma, { userId: b.userId, title: `Perlu tindak lanjut — ${b.hotel.name}`, body: `Pembayaran ${b.code} berhasil, namun konfirmasi ke supplier gagal: ${e.message}. Tim kami akan menindaklanjuti atau melakukan refund.`, type: "cancel", orderCode: b.code, email: b.bookerEmail });
     }
   }
+  // Award loyalty points for EVERY real settlement (was only awarded on the MOCK
+  // "I've paid" path, so LinkQu/Flip payers never earned points). Idempotent.
+  if (b) await awardLoyalty(b.userId, Number(b.roomPrice), b.id, b.code).catch(() => {});
   return updated;
 }
 
@@ -2239,18 +2394,23 @@ app.post("/api/payments/:id/settle", requireAuth, async (req: AuthRequest, res) 
   const payment = await prisma.payment.findFirst({ where: { id: req.params.id, booking: { userId: req.userId } } });
   if (!payment) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
   if (payment.provider !== "MOCK") return res.status(403).json({ error: "Menunggu konfirmasi pembayaran dari penyedia" });
-  await markPaymentPaid(payment.id);
+  await markPaymentPaid(payment.id); // awards loyalty + settles idempotently
   const booking = await prisma.booking.findUnique({
     where: { id: payment.bookingId },
     include: { hotel: { select: hotelCard }, room: true, channel: { select: { code: true, name: true, type: true } } },
   });
-  if (booking) await awardLoyalty(booking.userId, Number(booking.roomPrice), booking.id, booking.code);
   res.json({ booking });
 });
 
 // Provider webhook (Flip/etc.) — public, verified inside parseWebhook.
 app.post("/api/payments/webhook", async (req, res) => {
   const provider = await activeProvider();
+  // Signature-bearing providers (LinkQu) MUST pass HMAC verification — otherwise
+  // anyone could POST {partner_reff,status:SUCCESS} here and settle for free.
+  if (req.body?.partner_reff) {
+    const verified = await verifyLinkquCallback(req.body).catch(() => null);
+    if (!verified) return res.status(401).json({ error: "Tanda tangan callback tidak valid" });
+  }
   const parsed = provider.parseWebhook(req.body, req.headers as any);
   if (!parsed) return res.status(400).json({ error: "Webhook tidak valid" });
   const payment = await prisma.payment.findFirst({ where: { externalId: parsed.externalId } });
@@ -2397,7 +2557,10 @@ async function computeReschedule(booking: any, checkInStr: string, checkOutStr: 
   const perNight = Number(booking.roomPrice) / Math.max(1, booking.nights); // price per night × rooms, from original
   const newRoomPrice = Math.round(perNight * nights);
   const newTax = Math.round(newRoomPrice * (await getNum("taxPct")) / 100);
-  const newTotal = newRoomPrice + newTax - Number(booking.discount);
+  // Shortening the stay can drop the subtotal below the original discount (promo +
+  // points were sized for the longer stay) → clamp so the new total never goes negative.
+  const appliedDiscount = Math.min(Number(booking.discount), newRoomPrice + newTax);
+  const newTotal = Math.max(0, newRoomPrice + newTax - appliedDiscount);
   return { allowed: true, nights, checkIn, checkOut, newRoomPrice, newTax, newTotal, diff: newTotal - Number(booking.totalPrice) };
 }
 
@@ -2586,7 +2749,7 @@ function bookingDocHtml(b: any, title: string, opts: { cancelled?: boolean } = {
   const parts = String(b.bookerName || "").trim().split(/\s+/);
   const first = parts[0] || "-"; const last = parts.slice(1).join(" ") || "-";
   const status = b.payAtHotel ? "Pay at hotel" : "Prepaid";
-  const rate = Number(b.roomPrice) * b.rooms; const disc = Number(b.discount);
+  const rate = Number(b.roomPrice); const disc = Number(b.discount); // roomPrice already covers all rooms × nights
   const receive = Math.max(0, rate - disc);
   const pkg = b.packageTitle ? esc(b.packageTitle) : "-";
   const bf = b.room.breakfast ? `Yes ${b.guests} Person(s)` : "No";
@@ -2651,7 +2814,7 @@ function bookingDocHtml(b: any, title: string, opts: { cancelled?: boolean } = {
 // RECEIPT (guest) — priced, with taxes and a PAID watermark.
 function receiptDocHtml(b: any): string {
   const paid = b.status === "PAID" || b.status === "COMPLETED";
-  const accom = Number(b.roomPrice) * b.rooms;
+  const accom = Number(b.roomPrice); // roomPrice already covers all rooms × nights (was double-counted)
   const tax = Number(b.taxFee);
   const disc = Number(b.discount);
   const total = Number(b.totalPrice);
@@ -2945,11 +3108,16 @@ app.post("/api/corporate/bookings/:id/approve", requireRole("CORPORATE"), async 
       return res.status(400).json({ error: "Melebihi limit kredit korporat. Lunasi tagihan berjalan dulu." });
     }
   }
+  // Reserve inventory BEFORE confirming — if it sold out since the request was
+  // raised, reject the approval instead of confirming an overbooked stay.
+  if (b.roomId && !b.packageId) {
+    const reserved = await consume(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms);
+    if (!reserved) return res.status(409).json({ error: "Kamar tidak lagi tersedia untuk tanggal tersebut. Pesanan tidak dapat disetujui." });
+  }
   await prisma.booking.update({
     where: { id: b.id },
     data: { status: "PAID", paidAt: new Date(), approvalStatus: "APPROVED", approvedById: me.userId, approvedAt: new Date() },
   });
-  if (b.roomId) await consume(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms).catch(() => {});
   if (b.requestedById) {
     await dispatch(prisma, {
       userId: b.requestedById, title: `Pesanan disetujui · ${b.hotel.name}`,
@@ -3114,7 +3282,7 @@ app.post("/api/admin/corporate-invoices/:id/cancel", requireRole("ADMIN"), async
 });
 
 // Public printable billing statement (tagihan) — by invoice id.
-app.get("/api/corporate-invoices/:id", async (req, res) => {
+app.get("/api/corporate-invoices/:id", docLimiter, async (req, res) => {
   const inv = await prisma.corporateInvoice.findUnique({
     where: { id: req.params.id },
     include: { corporate: true, bookings: { include: { hotel: { select: { name: true, city: true } }, room: { select: { name: true } } } } },
@@ -3359,7 +3527,7 @@ app.delete("/api/saved-guests/:id", requireAuth, async (req: AuthRequest, res) =
 });
 
 // Public e-voucher (printable HTML + QR check-in pass), by booking code.
-app.get("/api/vouchers/:code", async (req, res) => {
+app.get("/api/vouchers/:code", docLimiter, async (req, res) => {
   const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
   if (!b) return res.status(404).send("<h1>Voucher tidak ditemukan</h1>");
   const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
@@ -3376,6 +3544,11 @@ app.get("/api/vouchers/:code", async (req, res) => {
     <div class="bkid"><div class="l">Booking ID</div><div class="c">${b.code}</div></div>
   </div>
   <div class="obar"></div>
+  <div class="qrbox">
+    <div class="qr">${qr}</div>
+    <div><div class="cd">Scan saat check-in <span class="tl">Scan at check-in</span></div><div class="cc">${b.code}</div>
+      <div class="hint">Tunjukkan QR / kode ini ke resepsionis.<br><span class="tl">Show this QR / code to the front desk.</span></div></div>
+  </div>
   <div class="stayrow">
     <div class="stay"><div class="cap">Check-in <span class="tl">Check-in</span></div><div class="d">${fmtDate(b.checkIn)}</div>${b.hotel.checkInInfo ? `<div class="t">⏰ ${esc(b.hotel.checkInInfo)}</div>` : ""}</div>
     <div class="stay"><div class="cap">Check-out <span class="tl">Check-out</span></div><div class="d">${fmtDate(b.checkOut)}</div></div>
@@ -3403,7 +3576,7 @@ app.get("/api/vouchers/:code", async (req, res) => {
 });
 
 // One-click e-voucher PDF (server-generated, no browser needed), by booking code.
-app.get("/api/vouchers/:code/pdf", async (req, res) => {
+app.get("/api/vouchers/:code/pdf", docLimiter, async (req, res) => {
   const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
   if (!b) return res.status(404).send("Voucher tidak ditemukan");
   const paid = b.status === "PAID" || b.status === "COMPLETED" || b.payAtHotel;
@@ -3457,13 +3630,13 @@ app.get("/api/vouchers/:code/pdf", async (req, res) => {
 });
 
 // Guest RECEIPT (printable A4 HTML), by booking code.
-app.get("/api/invoices/:code", async (req, res) => {
+app.get("/api/invoices/:code", docLimiter, async (req, res) => {
   const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
   if (!b) return res.status(404).send("<h1>Receipt tidak ditemukan</h1>");
   res.set("Content-Type", "text/html; charset=utf-8").send(receiptDocHtml(b));
 });
 // Cancellation voucher (for BOTH guest & hotel), by booking code.
-app.get("/api/cancellations/:code", async (req, res) => {
+app.get("/api/cancellations/:code", docLimiter, async (req, res) => {
   const b = await prisma.booking.findUnique({ where: { code: req.params.code }, include: { hotel: true, room: true } });
   if (!b) return res.status(404).send("<h1>Dokumen tidak ditemukan</h1>");
   res.set("Content-Type", "text/html; charset=utf-8").send(bookingDocHtml(b, "CANCELLATION", { cancelled: true }));
@@ -3480,7 +3653,7 @@ async function bookingSplit(b: { roomPrice: number | bigint; channel?: { type: s
 
 // Hotel-facing voucher/receipt — full booking detail INCLUDING price & commission.
 // Sent to the property on payment; downloadable from the extranet booking list.
-app.get("/api/hotels/receipt/:code", async (req, res) => {
+app.get("/api/hotels/receipt/:code", docLimiter, async (req, res) => {
   const b = await prisma.booking.findUnique({
     where: { code: req.params.code },
     include: { hotel: true, room: true, channel: { select: { code: true, name: true, type: true, commissionPct: true } } },
@@ -5678,20 +5851,35 @@ app.delete("/api/partner/rooms/:id", requireRole("PARTNER", "ADMIN"), async (req
   res.json({ ok: true });
 });
 
-// Partner deal (buat promo sendiri): a % off a room. Uses originalPrice as the
-// baseline so the discount shows as a strikethrough in the app + booking pays less.
+// Recompute a room's live `price` from its list baseline (`originalPrice`) and the
+// larger of its two INDEPENDENT discounts (partner deal vs Miruum campaign). Each
+// discount is stored in its own column, so toggling/reverting one never wipes the
+// other — the bug where deal and campaign shared `originalPrice` and corrupted each
+// other on overlap/revert. `originalPrice` holds the list price only while a
+// discount is active, and is cleared back to null when both are zero.
+async function recomputeRoomPrice(roomId: string): Promise<void> {
+  const r = await prisma.room.findUnique({ where: { id: roomId }, select: { price: true, originalPrice: true, dealPct: true, campaignPct: true } });
+  if (!r) return;
+  const list = r.originalPrice ?? r.price; // current list baseline
+  const eff = Math.max(r.dealPct || 0, r.campaignPct || 0);
+  const data = eff > 0
+    ? { originalPrice: list, price: Math.round(list * (1 - eff / 100)) }
+    : { price: list, originalPrice: null };
+  await prisma.room.update({ where: { id: roomId }, data });
+}
+
+// Partner deal (buat promo sendiri): a % off a room, stored in its own `dealPct`
+// column and combined with any active campaign via recomputeRoomPrice().
 app.put("/api/partner/rooms/:id/deal", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const dealPct = Math.max(0, Math.min(90, Number(req.body?.dealPct) || 0));
   const room = await prisma.room.findUnique({ where: { id: req.params.id }, include: { hotel: true } });
   if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
   if ((req as any).role !== "ADMIN" && room.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Kamar bukan milik Anda" });
-  const baseline = room.originalPrice ?? room.price;
-  const data = dealPct > 0
-    ? { originalPrice: baseline, price: Math.round(baseline * (1 - dealPct / 100)) }
-    : { price: baseline, originalPrice: null };
-  const updated = await prisma.room.update({ where: { id: req.params.id }, data });
+  await prisma.room.update({ where: { id: req.params.id }, data: { dealPct } });
+  await recomputeRoomPrice(req.params.id);
+  const updated = await prisma.room.findUnique({ where: { id: req.params.id } });
   await invalidate("miruum:");
-  audit(req, "room.deal", "Room", updated.id, { hotel: room.hotel.name, dealPct });
+  audit(req, "room.deal", "Room", req.params.id, { hotel: room.hotel.name, dealPct });
   res.json({ room: updated });
 });
 
@@ -5728,20 +5916,24 @@ function periodBounds(period: string) {
   return { start: new Date(Date.UTC(y, m - 1, 1)), end: new Date(Date.UTC(y, m, 1)) };
 }
 
-// Apply a hotel-wide campaign discount across every room (reuses the deal
-// mechanism: originalPrice = baseline, price = discounted).
+// Apply a hotel-wide campaign discount across every room. Stored in each room's
+// own `campaignPct` column so it composes with (and never overwrites) partner deals.
 async function applyCampaignDiscount(hotelId: string, pct: number) {
-  const rooms = await prisma.room.findMany({ where: { hotelId }, select: { id: true, price: true, originalPrice: true } });
+  const rooms = await prisma.room.findMany({ where: { hotelId }, select: { id: true } });
   for (const r of rooms) {
-    const baseline = r.originalPrice ?? r.price;
-    await prisma.room.update({ where: { id: r.id }, data: { originalPrice: baseline, price: Math.round(baseline * (1 - pct / 100)) } });
+    await prisma.room.update({ where: { id: r.id }, data: { campaignPct: Math.max(0, Math.min(90, pct)) } });
+    await recomputeRoomPrice(r.id);
   }
   await refreshPriceFrom(hotelId);
   await invalidate("miruum:");
 }
 async function revertCampaignDiscount(hotelId: string) {
-  const rooms = await prisma.room.findMany({ where: { hotelId, originalPrice: { not: null } }, select: { id: true, originalPrice: true } });
-  for (const r of rooms) await prisma.room.update({ where: { id: r.id }, data: { price: r.originalPrice!, originalPrice: null } });
+  // Clear ONLY the campaign; any partner deal (dealPct) is preserved by recompute.
+  const rooms = await prisma.room.findMany({ where: { hotelId, campaignPct: { gt: 0 } }, select: { id: true } });
+  for (const r of rooms) {
+    await prisma.room.update({ where: { id: r.id }, data: { campaignPct: 0 } });
+    await recomputeRoomPrice(r.id);
+  }
   await refreshPriceFrom(hotelId);
   await invalidate("miruum:");
 }

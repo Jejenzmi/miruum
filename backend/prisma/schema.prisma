@@ -718,6 +718,11 @@ model Room {
   capacity          Int     @default(2)
   price             Int
   originalPrice     Int?
+  // Two INDEPENDENT discount sources tracked separately so they can't corrupt each
+  // other's baseline: a partner-set room deal and a Miruum hotel-wide campaign.
+  // Effective price = originalPrice(list) × (1 − max(dealPct, campaignPct)/100).
+  dealPct           Int     @default(0)
+  campaignPct       Int     @default(0)
   discountLabel     String?
   refundable        Boolean @default(true)
   breakfast         Boolean @default(false)

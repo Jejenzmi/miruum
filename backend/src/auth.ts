@@ -4,6 +4,10 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "./prisma.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "miruum-dev-secret";
+// Never let production run on the shared dev fallback — anyone could mint admin tokens.
+if (process.env.NODE_ENV === "production" && (!process.env.JWT_SECRET || process.env.JWT_SECRET === "miruum-dev-secret")) {
+  throw new Error("FATAL: JWT_SECRET must be set to a strong, unique value in production.");
+}
 
 // Short-lived access token; long-lived, revocable refresh token (server-side).
 const ACCESS_TTL = "1d";

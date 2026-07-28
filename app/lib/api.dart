@@ -188,6 +188,18 @@ class Api {
   Future<List<dynamic>> hotelRates(String id, {required String checkIn, required String checkOut, int adults = 2, int rooms = 1}) async =>
       ((await _get('/hotels/$id/rates', {'checkIn': checkIn, 'checkOut': checkOut, 'adults': adults, 'rooms': rooms}))['rates'] as List?) ?? [];
 
+  /// Authoritative price quote for a stay — the SAME calendar-aware math the
+  /// booking will charge (weekend surcharge, rate-plan delta, WNA markup, tax).
+  /// Display THIS instead of computing the total locally.
+  Future<Map<String, dynamic>> bookingQuote({
+    required String roomId, String? ratePlanId,
+    required String checkIn, required String checkOut, int rooms = 1, int guests = 2,
+  }) async =>
+      (await _get('/bookings/quote', {
+        'roomId': roomId, if (ratePlanId != null) 'ratePlanId': ratePlanId,
+        'checkIn': checkIn, 'checkOut': checkOut, 'rooms': rooms, 'guests': guests,
+      })) as Map<String, dynamic>;
+
   /// Corporate portal: account + stats + recent bookings.
   Future<Map<String, dynamic>> corporateOverview() async =>
       (await _get('/corporate/overview')) as Map<String, dynamic>;
