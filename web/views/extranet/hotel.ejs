@@ -224,7 +224,7 @@
 
       <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
         <b style="font-size:12.5px">Rate plan</b>
-        <p class="muted" style="font-size:11px;margin:2px 0 8px">Kamar sama dengan beberapa tarif (Kamar Saja / Sarapan / Bebas Batal / Non-refund). Delta = +/- Rp per malam dari harga kamar.</p>
+        <p class="muted" style="font-size:11px;margin:2px 0 8px">Kamar sama dengan beberapa tarif (Kamar Saja / Sarapan / Bebas Batal / Non-refund). <b>Selisih harga</b> = <b>+/- Rp</b> dari harga kamar — <b>isi 0</b> untuk sama dengan harga kamar, <b>+50000</b> untuk lebih mahal, <b>-30000</b> untuk lebih murah. <b style="color:#c0392b">Jangan isi harga penuh di sini.</b></p>
         <% (r.ratePlans||[]).forEach(function(p){ %>
           <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line)">
             <b style="flex:1"><%= p.name %></b>
@@ -234,10 +234,10 @@
             <form method="post" action="/extranet/rate-plans/<%= p.id %>/delete" data-confirm="Hapus rate plan <%= p.name %>?"><button class="btn danger sm">×</button></form>
           </div>
         <% }) %>
-        <form method="post" action="/extranet/rooms/<%= r.id %>/rate-plans" style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;margin-top:8px">
+        <form method="post" action="/extranet/rooms/<%= r.id %>/rate-plans" style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;margin-top:8px" data-rp-form data-room-price="<%= r.originalPrice && r.originalPrice>r.price ? r.originalPrice : r.price %>">
           <div><label style="margin:0 0 3px;font-size:11px">Nama</label><input name="name" placeholder="Termasuk Sarapan" required style="max-width:150px"></div>
           <div><label style="margin:0 0 3px;font-size:11px">Board</label><select name="boardBasis" style="max-width:120px"><option value="ROOM_ONLY">Tanpa sarapan</option><option value="BREAKFAST">Sarapan</option><option value="HALF_BOARD">Half board</option><option value="FULL_BOARD">Full board</option></select></div>
-          <div><label style="margin:0 0 3px;font-size:11px">Delta Rp/malam</label><input name="priceDelta" type="number" value="0" style="max-width:110px"></div>
+          <div><label style="margin:0 0 3px;font-size:11px">Selisih harga (± Rp/malam)</label><input name="priceDelta" type="number" value="0" style="max-width:120px" data-rp-delta><div class="rp-preview muted" style="font-size:10.5px;margin-top:2px">= harga kamar</div></div>
           <label class="pr-check" style="margin:0 0 8px;font-size:11.5px"><input type="checkbox" name="refundable" checked> Refundable</label>
           <label class="pr-check" style="margin:0 0 8px;font-size:11.5px"><input type="checkbox" name="freeCancellation"> Bebas batal</label>
           <button class="btn sm" style="margin-bottom:2px">+ Rate Plan</button>
@@ -316,6 +316,24 @@
       if(window.mToast) window.mToast('error','Wilayah wajib dipilih — properti tidak akan muncul di pencarian area.');
       var prov=f.querySelector('.rp-prov'); if(prov){ prov.focus(); prov.scrollIntoView({behavior:'smooth',block:'center'}); }
     }
+  });
+})();
+// Rate-plan: live "harga akhir" preview + warn if the delta looks like a full price.
+(function(){
+  function rp(v){ return 'Rp ' + Number(v||0).toLocaleString('id-ID'); }
+  document.querySelectorAll('[data-rp-form]').forEach(function(f){
+    var base = Number(f.getAttribute('data-room-price'))||0;
+    var input = f.querySelector('[data-rp-delta]');
+    var prev = f.querySelector('.rp-preview');
+    if(!input||!prev) return;
+    function upd(){
+      var d = Number(input.value)||0;
+      var total = base + d;
+      prev.textContent = 'Harga akhir: ' + rp(total);
+      if (d >= base && base > 0) { prev.style.color = '#c0392b'; prev.textContent += ' — cek: ini terlihat seperti harga penuh, bukan selisih?'; }
+      else { prev.style.color = ''; }
+    }
+    input.addEventListener('input', upd); upd();
   });
 })();
 </script>
