@@ -67,7 +67,8 @@ class MiruumTheme {
   /// Build the theme for the current [kDark] value.
   static ThemeData build() {
     final base = kDark ? ThemeData.dark(useMaterial3: true) : ThemeData.light(useMaterial3: true);
-    final text = GoogleFonts.poppinsTextTheme(base.textTheme).apply(
+    // Quicksand — rounded, matches the Miruum logo wordmark.
+    final text = GoogleFonts.quicksandTextTheme(base.textTheme).apply(
       bodyColor: MC.ink,
       displayColor: MC.ink,
     );

@@ -2440,7 +2440,7 @@ app.post("/api/bookings/:id/digital-checkin", requireAuth, async (req: AuthReque
 });
 
 // ── Shared document styling for e-voucher & invoice (professional, printable) ──
-const DOC_CSS = `*{box-sizing:border-box}body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#eef0f4;margin:0;padding:26px 16px;color:#1f262e;-webkit-font-smoothing:antialiased}
+const DOC_CSS = `@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');*{box-sizing:border-box}body{font-family:'Quicksand','Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#eef0f4;margin:0;padding:26px 16px;color:#1f262e;-webkit-font-smoothing:antialiased}
 .doc{max-width:560px;margin:0 auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 16px 44px rgba(20,24,30,.12)}
 .brand{font-weight:800;font-size:20px;letter-spacing:.5px}.brand span{opacity:.9;font-weight:600}
 .logo-plate{display:inline-block;background:#fff;border-radius:11px;padding:8px 14px;box-shadow:0 6px 16px rgba(0,0,0,.18)}.logo-plate img{height:30px;display:block}
@@ -2482,8 +2482,9 @@ function esc(s: unknown): string {
 // bars, bilingual (EN + grey-italic ID) labels, app-store badges + orange wave.
 const V_ORANGE = "#F08421";
 const CS_PHONE = "0811 9628 286";
-const VCSS = `*{box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#e9ecf1;margin:0;padding:24px 14px;color:#20262e;-webkit-font-smoothing:antialiased}
+const VCSS = `@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{font-family:'Quicksand','Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;background:#e9ecf1;margin:0;padding:24px 14px;color:#20262e;-webkit-font-smoothing:antialiased}
 .vdoc{width:794px;max-width:100%;min-height:1123px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(20,30,50,.16);overflow:hidden;position:relative;padding:44px 44px 180px}
 .vhd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
 .vhd .logo img{height:66px;display:block}

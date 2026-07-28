@@ -23,8 +23,8 @@ export default {
         line: '#ECE8E2',
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-        display: ['Fraunces', 'Georgia', 'serif'],
+        sans: ['Quicksand', 'system-ui', 'sans-serif'],
+        display: ['Quicksand', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         card: '0 2px 14px rgba(31,36,48,0.06)',
