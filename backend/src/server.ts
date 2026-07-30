@@ -635,7 +635,7 @@ app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
 app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
     dataUrl: z.string().regex(/^data:image\/(png|jpe?g|webp);base64,/, "Format gambar tidak didukung"),
-    folder: z.enum(["avatars", "hotels"]).default("avatars"),
+    folder: z.enum(["avatars", "hotels", "packages"]).default("avatars"),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Data tidak valid" });
