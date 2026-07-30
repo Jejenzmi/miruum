@@ -254,6 +254,7 @@ class HotelPackage {
   final bool isPopular;
   final String boardBasis; // ROOM_ONLY | BREAKFAST | HALF_BOARD | FULL_BOARD | ALL_INCLUSIVE
   final List<String> inclusions;
+  final String? hotelName; // property name, shown on cards (list + detail)
   final Hotel? hotel; // present on detail fetch
   final Room? room; // present on detail fetch
 
@@ -263,7 +264,7 @@ class HotelPackage {
     required this.days, required this.guests, required this.originalPrice, required this.price,
     required this.discountPct, required this.reviewCount, required this.starRating,
     required this.rating, required this.isPopular, this.boardBasis = 'BREAKFAST',
-    this.inclusions = const [], this.hotel, this.room,
+    this.inclusions = const [], this.hotelName, this.hotel, this.room,
   });
 
   /// Short label for the meal plan (board basis).
@@ -293,6 +294,7 @@ class HotelPackage {
         rating: (j['rating'] ?? 0).toDouble(), isPopular: j['isPopular'] ?? false,
         boardBasis: j['boardBasis'] ?? 'BREAKFAST',
         inclusions: (j['inclusions'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+        hotelName: j['hotelName'] ?? (j['hotel'] is Map ? j['hotel']['name'] : null),
         hotel: j['hotel'] != null ? Hotel.fromJson(j['hotel']) : null,
         room: j['room'] != null ? Room.fromJson(j['room']) : null,
       );

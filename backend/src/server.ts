@@ -1183,7 +1183,10 @@ app.get("/api/packages", async (req, res) => {
     sort === "rating" ? { rating: "desc" as const } :
     { isPopular: "desc" as const };
   const noFilter = !query && !city && !sort;
-  const fetch = () => prisma.hotelPackage.findMany({ where, orderBy, select: packageCard });
+  // Include the property name so package cards can show WHICH hotel the bundle is for.
+  const fetch = () => prisma.hotelPackage
+    .findMany({ where, orderBy, select: { ...packageCard, hotel: { select: { name: true } } } })
+    .then((rows) => rows.map(({ hotel, ...p }) => ({ ...p, hotelName: hotel?.name ?? null })));
   const packages = noFilter ? await cached("miruum:packages:all", 120, fetch) : await fetch();
   res.json({ packages });
 });
@@ -1206,6 +1209,7 @@ app.get("/api/packages/:id", async (req, res) => {
   res.json({
     package: {
       ...pkg,
+      hotelName: pkg.hotel.name,
       hotel: { ...pkg.hotel, facilities: pkg.hotel.facilities.map((f) => f.facility) },
     },
   });

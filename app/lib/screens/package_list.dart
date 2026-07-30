@@ -96,6 +96,15 @@ class PackageCard extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(pkg.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              if ((pkg.hotelName ?? '').isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(Icons.apartment_rounded, size: 13, color: MC.primary),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(pkg.hotelName!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w600, fontSize: 12.5))),
+                ]),
+              ],
               const SizedBox(height: 4),
               Row(children: [
                 Icon(Icons.location_on_rounded, size: 13, color: MC.inkFaint),

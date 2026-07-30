@@ -109,6 +109,15 @@ class _PackageViewState extends State<_PackageView> {
                 ]),
                 const SizedBox(height: 12),
                 Text(pkg.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20)),
+                if (((pkg.hotelName ?? pkg.hotel?.name) ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Row(children: [
+                    Icon(Icons.apartment_rounded, size: 15, color: MC.primary),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text((pkg.hotelName ?? pkg.hotel?.name)!,
+                        style: const TextStyle(color: MC.primaryDark, fontWeight: FontWeight.w700, fontSize: 14))),
+                  ]),
+                ],
                 const SizedBox(height: 6),
                 Row(children: [
                   Icon(Icons.location_on_rounded, size: 15, color: MC.inkFaint),
