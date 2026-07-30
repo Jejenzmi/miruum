@@ -1180,13 +1180,22 @@ app.get("/extranet/packages", partnerGuard, async (req, res) => {
   const { packages, hotels } = await api("/partner/packages", { token: res.locals.token });
   res.render("extranet/packages", { packages, hotels, active: "packages", done: req.query.done, err: req.query.err });
 });
-app.post("/extranet/packages", partnerGuard, async (req, res) => {
-  try { await api("/partner/packages", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/extranet/packages?done=1"); }
-  catch (e) { res.redirect("/extranet/packages?err=" + encodeURIComponent(e.message)); }
+app.post("/extranet/packages", partnerGuard, upload.single("packageImage"), async (req, res) => {
+  try {
+    const body = { ...req.body };
+    if (req.file) body.imageUrl = await uploadFile(res.locals.token, req.file, "packages"); // uploaded file wins over pasted URL
+    await api("/partner/packages", { method: "POST", token: res.locals.token, body });
+    res.redirect("/extranet/packages?done=1");
+  } catch (e) { res.redirect("/extranet/packages?err=" + encodeURIComponent(e.message)); }
 });
-app.post("/extranet/packages/:id/edit", partnerGuard, async (req, res) => {
-  try { await api(`/partner/packages/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/extranet/packages?done=1"); }
-  catch (e) { res.redirect("/extranet/packages?err=" + encodeURIComponent(e.message)); }
+app.post("/extranet/packages/:id/edit", partnerGuard, upload.single("packageImage"), async (req, res) => {
+  try {
+    const body = { ...req.body };
+    if (req.file) body.imageUrl = await uploadFile(res.locals.token, req.file, "packages");
+    else if (!body.imageUrl) delete body.imageUrl; // don't overwrite existing image with a blank
+    await api(`/partner/packages/${req.params.id}`, { method: "PUT", token: res.locals.token, body });
+    res.redirect("/extranet/packages?done=1");
+  } catch (e) { res.redirect("/extranet/packages?err=" + encodeURIComponent(e.message)); }
 });
 app.post("/extranet/packages/:id/delete", partnerGuard, async (req, res) => {
   try { await api(`/partner/packages/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}

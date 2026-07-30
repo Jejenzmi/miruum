@@ -13,7 +13,7 @@
 <% } else { %>
 <div class="card">
   <h3>Tambah Paket</h3>
-  <form method="post" action="/extranet/packages">
+  <form method="post" action="/extranet/packages" enctype="multipart/form-data">
     <label>Judul Paket <span style="color:#c0392b">*</span></label>
     <input name="title" placeholder="Staycation Santai 2N3D" required>
     <label>Hotel <span style="color:#c0392b">*</span></label>
@@ -39,7 +39,10 @@
     </select>
     <label>Inklusi Ekstra — non-makan (satu per baris)</label>
     <textarea name="inclusions" rows="4" placeholder="Laundry 3 potong/hari&#10;Antar-jemput bandara&#10;Spa 60 menit&#10;Late check-out 14.00"></textarea>
-    <label>URL Gambar (opsional)</label><input name="imageUrl" placeholder="https://...">
+    <label>Gambar Paket (opsional)</label>
+    <input type="file" name="packageImage" accept="image/*">
+    <p class="muted" style="font-size:12px;margin:4px 0 0">Unggah dari galeri/komputer (maks 6 MB). Kosongkan untuk pakai foto hotel. Atau tempel URL di bawah bila punya link.</p>
+    <input name="imageUrl" placeholder="https://... (opsional, jika tidak mengunggah file)">
     <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="isPopular" style="width:auto"> Tandai populer</label>
     <div style="margin-top:16px"><button class="btn">Simpan Paket</button></div>
   </form>
@@ -69,7 +72,7 @@
             <details id="ed-<%= p.id %>">
               <summary style="display:none"></summary>
               <div style="background:var(--soft,#faf7f2);border-radius:12px;padding:16px;margin:4px 0 10px">
-                <form method="post" action="/extranet/packages/<%= p.id %>/edit">
+                <form method="post" action="/extranet/packages/<%= p.id %>/edit" enctype="multipart/form-data">
                   <div class="row2">
                     <div><label>Judul Paket</label><input name="title" value="<%= p.title %>"></div>
                     <div><label>Badge</label><input name="badge" value="<%= p.badge || '' %>"></div>
@@ -93,7 +96,11 @@
                   </div>
                   <label>Inklusi Ekstra (satu per baris)</label>
                   <textarea name="inclusions" rows="3"><%= (p.inclusions || []).join('\n') %></textarea>
-                  <label>URL Gambar</label><input name="imageUrl" value="<%= p.imageUrl || '' %>">
+                  <label>Ganti Gambar (opsional)</label>
+                  <% if (p.imageUrl) { %><div style="margin:2px 0 6px"><img src="<%= p.imageUrl %>" alt="" style="height:56px;border-radius:8px;object-fit:cover"></div><% } %>
+                  <input type="file" name="packageImage" accept="image/*">
+                  <p class="muted" style="font-size:12px;margin:4px 0 0">Unggah file baru untuk mengganti. Kosongkan untuk mempertahankan gambar saat ini.</p>
+                  <input type="hidden" name="imageUrl" value="<%= p.imageUrl || '' %>">
                   <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="isPopular" style="width:auto" <%= p.isPopular?'checked':'' %>> Tandai populer</label>
                   <div style="margin-top:14px;display:flex;gap:8px">
                     <button class="btn sm">Simpan Perubahan</button>
