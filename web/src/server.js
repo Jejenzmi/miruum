@@ -1175,6 +1175,24 @@ app.post("/extranet/campaigns/:id/cancel", partnerGuard, async (req, res) => {
   res.redirect("/extranet/campaigns");
 });
 
+// ── Hotel Packages (partner self-service — scoped to their own properties) ──
+app.get("/extranet/packages", partnerGuard, async (req, res) => {
+  const { packages, hotels } = await api("/partner/packages", { token: res.locals.token });
+  res.render("extranet/packages", { packages, hotels, active: "packages", done: req.query.done, err: req.query.err });
+});
+app.post("/extranet/packages", partnerGuard, async (req, res) => {
+  try { await api("/partner/packages", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/extranet/packages?done=1"); }
+  catch (e) { res.redirect("/extranet/packages?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/extranet/packages/:id/edit", partnerGuard, async (req, res) => {
+  try { await api(`/partner/packages/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/extranet/packages?done=1"); }
+  catch (e) { res.redirect("/extranet/packages?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/extranet/packages/:id/delete", partnerGuard, async (req, res) => {
+  try { await api(`/partner/packages/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/extranet/packages");
+});
+
 // ── Advance Deposit Program ──
 app.get("/extranet/deposit", partnerGuard, async (req, res) => {
   const data = await api("/partner/deposit", { token: res.locals.token });

@@ -4578,6 +4578,70 @@ app.delete("/api/admin/packages/:id", requireRole("ADMIN"), async (req, res) => 
   await prisma.hotelPackage.delete({ where: { id: req.params.id } }); await invalidate("miruum:"); res.json({ ok: true });
 });
 
+// ── Partner-facing Hotel Packages (self-service, scoped to the owner's hotels) ──
+// Same bundle model as admin, but a partner may only touch packages on hotels they own.
+app.get("/api/partner/packages", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true, name: true, city: true } });
+  const packages = await prisma.hotelPackage.findMany({
+    where: { hotelId: { in: hotels.map((h) => h.id) } },
+    orderBy: { createdAt: "desc" }, include: { hotel: { select: { name: true } } },
+  });
+  res.json({ packages, hotels });
+});
+
+app.post("/api/partner/packages", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ title: z.string().min(2), hotelId: z.string(), roomId: z.string().optional(),
+    nights: z.coerce.number().int().min(1), days: z.coerce.number().int().min(1), guests: z.coerce.number().int().min(1).default(2),
+    originalPrice: z.coerce.number().int(), price: z.coerce.number().int(), inclusions: z.string().default(""),
+    boardBasis: z.enum(["ROOM_ONLY", "BREAKFAST", "HALF_BOARD", "FULL_BOARD", "ALL_INCLUSIVE"]).default("BREAKFAST"),
+    badge: z.string().optional(), imageUrl: z.string().default(""), isPopular: z.coerce.boolean().default(false), description: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data paket tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const hotel = await prisma.hotel.findUnique({ where: { id: p.data.hotelId } });
+  if (!hotel) return res.status(404).json({ error: "Hotel tidak ditemukan" });
+  // Chosen room must belong to this hotel; else default to the hotel's first room.
+  const room = p.data.roomId
+    ? await prisma.room.findFirst({ where: { id: p.data.roomId, hotelId: hotel.id } })
+    : await prisma.room.findFirst({ where: { hotelId: hotel.id } });
+  if (!room) return res.status(400).json({ error: "Hotel belum punya kamar" });
+  const slug = p.data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 9000 + 1000);
+  const discountPct = p.data.originalPrice > 0 ? Math.round((1 - p.data.price / p.data.originalPrice) * 100) : 0;
+  const pkg = await prisma.hotelPackage.create({ data: {
+    slug, title: p.data.title, city: hotel.city, description: p.data.description || "", imageUrl: p.data.imageUrl || hotel.imageUrl,
+    hotelId: hotel.id, roomId: room.id, nights: p.data.nights, days: p.data.days, guests: p.data.guests,
+    boardBasis: p.data.boardBasis,
+    inclusions: p.data.inclusions.split("\n").map((s) => s.trim()).filter(Boolean),
+    originalPrice: p.data.originalPrice, price: p.data.price, discountPct, rating: hotel.rating, reviewCount: hotel.reviewCount,
+    starRating: hotel.starRating, badge: p.data.badge, isPopular: p.data.isPopular } });
+  await invalidate("miruum:"); res.json({ package: pkg });
+});
+
+app.put("/api/partner/packages/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const existing = await prisma.hotelPackage.findUnique({ where: { id: req.params.id }, select: { hotelId: true } });
+  if (!existing) return res.status(404).json({ error: "Paket tidak ditemukan" });
+  if (!(await ownsHotel(req, existing.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const schema = z.object({ title: z.string().optional(), nights: z.coerce.number().int().optional(), days: z.coerce.number().int().optional(),
+    guests: z.coerce.number().int().optional(), originalPrice: z.coerce.number().int().optional(), price: z.coerce.number().int().optional(),
+    inclusions: z.string().optional(), boardBasis: z.enum(["ROOM_ONLY", "BREAKFAST", "HALF_BOARD", "FULL_BOARD", "ALL_INCLUSIVE"]).optional(),
+    badge: z.string().optional(), imageUrl: z.string().optional(), isPopular: z.coerce.boolean().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = { ...p.data };
+  if (data.inclusions !== undefined) data.inclusions = String(data.inclusions).split("\n").map((s: string) => s.trim()).filter(Boolean);
+  if (data.originalPrice != null && data.price != null) data.discountPct = Math.round((1 - data.price / data.originalPrice) * 100);
+  const pkg = await prisma.hotelPackage.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:"); res.json({ package: pkg });
+});
+
+app.delete("/api/partner/packages/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const existing = await prisma.hotelPackage.findUnique({ where: { id: req.params.id }, select: { hotelId: true } });
+  if (!existing) return res.status(404).json({ error: "Paket tidak ditemukan" });
+  if (!(await ownsHotel(req, existing.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  await prisma.hotelPackage.delete({ where: { id: req.params.id } }); await invalidate("miruum:"); res.json({ ok: true });
+});
+
 // ─────────────── App config: announcement popup + update prompt ───────────────
 // Public — the mobile app calls this on launch.
 app.get("/api/app/config", async (_req, res) => {

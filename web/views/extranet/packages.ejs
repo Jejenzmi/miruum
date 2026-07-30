@@ -1,0 +1,114 @@
+<%- include('../partials/top', { title:'Paket Hotel', heading:'Paket Hotel', section:'extranet', active:'packages', me }) %>
+
+<% if (done) { %><div class="notice ok">Paket tersimpan. Langsung tampil di aplikasi & web Miruum pada bagian Paket Hotel.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 16px">Buat paket bundling properti Anda (mis. Staycation 2N3D + sarapan + late check-out). Harga paket ditagih sekaligus untuk seluruh masa inap — tamu melihat harga coret dari <b>Harga Normal</b>. Paket hanya bisa dibuat untuk hotel milik Anda.</p>
+
+<% var BOARD_LABELS = { ROOM_ONLY:'Tanpa Makan', BREAKFAST:'Sarapan', HALF_BOARD:'Half Board', FULL_BOARD:'Full Board (3x)', ALL_INCLUSIVE:'All-Inclusive' }; %>
+<% var BOARD_OPTS = [['ROOM_ONLY','Tanpa Makan (Room Only)'],['BREAKFAST','Termasuk Sarapan (Breakfast)'],['HALF_BOARD','Sarapan + Makan Malam (Half Board)'],['FULL_BOARD','3x Makan: Pagi, Siang, Malam (Full Board)'],['ALL_INCLUSIVE','All-Inclusive (Makan + Minuman)']]; %>
+
+<% if (!hotels.length) { %>
+  <div class="card"><div class="empty">Anda belum punya properti. Tambahkan hotel dulu di <a href="/extranet">Ringkasan & Hotel</a> sebelum membuat paket.</div></div>
+<% } else { %>
+<div class="card">
+  <h3>Tambah Paket</h3>
+  <form method="post" action="/extranet/packages">
+    <label>Judul Paket <span style="color:#c0392b">*</span></label>
+    <input name="title" placeholder="Staycation Santai 2N3D" required>
+    <label>Hotel <span style="color:#c0392b">*</span></label>
+    <select name="hotelId" required>
+      <option value="">— pilih hotel —</option>
+      <% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %><%= h.city ? ' (' + h.city + ')' : '' %></option><% }) %>
+    </select>
+    <div class="row2">
+      <div><label>Malam <span style="color:#c0392b">*</span></label><input name="nights" type="number" min="1" value="2" required></div>
+      <div><label>Hari <span style="color:#c0392b">*</span></label><input name="days" type="number" min="1" value="3" required></div>
+    </div>
+    <div class="row2">
+      <div><label>Harga Normal (Rp) <span style="color:#c0392b">*</span></label><input name="originalPrice" type="number" min="0" placeholder="1560000" required></div>
+      <div><label>Harga Paket (Rp) <span style="color:#c0392b">*</span></label><input name="price" type="number" min="0" placeholder="1180000" required></div>
+    </div>
+    <div class="row2">
+      <div><label>Tamu</label><input name="guests" type="number" min="1" value="2"></div>
+      <div><label>Badge (opsional)</label><input name="badge" placeholder="Best Seller"></div>
+    </div>
+    <label>Paket Makan (Board Basis)</label>
+    <select name="boardBasis">
+      <% BOARD_OPTS.forEach(function(o){ %><option value="<%= o[0] %>" <%= o[0]==='BREAKFAST'?'selected':'' %>><%= o[1] %></option><% }) %>
+    </select>
+    <label>Inklusi Ekstra — non-makan (satu per baris)</label>
+    <textarea name="inclusions" rows="4" placeholder="Laundry 3 potong/hari&#10;Antar-jemput bandara&#10;Spa 60 menit&#10;Late check-out 14.00"></textarea>
+    <label>URL Gambar (opsional)</label><input name="imageUrl" placeholder="https://...">
+    <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="isPopular" style="width:auto"> Tandai populer</label>
+    <div style="margin-top:16px"><button class="btn">Simpan Paket</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Daftar Paket</h3>
+  <table>
+    <thead><tr><th>Paket</th><th>Hotel</th><th>Durasi</th><th>Makan</th><th>Harga</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% packages.forEach(function(p){ %>
+        <tr>
+          <td><b><%= p.title %></b><% if(p.badge){ %> <span class="pill PARTNER"><%= p.badge %></span><% } %><% if(p.isPopular){ %> <span class="pill PAID">Populer</span><% } %></td>
+          <td><%= p.hotel ? p.hotel.name : '—' %></td>
+          <td><%= p.nights %>N<%= p.days %>D</td>
+          <td><span class="pill PAID"><%= BOARD_LABELS[p.boardBasis] || 'Sarapan' %></span></td>
+          <td><b style="color:#E07C17"><%= rupiah(p.price) %></b><br><span class="muted" style="font-size:11px;text-decoration:line-through"><%= rupiah(p.originalPrice) %></span></td>
+          <td style="white-space:nowrap">
+            <div style="display:flex;gap:6px;align-items:center">
+              <button type="button" class="btn ghost sm" onclick="var d=document.getElementById('ed-<%= p.id %>');d.open=!d.open">Edit</button>
+              <form method="post" action="/extranet/packages/<%= p.id %>/delete" data-confirm="Hapus paket ini?" data-confirm-title="Hapus Paket" data-confirm-ok="Ya, hapus" data-confirm-kind="danger"><button class="btn danger sm">Hapus</button></form>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="6" style="padding:0;border:none">
+            <details id="ed-<%= p.id %>">
+              <summary style="display:none"></summary>
+              <div style="background:var(--soft,#faf7f2);border-radius:12px;padding:16px;margin:4px 0 10px">
+                <form method="post" action="/extranet/packages/<%= p.id %>/edit">
+                  <div class="row2">
+                    <div><label>Judul Paket</label><input name="title" value="<%= p.title %>"></div>
+                    <div><label>Badge</label><input name="badge" value="<%= p.badge || '' %>"></div>
+                  </div>
+                  <div class="row2">
+                    <div><label>Malam</label><input name="nights" type="number" min="1" value="<%= p.nights %>"></div>
+                    <div><label>Hari</label><input name="days" type="number" min="1" value="<%= p.days %>"></div>
+                  </div>
+                  <div class="row2">
+                    <div><label>Harga Normal (Rp)</label><input name="originalPrice" type="number" min="0" value="<%= p.originalPrice %>"></div>
+                    <div><label>Harga Paket (Rp)</label><input name="price" type="number" min="0" value="<%= p.price %>"></div>
+                  </div>
+                  <div class="row2">
+                    <div><label>Tamu</label><input name="guests" type="number" min="1" value="<%= p.guests %>"></div>
+                    <div>
+                      <label>Paket Makan</label>
+                      <select name="boardBasis">
+                        <% BOARD_OPTS.forEach(function(o){ %><option value="<%= o[0] %>" <%= p.boardBasis===o[0]?'selected':'' %>><%= o[1] %></option><% }) %>
+                      </select>
+                    </div>
+                  </div>
+                  <label>Inklusi Ekstra (satu per baris)</label>
+                  <textarea name="inclusions" rows="3"><%= (p.inclusions || []).join('\n') %></textarea>
+                  <label>URL Gambar</label><input name="imageUrl" value="<%= p.imageUrl || '' %>">
+                  <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="isPopular" style="width:auto" <%= p.isPopular?'checked':'' %>> Tandai populer</label>
+                  <div style="margin-top:14px;display:flex;gap:8px">
+                    <button class="btn sm">Simpan Perubahan</button>
+                    <button type="button" class="btn ghost sm" onclick="document.getElementById('ed-<%= p.id %>').open=false">Batal</button>
+                  </div>
+                </form>
+              </div>
+            </details>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!packages.length) { %><tr><td colspan="6" class="empty">Belum ada paket. Buat paket pertama Anda di atas.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%- include('../partials/bottom') %>
