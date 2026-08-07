@@ -914,6 +914,38 @@ model FolioCharge {
   @@index([bookingId])
 }
 
+// Folio settlement lines — money taken against a guest's folio (cash/card/transfer/etc).
+model FolioPayment {
+  id          String   @id @default(cuid())
+  bookingId   String
+  method      String   // CASH | CARD | TRANSFER | QRIS | EWALLET | CITY_LEDGER | OTHER
+  amount      BigInt   // rupiah
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+// Room / unit block — Out-of-Order, maintenance, or a manual hold. Blocking a whole
+// room type reserves inventory (allotment) so it can't be overbooked; blocking a
+// single unit marks it OOO on the rack.
+model RoomBlock {
+  id          String   @id @default(cuid())
+  hotelId     String
+  roomId      String   // room type whose allotment is held
+  roomUnitId  String?  // specific physical unit (optional)
+  dateFrom    DateTime @db.Date
+  dateTo      DateTime @db.Date // exclusive
+  rooms       Int      @default(1) // units held per night (whole-type block)
+  kind        String   @default("OOO") // OOO | MAINTENANCE | HOLD
+  reason      String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([hotelId])
+  @@index([roomId])
+}
+
 // Night audit / manager's daily report (D-report) snapshot.
 model NightAuditLog {
   id           String   @id @default(cuid())
@@ -1054,9 +1086,16 @@ model Booking {
   ratePlanName   String?       // snapshot of the plan name
   planRefundable      Boolean? // policy snapshot (falls back to room when null)
   planFreeCancellation Boolean?
+  // Guest identity captured at PMS check-in (registration card / compliance).
+  guestIdType    String?       // KTP | PASSPORT | SIM | OTHER
+  guestIdNumber  String?
+  guestAddress   String?
+  guestNationality String?
+  walkIn         Boolean       @default(false) // created at the front desk (not via app/OTA)
   createdAt      DateTime      @default(now())
   roomUnit       RoomUnit?     @relation(fields: [roomUnitId], references: [id])
   folioCharges   FolioCharge[]
+  folioPayments  FolioPayment[]
 
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   hotel          Hotel         @relation(fields: [hotelId], references: [id])

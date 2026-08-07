@@ -1,0 +1,87 @@
+<%- include('../partials/top', { title:'Walk-in', heading:'Reservasi Walk-in', section:'extranet', active:'walkin', me }) %>
+
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+<p class="muted" style="margin:-4px 0 16px">Buat reservasi langsung di meja depan (tamu datang / telepon). Ketersediaan & harga dihitung dari kalender kamar; inventaris otomatis dikunci agar tidak overbooking.</p>
+
+<% if (!hotels.length) { %>
+  <div class="card"><div class="empty">Belum ada hotel PMS aktif.</div></div>
+<% } else { %>
+<div class="card">
+  <form method="post" action="/pms/walk-in" id="wf">
+    <div class="row2">
+      <div>
+        <label>Hotel <span style="color:#c0392b">*</span></label>
+        <select name="hotelId" id="w-hotel" required>
+          <% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %>
+        </select>
+      </div>
+      <div>
+        <label>Tipe Kamar <span style="color:#c0392b">*</span></label>
+        <select name="roomId" id="w-room" required></select>
+      </div>
+    </div>
+    <div class="row2">
+      <div><label>No. Kamar (opsional)</label><select name="roomUnitId" id="w-unit"><option value="">— assign nanti —</option></select></div>
+      <div><label>Jumlah Tamu</label><input name="guests" type="number" min="1" value="1"></div>
+    </div>
+    <div class="row2">
+      <div><label>Check-in <span style="color:#c0392b">*</span></label><input name="checkIn" id="w-in" type="date" required></div>
+      <div><label>Check-out <span style="color:#c0392b">*</span></label><input name="checkOut" id="w-out" type="date" required></div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <div class="row2">
+      <div><label>Nama Tamu <span style="color:#c0392b">*</span></label><input name="bookerName" required placeholder="Sesuai identitas"></div>
+      <div><label>No. HP</label><input name="bookerPhone" placeholder="08xxxx"></div>
+    </div>
+    <div class="row2">
+      <div><label>Email</label><input name="bookerEmail" type="email" placeholder="opsional"></div>
+      <div><label>Kebangsaan</label><input name="guestNationality" placeholder="Indonesia"></div>
+    </div>
+    <div class="row2">
+      <div>
+        <label>Jenis Identitas</label>
+        <select name="guestIdType"><option value="">—</option><option>KTP</option><option>PASSPORT</option><option>SIM</option><option>OTHER</option></select>
+      </div>
+      <div><label>No. Identitas</label><input name="guestIdNumber"></div>
+    </div>
+    <label>Alamat</label><input name="guestAddress" placeholder="opsional">
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <div class="row2">
+      <div>
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" name="payNow" value="true" style="width:auto"> Bayar sekarang (langsung PAID)</label>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" name="checkInNow" value="true" style="width:auto"> Langsung check-in</label>
+      </div>
+      <div>
+        <label>Metode Bayar (jika bayar sekarang)</label>
+        <select name="payMethod"><option>Tunai</option><option>Kartu</option><option>Transfer</option><option>QRIS</option><option>E-Wallet</option></select>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button class="btn">Buat Reservasi</button></div>
+  </form>
+</div>
+
+<script>
+  var HOTELS = <%- JSON.stringify(hotels) %>;
+  var todayISO = new Date().toISOString().slice(0,10);
+  var tmwISO = new Date(Date.now()+86400000).toISOString().slice(0,10);
+  var hSel=document.getElementById('w-hotel'), rSel=document.getElementById('w-room'), uSel=document.getElementById('w-unit');
+  document.getElementById('w-in').value = todayISO; document.getElementById('w-out').value = tmwISO;
+  function fillRooms(){
+    var h = HOTELS.find(function(x){return x.id===hSel.value;}) || HOTELS[0];
+    rSel.innerHTML = (h.roomTypes||[]).map(function(t){ return '<option value="'+t.id+'">'+t.name+'</option>'; }).join('') || '<option value="">(belum ada kamar)</option>';
+    fillUnits();
+  }
+  function fillUnits(){
+    var h = HOTELS.find(function(x){return x.id===hSel.value;}) || HOTELS[0];
+    var t = (h.roomTypes||[]).find(function(x){return x.id===rSel.value;});
+    var opts = '<option value="">— assign nanti —</option>';
+    if (t) opts += (t.units||[]).map(function(u){ return '<option value="'+u.id+'">'+u.number+(u.status!=='CLEAN'?' ('+u.status+')':'')+'</option>'; }).join('');
+    uSel.innerHTML = opts;
+  }
+  hSel.addEventListener('change', fillRooms);
+  rSel.addEventListener('change', fillUnits);
+  fillRooms();
+</script>
+<% } %>
+
+<%- include('../partials/bottom') %>

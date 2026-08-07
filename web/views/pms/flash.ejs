@@ -1,0 +1,37 @@
+<%- include('../partials/top', { title:'Flash Report', heading:"Manager's Flash Report", section:'extranet', active:'flash', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/flash" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="margin:0">Tanggal</label><input type="date" name="date" value="<%= flash.date %>" style="width:auto"><button class="btn sm">Lihat</button>
+  </form>
+  <div style="display:flex;gap:8px">
+    <a class="btn ghost sm" href="/pms/manifest?type=arrivals&date=<%= flash.date %>">Manifest Arrival</a>
+    <a class="btn ghost sm" href="/pms/guests-export.csv?date=<%= flash.date %>">Ekspor Daftar Tamu (CSV)</a>
+  </div>
+</div>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0">
+  <div class="stat"><div class="label">Okupansi</div><div class="value"><%= flash.occupancyPct %>%</div><div class="muted" style="font-size:11px"><%= flash.occupied %>/<%= flash.totalRooms %> kamar</div></div>
+  <div class="stat"><div class="label">ADR</div><div class="value" style="font-size:19px"><%= rupiah(flash.adr) %></div><div class="muted" style="font-size:11px">Average Daily Rate</div></div>
+  <div class="stat"><div class="label">RevPAR</div><div class="value" style="font-size:19px"><%= rupiah(flash.revpar) %></div><div class="muted" style="font-size:11px">Rev / kamar tersedia</div></div>
+  <div class="stat"><div class="label">In-house</div><div class="value"><%= flash.inhouse %></div><div class="muted" style="font-size:11px">tamu menginap</div></div>
+</div>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+  <div class="stat"><div class="label">Kedatangan</div><div class="value" style="color:#2f9e6f"><%= flash.arrivals %></div></div>
+  <div class="stat"><div class="label">Keberangkatan</div><div class="value" style="color:#E07C17"><%= flash.departures %></div></div>
+  <div class="stat"><div class="label">Kamar Kotor</div><div class="value" style="color:#a86616"><%= flash.dirty %></div></div>
+  <div class="stat"><div class="label">Out-of-Order</div><div class="value" style="color:#b02a2a"><%= flash.ooo %></div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Pendapatan (<%= flash.date %>)</h3>
+  <table>
+    <tr><td>Pendapatan Kamar (in-house)</td><td class="r" style="text-align:right"><%= rupiah(flash.roomRevenue) %></td></tr>
+    <tr><td>Pendapatan Ekstra (F&B/Spa/Laundry)</td><td class="r" style="text-align:right"><%= rupiah(flash.extraRevenue) %></td></tr>
+    <tr><td>Pembayaran Diterima Hari Ini</td><td class="r" style="text-align:right"><%= rupiah(flash.payments) %></td></tr>
+    <tr style="font-weight:800;border-top:2px solid #20262e"><td>Total Pendapatan</td><td class="r" style="text-align:right"><%= rupiah(flash.roomRevenue + flash.extraRevenue) %></td></tr>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

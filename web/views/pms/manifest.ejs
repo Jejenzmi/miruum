@@ -1,0 +1,36 @@
+<%- include('../partials/top', { title:'Manifest', heading:'Arrival / Departure Manifest', section:'extranet', active:'manifest', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <div class="tabs" style="display:flex;gap:6px">
+    <% [['arrivals','Kedatangan'],['departures','Keberangkatan'],['inhouse','In-house']].forEach(function(t){ %>
+      <a class="btn <%= type===t[0]?'':'ghost' %> sm" href="/pms/manifest?type=<%= t[0] %>&date=<%= date %>"><%= t[1] %></a>
+    <% }) %>
+  </div>
+  <form method="get" action="/pms/manifest" style="display:flex;gap:8px;align-items:center;margin:0">
+    <input type="hidden" name="type" value="<%= type %>">
+    <input type="date" name="date" value="<%= date %>" style="width:auto"><button class="btn sm">Lihat</button>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Kode</th><th>Tamu</th><th>No. HP</th><th>Kamar</th><th>Check-in</th><th>Check-out</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      <% rows.forEach(function(b){ %>
+        <tr>
+          <td><span class="pill <%= b.status==='PAID'?'PAID':(b.status==='COMPLETED'?'':'PENDING') %>"><%= b.code %></span></td>
+          <td><b><%= b.guest %></b><span class="muted"> · <%= b.guests %> tamu</span></td>
+          <td><%= b.phone || '—' %></td>
+          <td><%= b.room %><%= b.roomNumber ? ' · #'+b.roomNumber : '' %></td>
+          <td><%= b.checkIn %></td>
+          <td><%= b.checkOut %></td>
+          <td><%= b.inHouse ? '<span class="pill PAID">In-house</span>' : b.status %></td>
+          <td><a class="btn ghost sm" href="/pms/booking/<%= b.id %>">Buka</a></td>
+        </tr>
+      <% }) %>
+      <% if(!rows.length){ %><tr><td colspan="8" class="empty">Tidak ada data untuk <%= date %>.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

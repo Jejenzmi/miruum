@@ -5240,8 +5240,70 @@ app.post("/api/partner/bookings/:id/checkin", requireRole("PARTNER", "ADMIN"), a
     const unit = await prisma.roomUnit.findFirst({ where: { id: roomUnitId, roomId: b.roomId } });
     if (!unit) return res.status(400).json({ error: "Nomor kamar tidak valid untuk tipe ini" });
   }
-  await prisma.booking.update({ where: { id: b.id }, data: { checkedInAt: new Date(), ...(roomUnitId ? { roomUnitId } : {}) } });
+  // Capture guest identity for the registration card (compliance), if provided.
+  const idFields: any = {};
+  for (const k of ["guestIdType", "guestIdNumber", "guestAddress", "guestNationality"] as const) {
+    const v = req.body?.[k]; if (v != null && String(v).trim()) idFields[k] = String(v).trim();
+  }
+  await prisma.booking.update({ where: { id: b.id }, data: { checkedInAt: new Date(), ...(roomUnitId ? { roomUnitId } : {}), ...idFields } });
+  if (roomUnitId) await prisma.roomUnit.updateMany({ where: { id: roomUnitId }, data: { status: "INSPECT" } });
   res.json({ ok: true });
+});
+
+// ─────────── PMS: printable Invoice (folio bill) + Registration Card ───────────
+app.get("/api/partner/bookings/:id/invoice", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).send("<h1>Reservasi tidak ditemukan</h1>");
+  const full = await prisma.booking.findUnique({ where: { id: b.id }, include: { folioCharges: { orderBy: { createdAt: "asc" } }, folioPayments: { orderBy: { createdAt: "asc" } }, hotel: { select: { name: true, address: true, city: true } }, room: { select: { name: true } }, roomUnit: { select: { number: true } } } });
+  const f = full!;
+  const extras = f.folioCharges.reduce((s, c) => s + Number(c.amount) * c.qty, 0);
+  const grand = Number(f.totalPrice) + extras;
+  const paid = f.folioPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const rows = [
+    `<tr><td>Akomodasi — ${esc(f.room.name)} × ${f.nights} malam${f.rooms > 1 ? ` × ${f.rooms} kamar` : ""}</td><td class="r">${rupiah(Number(f.roomPrice))}</td></tr>`,
+    `<tr><td>Pajak & layanan</td><td class="r">${rupiah(Number(f.taxFee))}</td></tr>`,
+    ...f.folioCharges.map((c) => `<tr><td>${esc(c.description)}${c.qty > 1 ? ` × ${c.qty}` : ""}</td><td class="r">${rupiah(Number(c.amount) * c.qty)}</td></tr>`),
+  ].join("");
+  const payRows = f.folioPayments.map((p) => `<tr><td>Bayar — ${esc(p.method)}${p.note ? ` (${esc(p.note)})` : ""}</td><td class="r">- ${rupiah(Number(p.amount))}</td></tr>`).join("");
+  res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invoice ${f.code} — Miruum PMS</title>
+<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#20262e;max-width:720px;margin:24px auto;padding:0 18px}h1{font-size:20px;margin:0}.muted{color:#8a8f98;font-size:13px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{padding:9px 6px;border-bottom:1px solid #eee;font-size:14px;text-align:left}.r{text-align:right}.tot td{border-top:2px solid #20262e;font-weight:800;font-size:16px}.bal td{color:#c0392b;font-weight:800}.hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #E07C17;padding-bottom:12px}@media print{.noprint{display:none}}</style></head><body>
+<div class="hd"><div><h1>${esc(f.hotel.name)}</h1><div class="muted">${esc(f.hotel.address)}, ${esc(f.hotel.city)}</div></div><div style="text-align:right"><div style="font-weight:800;color:#E07C17">INVOICE</div><div class="muted">No. ${f.code}</div></div></div>
+<div style="margin-top:12px;font-size:14px"><b>${esc(f.bookerName)}</b><br><span class="muted">Kamar ${f.roomUnit?.number ? esc(f.roomUnit.number) + " · " : ""}${esc(f.room.name)} · ${f.checkIn.toISOString().slice(0, 10)} → ${f.checkOut.toISOString().slice(0, 10)}</span></div>
+<table><thead><tr><th>Deskripsi</th><th class="r">Jumlah</th></tr></thead><tbody>${rows}${payRows}
+<tr class="tot"><td>Total Tagihan</td><td class="r">${rupiah(grand)}</td></tr>
+<tr><td>Sudah Dibayar</td><td class="r">${rupiah(paid)}</td></tr>
+<tr class="bal"><td>Saldo Terutang</td><td class="r">${rupiah(grand - paid)}</td></tr>
+</tbody></table>
+<p class="muted" style="margin-top:22px">Terima kasih telah menginap. Dokumen ini dihasilkan oleh Miruum PMS.</p>
+<div class="noprint" style="margin-top:18px"><button onclick="window.print()" style="padding:10px 18px;background:#E07C17;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">Cetak / Simpan PDF</button></div>
+</body></html>`);
+});
+app.get("/api/partner/bookings/:id/registration-card", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).send("<h1>Reservasi tidak ditemukan</h1>");
+  const f = await prisma.booking.findUnique({ where: { id: b.id }, include: { hotel: { select: { name: true, address: true, city: true } }, room: { select: { name: true } }, roomUnit: { select: { number: true } } } });
+  const row = (k: string, v: string) => `<tr><td class="k">${k}</td><td class="v">${esc(v || "—")}</td></tr>`;
+  res.set("Content-Type", "text/html; charset=utf-8").send(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Registration Card ${f!.code}</title>
+<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#20262e;max-width:720px;margin:24px auto;padding:0 18px}h1{font-size:19px;margin:0}.muted{color:#8a8f98;font-size:13px}.hd{border-bottom:2px solid #E07C17;padding-bottom:12px;display:flex;justify-content:space-between}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:10px 6px;border-bottom:1px solid #eee;font-size:14px}.k{color:#8a8f98;width:38%}.v{font-weight:600}.sign{margin-top:48px;display:flex;justify-content:space-between}.sign div{width:45%;text-align:center;border-top:1px solid #20262e;padding-top:6px;font-size:12px;color:#8a8f98}@media print{.noprint{display:none}}</style></head><body>
+<div class="hd"><div><h1>${esc(f!.hotel.name)}</h1><div class="muted">${esc(f!.hotel.address)}, ${esc(f!.hotel.city)}</div></div><div style="text-align:right"><div style="font-weight:800;color:#E07C17">KARTU REGISTRASI</div><div class="muted">No. ${f!.code}</div></div></div>
+<table>
+${row("Nama Tamu", f!.bookerName)}
+${row("No. Telepon", f!.bookerPhone)}
+${row("Email", f!.bookerEmail)}
+${row("Jenis Identitas", f!.guestIdType || "")}
+${row("No. Identitas", f!.guestIdNumber || "")}
+${row("Kebangsaan", f!.guestNationality || "")}
+${row("Alamat", f!.guestAddress || "")}
+${row("Tipe Kamar", f!.room.name)}
+${row("No. Kamar", f!.roomUnit?.number || "Belum di-assign")}
+${row("Check-in", f!.checkIn.toISOString().slice(0, 10))}
+${row("Check-out", f!.checkOut.toISOString().slice(0, 10))}
+${row("Jumlah Tamu", String(f!.guests))}
+</table>
+<p class="muted" style="margin-top:18px">Dengan menandatangani, tamu menyetujui kebijakan properti & kebenaran data di atas.</p>
+<div class="sign"><div>Tanda tangan Tamu</div><div>Petugas Front Office</div></div>
+<div class="noprint" style="margin-top:18px"><button onclick="window.print()" style="padding:10px 18px;background:#E07C17;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">Cetak</button></div>
+</body></html>`);
 });
 
 app.post("/api/partner/bookings/:id/checkout", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
@@ -5284,15 +5346,83 @@ app.post("/api/partner/room-units/:id/housekeeping", requireRole("PARTNER", "ADM
   res.json({ ok: true });
 });
 
+// ─────────── PMS: Tape chart (room rack) ───────────
+// A rooms×dates grid: every physical unit is a row, each night a column, and each
+// reservation a bar. This is the signature front-office view for seeing occupancy
+// at a glance and assigning/moving rooms.
+app.get("/api/partner/pms/rack", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotelsQ = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId, productPMS: true }, select: { id: true, name: true } });
+  const hotelIds = hotelsQ.map((h) => h.id);
+  for (const id of hotelIds) await ensureRoomUnits(id);
+  const days = Math.min(Math.max(Number(req.query.days) || 14, 5), 31);
+  const fromRaw = String(req.query.from || "");
+  const from = new Date(fromRaw && !isNaN(+new Date(fromRaw)) ? fromRaw : new Date());
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from.getTime() + days * 86400000);
+  const dates: string[] = [];
+  for (let i = 0; i < days; i++) dates.push(new Date(from.getTime() + i * 86400000).toISOString().slice(0, 10));
+
+  const rooms = await prisma.room.findMany({
+    where: { hotelId: { in: hotelIds } }, orderBy: [{ hotelId: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, hotelId: true, units: { orderBy: { number: "asc" }, select: { id: true, number: true, status: true } } },
+  });
+  const reservations = await prisma.booking.findMany({
+    where: { hotelId: { in: hotelIds }, status: { in: ["PENDING", "PAID", "COMPLETED"] }, checkIn: { lt: to }, checkOut: { gt: from } },
+    orderBy: { checkIn: "asc" },
+    select: { id: true, code: true, bookerName: true, roomId: true, roomUnitId: true, checkIn: true, checkOut: true, status: true, checkedInAt: true, checkedOutAt: true, source: true, rooms: true },
+  });
+  const blocks = await prisma.roomBlock.findMany({
+    where: { hotelId: { in: hotelIds }, dateFrom: { lt: to }, dateTo: { gt: from } },
+    select: { id: true, roomId: true, roomUnitId: true, dateFrom: true, dateTo: true, reason: true, kind: true },
+  });
+  const hotels = hotelsQ.map((h) => ({
+    id: h.id, name: h.name,
+    roomTypes: rooms.filter((r) => r.hotelId === h.id).map((r) => ({ id: r.id, name: r.name, units: r.units })),
+  }));
+  res.json({
+    from: from.toISOString().slice(0, 10), days, dates, hotels,
+    reservations: reservations.map((b) => ({
+      id: b.id, code: b.code, guest: b.bookerName, roomId: b.roomId, roomUnitId: b.roomUnitId,
+      checkIn: b.checkIn.toISOString().slice(0, 10), checkOut: b.checkOut.toISOString().slice(0, 10),
+      status: b.status, inHouse: !!b.checkedInAt && !b.checkedOutAt, checkedOut: !!b.checkedOutAt, source: b.source,
+    })),
+    blocks: blocks.map((x) => ({ id: x.id, roomId: x.roomId, roomUnitId: x.roomUnitId, from: x.dateFrom.toISOString().slice(0, 10), to: x.dateTo.toISOString().slice(0, 10), reason: x.reason, kind: x.kind })),
+  });
+});
+
+// Assign / move a reservation to a specific unit (front-desk drag on the rack),
+// with an overlap guard so two stays can't share the same physical room.
+app.post("/api/partner/bookings/:id/assign-unit", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
+  const roomUnitId = String(req.body?.roomUnitId || "") || null;
+  if (roomUnitId) {
+    const unit = await prisma.roomUnit.findFirst({ where: { id: roomUnitId, roomId: b.roomId } });
+    if (!unit) return res.status(400).json({ error: "Nomor kamar tidak valid untuk tipe kamar ini" });
+    const clash = await prisma.booking.findFirst({
+      where: { id: { not: b.id }, roomUnitId, status: { in: ["PENDING", "PAID", "COMPLETED"] }, checkIn: { lt: b.checkOut }, checkOut: { gt: b.checkIn } },
+      select: { code: true },
+    });
+    if (clash) return res.status(409).json({ error: `Kamar bentrok dengan reservasi ${clash.code}` });
+  }
+  await prisma.booking.update({ where: { id: b.id }, data: { roomUnitId } });
+  res.json({ ok: true });
+});
+
 // ─────────── PMS: guest folio & billing ───────────
 app.get("/api/partner/bookings/:id/folio", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const b = await ownsBooking(req, req.params.id);
   if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
-  const full = await prisma.booking.findUnique({ where: { id: b.id }, include: { folioCharges: { orderBy: { createdAt: "asc" } }, room: { select: { name: true } }, roomUnit: { select: { number: true } } } });
+  const full = await prisma.booking.findUnique({ where: { id: b.id }, include: { folioCharges: { orderBy: { createdAt: "asc" } }, folioPayments: { orderBy: { createdAt: "asc" } }, room: { select: { name: true } }, roomUnit: { select: { number: true } } } });
   const extras = full!.folioCharges.reduce((s, c) => s + Number(c.amount) * c.qty, 0);
+  const grandTotal = Number(full!.totalPrice) + extras;
+  const paid = full!.folioPayments.reduce((s, p) => s + Number(p.amount), 0);
   res.json({
-    booking: { code: full!.code, guest: full!.bookerName, room: full!.room.name, roomNumber: full!.roomUnit?.number ?? null, nights: full!.nights, status: full!.status },
-    roomTotal: Number(full!.totalPrice), charges: full!.folioCharges, extras, grandTotal: Number(full!.totalPrice) + extras,
+    booking: { code: full!.code, guest: full!.bookerName, room: full!.room.name, roomNumber: full!.roomUnit?.number ?? null, nights: full!.nights, status: full!.status, payAtHotel: full!.payAtHotel },
+    roomTotal: Number(full!.totalPrice), charges: full!.folioCharges, extras,
+    payments: full!.folioPayments.map((p) => ({ id: p.id, method: p.method, amount: Number(p.amount), note: p.note, createdAt: p.createdAt })),
+    grandTotal, paid, balance: grandTotal - paid,
   });
 });
 app.post("/api/partner/bookings/:id/folio", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
@@ -5394,6 +5524,189 @@ app.post("/api/partner/pos/charge", requireRole("PARTNER", "ADMIN"), async (req:
   const kindByOutlet: Record<string, string> = { Restoran: "FNB", Bar: "FNB", "Room Service": "FNB", Spa: "SPA", Laundry: "LAUNDRY", Minibar: "MINIBAR" };
   const charge = await prisma.folioCharge.create({ data: { bookingId: b.id, kind: kindByOutlet[p.data.outlet] ?? "OTHER", description: `[${p.data.outlet}] ${p.data.description}`, amount: p.data.amount, qty: p.data.qty } });
   res.json({ charge });
+});
+
+// ─────────── PMS: Walk-in reservation (front-desk direct booking) ───────────
+app.post("/api/partner/pms/walk-in", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({
+    hotelId: z.string(), roomId: z.string(), roomUnitId: z.string().optional(), ratePlanId: z.string().optional(),
+    checkIn: z.string(), checkOut: z.string(),
+    guests: z.coerce.number().int().min(1).default(1), rooms: z.coerce.number().int().min(1).default(1),
+    bookerName: z.string().min(1, "Nama tamu wajib diisi"), bookerPhone: z.string().default(""), bookerEmail: z.string().default(""),
+    guestIdType: z.string().optional(), guestIdNumber: z.string().optional(), guestAddress: z.string().optional(), guestNationality: z.string().optional(),
+    payNow: z.coerce.boolean().default(false), payMethod: z.string().optional(), checkInNow: z.coerce.boolean().default(false),
+  });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || "Data walk-in tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const room = await prisma.room.findFirst({ where: { id: p.data.roomId, hotelId: p.data.hotelId } });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  const checkIn = new Date(p.data.checkIn), checkOut = new Date(p.data.checkOut);
+  if (isNaN(+checkIn) || isNaN(+checkOut) || checkOut <= checkIn) return res.status(400).json({ error: "Tanggal tidak valid" });
+  const q = await quote(prisma, room.id, checkIn, checkOut, p.data.rooms);
+  if (!q.available) return res.status(409).json({ error: q.reason ?? "Kamar tidak tersedia untuk tanggal itu" });
+  let baseAmount = q.total; const nights = q.nights;
+  let ratePlanId: string | null = null, ratePlanName: string | null = null;
+  if (p.data.ratePlanId) {
+    const plan = await prisma.ratePlan.findFirst({ where: { id: p.data.ratePlanId, roomId: room.id, active: true } });
+    if (plan) { baseAmount += plan.priceDelta * nights * p.data.rooms; ratePlanId = plan.id; ratePlanName = plan.name; }
+  }
+  let roomUnitId = p.data.roomUnitId || null;
+  if (roomUnitId) {
+    const unit = await prisma.roomUnit.findFirst({ where: { id: roomUnitId, roomId: room.id } });
+    if (!unit) return res.status(400).json({ error: "Nomor kamar tidak valid" });
+    const clash = await prisma.booking.findFirst({ where: { roomUnitId, status: { in: ["PENDING", "PAID", "COMPLETED"] }, checkIn: { lt: checkOut }, checkOut: { gt: checkIn } }, select: { code: true } });
+    if (clash) return res.status(409).json({ error: `Kamar ${roomUnitId} bentrok dengan ${clash.code}` });
+  }
+  const taxFee = Math.round((baseAmount * (await getNum("taxPct"))) / 100);
+  const totalPrice = baseAmount + taxFee;
+  const reserved = await consume(prisma, room.id, checkIn, checkOut, p.data.rooms);
+  if (!reserved) return res.status(409).json({ error: "Kamar sudah penuh untuk tanggal itu" });
+  const paidNow = p.data.payNow;
+  let booking;
+  try {
+    booking = await prisma.booking.create({ data: {
+      code: makeCode(), userId: req.userId!, hotelId: p.data.hotelId, roomId: room.id, roomUnitId,
+      source: "DIRECT", walkIn: true, checkIn, checkOut, nights, guests: p.data.guests, rooms: p.data.rooms,
+      bookerName: p.data.bookerName, bookerEmail: p.data.bookerEmail, bookerPhone: p.data.bookerPhone,
+      guestIdType: p.data.guestIdType || null, guestIdNumber: p.data.guestIdNumber || null,
+      guestAddress: p.data.guestAddress || null, guestNationality: p.data.guestNationality || null,
+      ratePlanId, ratePlanName,
+      roomPrice: baseAmount, taxFee, discount: 0, totalPrice,
+      status: paidNow ? "PAID" : "PENDING", payAtHotel: !paidNow,
+      ...(paidNow ? { paidAt: new Date(), paymentMethod: p.data.payMethod || "Tunai" } : {}),
+      ...(p.data.checkInNow ? { checkedInAt: new Date() } : {}),
+    } });
+  } catch (e) {
+    await release(prisma, room.id, checkIn, checkOut, p.data.rooms).catch(() => {});
+    throw e;
+  }
+  if (paidNow) await prisma.folioPayment.create({ data: { bookingId: booking.id, method: (p.data.payMethod || "CASH").toUpperCase(), amount: BigInt(totalPrice), note: "Pembayaran walk-in" } });
+  res.json({ booking: { id: booking.id, code: booking.code, status: booking.status } });
+});
+
+// ─────────── PMS: Room / unit blocks (OOO, maintenance, hold) ───────────
+app.get("/api/partner/pms/blocks", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId, productPMS: true }, select: { id: true, name: true, rooms: { select: { id: true, name: true, units: { select: { id: true, number: true } } } } } });
+  const ids = hotels.map((h) => h.id);
+  const roomName = new Map<string, string>(); const unitNum = new Map<string, string>();
+  for (const h of hotels) for (const r of h.rooms) { roomName.set(r.id, r.name); for (const u of r.units) unitNum.set(u.id, u.number); }
+  const blocks = await prisma.roomBlock.findMany({ where: { hotelId: { in: ids }, dateTo: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } }, orderBy: { dateFrom: "asc" } });
+  res.json({ hotels, blocks: blocks.map((b) => ({ ...b, roomName: roomName.get(b.roomId) || "—", unitNumber: b.roomUnitId ? unitNum.get(b.roomUnitId) || null : null, dateFrom: b.dateFrom.toISOString().slice(0, 10), dateTo: b.dateTo.toISOString().slice(0, 10) })) });
+});
+app.post("/api/partner/pms/blocks", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ hotelId: z.string(), roomId: z.string(), roomUnitId: z.string().optional(), dateFrom: z.string(), dateTo: z.string(), rooms: z.coerce.number().int().min(1).default(1), kind: z.enum(["OOO", "MAINTENANCE", "HOLD"]).default("OOO"), reason: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data block tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const room = await prisma.room.findFirst({ where: { id: p.data.roomId, hotelId: p.data.hotelId } });
+  if (!room) return res.status(404).json({ error: "Kamar tidak ditemukan" });
+  const dateFrom = new Date(p.data.dateFrom), dateTo = new Date(p.data.dateTo);
+  if (isNaN(+dateFrom) || isNaN(+dateTo) || dateTo <= dateFrom) return res.status(400).json({ error: "Rentang tanggal tidak valid" });
+  // Hold the allotment so the blocked room can't be sold/overbooked.
+  const held = await consume(prisma, room.id, dateFrom, dateTo, p.data.rooms);
+  if (!held) return res.status(409).json({ error: "Tidak cukup kamar tersedia untuk diblokir pada tanggal itu" });
+  if (p.data.roomUnitId) await prisma.roomUnit.updateMany({ where: { id: p.data.roomUnitId, roomId: room.id }, data: { status: "OOO" } });
+  const block = await prisma.roomBlock.create({ data: { hotelId: p.data.hotelId, roomId: room.id, roomUnitId: p.data.roomUnitId || null, dateFrom, dateTo, rooms: p.data.rooms, kind: p.data.kind, reason: p.data.reason } });
+  res.json({ block });
+});
+app.delete("/api/partner/pms/blocks/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const block = await prisma.roomBlock.findUnique({ where: { id: req.params.id } });
+  if (!block) return res.status(404).json({ error: "Block tidak ditemukan" });
+  if (!(await ownsHotel(req, block.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  await release(prisma, block.roomId, block.dateFrom, block.dateTo, block.rooms);
+  if (block.roomUnitId) await prisma.roomUnit.updateMany({ where: { id: block.roomUnitId }, data: { status: "CLEAN" } });
+  await prisma.roomBlock.delete({ where: { id: block.id } });
+  res.json({ ok: true });
+});
+
+// ─────────── PMS: folio settlement (payments) ───────────
+app.post("/api/partner/bookings/:id/folio/payment", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
+  const schema = z.object({ method: z.enum(["CASH", "CARD", "TRANSFER", "QRIS", "EWALLET", "CITY_LEDGER", "OTHER"]).default("CASH"), amount: z.coerce.number().int().positive(), note: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data pembayaran tidak valid" });
+  const pay = await prisma.folioPayment.create({ data: { bookingId: b.id, method: p.data.method, amount: BigInt(p.data.amount), note: p.data.note } });
+  res.json({ payment: pay });
+});
+app.delete("/api/partner/folio-payment/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const pay = await prisma.folioPayment.findUnique({ where: { id: req.params.id }, include: { booking: { select: { hotel: { select: { ownerId: true } } } } } });
+  if (!pay) return res.status(404).json({ error: "Pembayaran tidak ditemukan" });
+  if ((req as any).role !== "ADMIN" && pay.booking.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Bukan milik Anda" });
+  await prisma.folioPayment.delete({ where: { id: req.params.id } });
+  res.json({ ok: true });
+});
+
+// ─────────── PMS: Reports (flash / manifest / housekeeping / guest export) ───────────
+async function pmsHotelIds(req: AuthRequest): Promise<string[]> {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId, productPMS: true }, select: { id: true } });
+  return hotels.map((h) => h.id);
+}
+app.get("/api/partner/pms/report/flash", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const d = new Date(String(req.query.date || "")); const day = isNaN(+d) ? new Date() : d; day.setHours(0, 0, 0, 0);
+  const end = new Date(day.getTime() + 86400000);
+  const active = { in: ["PENDING", "PAID", "COMPLETED"] as any };
+  const totalUnits = await prisma.roomUnit.count({ where: { room: { hotelId: { in: ids } } } });
+  const roomStock = await prisma.room.aggregate({ where: { hotelId: { in: ids } }, _sum: { stock: true } });
+  const totalRooms = totalUnits || Number(roomStock._sum.stock ?? 0);
+  const [arrivals, departures, inhouse, ooo, dirty, revAgg, extraAgg, paidAgg] = await Promise.all([
+    prisma.booking.count({ where: { hotelId: { in: ids }, status: active, checkIn: { gte: day, lt: end } } }),
+    prisma.booking.count({ where: { hotelId: { in: ids }, status: active, checkOut: { gte: day, lt: end } } }),
+    prisma.booking.count({ where: { hotelId: { in: ids }, checkedInAt: { not: null }, checkedOutAt: null } }),
+    prisma.roomUnit.count({ where: { room: { hotelId: { in: ids } }, status: "OOO" } }),
+    prisma.roomUnit.count({ where: { room: { hotelId: { in: ids } }, status: { in: ["DIRTY", "INSPECT"] } } }),
+    prisma.booking.aggregate({ where: { hotelId: { in: ids }, status: active, checkIn: { lte: day }, checkOut: { gt: day } }, _sum: { roomPrice: true, totalPrice: true }, _count: true }),
+    prisma.folioCharge.aggregate({ where: { kind: { not: "ROOM" }, createdAt: { gte: day, lt: end }, booking: { hotelId: { in: ids } } }, _sum: { amount: true } }),
+    prisma.folioPayment.aggregate({ where: { createdAt: { gte: day, lt: end }, booking: { hotelId: { in: ids } } }, _sum: { amount: true } }),
+  ]);
+  const occNights = revAgg._count || 0;
+  const roomRevenue = Number(revAgg._sum.roomPrice ?? 0);
+  const occupancyPct = totalRooms ? Math.round((occNights / totalRooms) * 1000) / 10 : 0;
+  const adr = occNights ? Math.round(roomRevenue / occNights) : 0;
+  const revpar = totalRooms ? Math.round(roomRevenue / totalRooms) : 0;
+  res.json({ date: day.toISOString().slice(0, 10), totalRooms, occupied: occNights, occupancyPct, adr, revpar,
+    arrivals, departures, inhouse, ooo, dirty, roomRevenue, extraRevenue: Number(extraAgg._sum.amount ?? 0), payments: Number(paidAgg._sum.amount ?? 0) });
+});
+app.get("/api/partner/pms/report/manifest", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const type = String(req.query.type || "arrivals");
+  const d = new Date(String(req.query.date || "")); const day = isNaN(+d) ? new Date() : d; day.setHours(0, 0, 0, 0);
+  const end = new Date(day.getTime() + 86400000);
+  const active = { in: ["PENDING", "PAID", "COMPLETED"] as any };
+  const where: any = { hotelId: { in: ids }, status: active };
+  if (type === "arrivals") where.checkIn = { gte: day, lt: end };
+  else if (type === "departures") where.checkOut = { gte: day, lt: end };
+  else { where.checkedInAt = { not: null }; where.checkedOutAt = null; }
+  const rows = await prisma.booking.findMany({ where, orderBy: { checkIn: "asc" }, take: 300,
+    select: { id: true, code: true, bookerName: true, bookerPhone: true, guests: true, nights: true, checkIn: true, checkOut: true, status: true, checkedInAt: true, checkedOutAt: true, totalPrice: true, room: { select: { name: true } }, roomUnit: { select: { number: true } }, hotel: { select: { name: true } } } });
+  res.json({ type, date: day.toISOString().slice(0, 10), rows: rows.map((b) => ({ id: b.id, code: b.code, guest: b.bookerName, phone: b.bookerPhone, guests: b.guests, nights: b.nights, checkIn: b.checkIn.toISOString().slice(0, 10), checkOut: b.checkOut.toISOString().slice(0, 10), room: b.room.name, roomNumber: b.roomUnit?.number ?? null, hotel: b.hotel.name, status: b.status, inHouse: !!b.checkedInAt && !b.checkedOutAt, total: Number(b.totalPrice) })) });
+});
+app.get("/api/partner/pms/report/housekeeping", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  for (const id of ids) await ensureRoomUnits(id);
+  const units = await prisma.roomUnit.findMany({ where: { room: { hotelId: { in: ids } } }, orderBy: { number: "asc" },
+    select: { id: true, number: true, status: true, room: { select: { name: true, hotel: { select: { name: true } } } }, bookings: { where: { checkedInAt: { not: null }, checkedOutAt: null }, select: { id: true } } } });
+  const out = units.map((u) => ({ id: u.id, number: u.number, status: u.status, room: u.room.name, hotel: u.room.hotel.name, occupied: u.bookings.length > 0 }));
+  const summary = { CLEAN: 0, DIRTY: 0, INSPECT: 0, OOO: 0 } as Record<string, number>;
+  for (const u of out) summary[u.status] = (summary[u.status] || 0) + 1;
+  res.json({ units: out, summary });
+});
+app.get("/api/partner/pms/guests.csv", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const d = new Date(String(req.query.date || "")); const day = isNaN(+d) ? new Date() : d; day.setHours(0, 0, 0, 0);
+  const end = new Date(day.getTime() + 86400000);
+  // In-house guests for the date (police/registry report style).
+  const rows = await prisma.booking.findMany({ where: { hotelId: { in: ids }, status: { in: ["PAID", "PENDING", "COMPLETED"] }, checkIn: { lte: end }, checkOut: { gt: day } }, orderBy: { bookerName: "asc" },
+    select: { code: true, bookerName: true, bookerPhone: true, guestIdType: true, guestIdNumber: true, guestNationality: true, guestAddress: true, checkIn: true, checkOut: true, guests: true, roomUnit: { select: { number: true } } } });
+  const esc2 = (s: any) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const head = ["Kode", "Nama", "No. HP", "Jenis ID", "No. ID", "Kebangsaan", "Alamat", "Kamar", "Check-in", "Check-out", "Tamu"];
+  const lines = [head.join(",")];
+  for (const b of rows) lines.push([b.code, b.bookerName, b.bookerPhone, b.guestIdType, b.guestIdNumber, b.guestNationality, b.guestAddress, b.roomUnit?.number, b.checkIn.toISOString().slice(0, 10), b.checkOut.toISOString().slice(0, 10), b.guests].map(esc2).join(","));
+  res.set("Content-Type", "text/csv; charset=utf-8").set("Content-Disposition", `attachment; filename="daftar-tamu-${day.toISOString().slice(0, 10)}.csv"`).send("﻿" + lines.join("\n"));
 });
 
 // ─────────── PMS: maintenance / work orders ───────────

@@ -2,8 +2,16 @@
 
 <% if (saved==='checkin') { %><div class="notice ok">Check-in berhasil & kamar ditetapkan.</div><% } %>
 <% if (saved==='charge') { %><div class="notice ok">Charge ditambahkan ke folio.</div><% } %>
+<% if (saved==='walkin') { %><div class="notice ok">Reservasi walk-in dibuat.</div><% } %>
+<% if (saved==='pay') { %><div class="notice ok">Pembayaran dicatat ke folio.</div><% } %>
 
-<a class="btn ghost sm" href="/pms" style="margin-bottom:12px">← Front Desk</a>
+<div style="display:flex;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+  <a class="btn ghost sm" href="/pms">← Front Desk</a>
+  <div style="display:flex;gap:8px">
+    <a class="btn ghost sm" href="/pms/booking/<%= id %>/registration-card" target="_blank">🖨 Registration Card</a>
+    <a class="btn ghost sm" href="/pms/booking/<%= id %>/invoice" target="_blank">🖨 Invoice / Bill</a>
+  </div>
+</div>
 
 <div class="card">
   <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -15,22 +23,34 @@
   </div>
 </div>
 
-<!-- Room assignment / check-in -->
+<!-- Room assignment / check-in + guest identity -->
 <div class="card">
   <h2>Penetapan Kamar & Check-in</h2>
-  <form method="post" action="/pms/booking/<%= id %>/checkin" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
-    <div>
-      <label style="margin-top:0">Nomor Kamar</label>
-      <select name="roomUnitId" style="min-width:160px">
-        <option value="">— pilih kamar —</option>
-        <% (units||[]).forEach(function(u){ %>
-          <option value="<%= u.id %>" <%= u.assigned?'selected':'' %> <%= (u.occupied && !u.assigned)?'disabled':'' %>>
-            Kamar <%= u.number %><%= u.occupied && !u.assigned ? ' (terisi)' : (u.status!=='CLEAN' ? ' ('+u.status+')' : '') %>
-          </option>
-        <% }) %>
-      </select>
+  <form method="post" action="/pms/booking/<%= id %>/checkin">
+    <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+      <div>
+        <label style="margin-top:0">Nomor Kamar</label>
+        <select name="roomUnitId" style="min-width:160px">
+          <option value="">— pilih kamar —</option>
+          <% (units||[]).forEach(function(u){ %>
+            <option value="<%= u.id %>" <%= u.assigned?'selected':'' %> <%= (u.occupied && !u.assigned)?'disabled':'' %>>
+              Kamar <%= u.number %><%= u.occupied && !u.assigned ? ' (terisi)' : (u.status!=='CLEAN' ? ' ('+u.status+')' : '') %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <button class="btn"><%= booking.status==='COMPLETED' ? 'Perbarui Kamar' : 'Tetapkan & Check-in' %></button>
     </div>
-    <button class="btn"><%= booking.status==='COMPLETED' ? 'Perbarui Kamar' : 'Tetapkan & Check-in' %></button>
+    <h3 style="margin:16px 0 8px">Identitas Tamu (untuk Registration Card)</h3>
+    <div class="row2">
+      <div><label style="margin-top:0">Jenis Identitas</label><select name="guestIdType"><option value="">—</option><option>KTP</option><option>PASSPORT</option><option>SIM</option><option>OTHER</option></select></div>
+      <div><label style="margin-top:0">No. Identitas</label><input name="guestIdNumber" placeholder="opsional"></div>
+    </div>
+    <div class="row2">
+      <div><label style="margin-top:0">Kebangsaan</label><input name="guestNationality" placeholder="Indonesia"></div>
+      <div><label style="margin-top:0">Alamat</label><input name="guestAddress" placeholder="opsional"></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Identitas ikut tersimpan saat menekan tombol check-in di atas.</p>
   </form>
 </div>
 
@@ -58,24 +78,59 @@
           <td><form method="post" action="/pms/folio/<%= c.id %>/delete/<%= id %>" data-confirm="Hapus charge?"><button class="btn danger sm" style="padding:2px 8px">✕</button></form></td>
         </tr>
       <% }) %>
+      <% (payments||[]).forEach(function(p){ %>
+        <tr>
+          <td>Pembayaran — <%= p.method %><%= p.note ? (' ('+p.note+')') : '' %></td>
+          <td><span class="pill PAID">BAYAR</span></td>
+          <td style="text-align:right">—</td>
+          <td style="text-align:right">—</td>
+          <td style="text-align:right;color:#2f9e6f;font-weight:700">- <%= rupiah(p.amount) %></td>
+          <td><form method="post" action="/pms/payment/<%= p.id %>/delete/<%= id %>" data-confirm="Hapus pembayaran?"><button class="btn danger sm" style="padding:2px 8px">✕</button></form></td>
+        </tr>
+      <% }) %>
       <tr style="border-top:2px solid var(--line)">
         <td colspan="4" style="text-align:right;font-weight:800">Total Tagihan</td>
-        <td style="text-align:right;font-weight:800;color:var(--brand);font-size:15px"><%= rupiah(grandTotal) %></td>
+        <td style="text-align:right;font-weight:800;font-size:15px"><%= rupiah(grandTotal) %></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="4" style="text-align:right">Sudah Dibayar</td>
+        <td style="text-align:right;color:#2f9e6f;font-weight:700"><%= rupiah(paid) %></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td colspan="4" style="text-align:right;font-weight:800">Saldo Terutang</td>
+        <td style="text-align:right;font-weight:800;font-size:15px;color:<%= balance>0?'#c0392b':'#2f9e6f' %>"><%= rupiah(balance) %></td>
         <td></td>
       </tr>
     </tbody>
   </table>
 
-  <h3 style="margin:18px 0 8px">Tambah Charge</h3>
-  <form method="post" action="/pms/booking/<%= id %>/folio" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-    <div><label style="margin-top:0">Jenis</label>
-      <select name="kind"><% ['MINIBAR','FNB','LAUNDRY','SPA','OTHER'].forEach(function(k){ %><option value="<%= k %>"><%= k %></option><% }) %></select>
+  <div class="row2" style="margin-top:16px">
+    <div>
+      <h3 style="margin:0 0 8px">Tambah Charge</h3>
+      <form method="post" action="/pms/booking/<%= id %>/folio" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        <div><label style="margin-top:0">Jenis</label>
+          <select name="kind"><% ['MINIBAR','FNB','LAUNDRY','SPA','OTHER'].forEach(function(k){ %><option value="<%= k %>"><%= k %></option><% }) %></select>
+        </div>
+        <div style="flex:1;min-width:120px"><label style="margin-top:0">Deskripsi</label><input name="description" placeholder="mis. Makan malam" required></div>
+        <div><label style="margin-top:0">Harga</label><input name="amount" type="number" required style="max-width:120px"></div>
+        <div><label style="margin-top:0">Qty</label><input name="qty" type="number" value="1" style="max-width:64px"></div>
+        <button class="btn sm">Tambah</button>
+      </form>
     </div>
-    <div style="flex:1;min-width:160px"><label style="margin-top:0">Deskripsi</label><input name="description" placeholder="mis. Makan malam restoran" required></div>
-    <div><label style="margin-top:0">Harga</label><input name="amount" type="number" required style="max-width:130px"></div>
-    <div><label style="margin-top:0">Qty</label><input name="qty" type="number" value="1" style="max-width:70px"></div>
-    <button class="btn sm">Tambah</button>
-  </form>
+    <div>
+      <h3 style="margin:0 0 8px">Terima Pembayaran (Settle)</h3>
+      <form method="post" action="/pms/booking/<%= id %>/payment" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        <div><label style="margin-top:0">Metode</label>
+          <select name="method"><% ['CASH','CARD','TRANSFER','QRIS','EWALLET','CITY_LEDGER','OTHER'].forEach(function(m){ %><option value="<%= m %>"><%= m %></option><% }) %></select>
+        </div>
+        <div><label style="margin-top:0">Jumlah</label><input name="amount" type="number" value="<%= balance>0?balance:'' %>" required style="max-width:130px"></div>
+        <div style="flex:1;min-width:120px"><label style="margin-top:0">Catatan</label><input name="note" placeholder="opsional"></div>
+        <button class="btn sm">Bayar</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <%- include('../partials/bottom') %>

@@ -1,0 +1,63 @@
+<%- include('../partials/top', { title:'Room Block', heading:'Room Block / Out-of-Order', section:'extranet', active:'blocks', me }) %>
+
+<% if (done) { %><div class="notice ok">Block dibuat — inventaris untuk tanggal itu dikunci.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+<p class="muted" style="margin:-4px 0 16px">Blokir kamar yang rusak/renovasi (OOO), pemeliharaan, atau tahan untuk grup. Kamar yang diblokir <b>dikurangi dari ketersediaan</b> sehingga tidak bisa dipesan tamu.</p>
+
+<% if (!hotels.length) { %>
+  <div class="card"><div class="empty">Belum ada hotel PMS aktif.</div></div>
+<% } else { %>
+<div class="card">
+  <h3 style="margin-top:0">Buat Block</h3>
+  <form method="post" action="/pms/blocks">
+    <div class="row2">
+      <div><label>Hotel <span style="color:#c0392b">*</span></label><select name="hotelId" id="b-hotel" required><% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select></div>
+      <div><label>Tipe Kamar <span style="color:#c0392b">*</span></label><select name="roomId" id="b-room" required></select></div>
+    </div>
+    <div class="row2">
+      <div><label>No. Kamar (opsional — tandai OOO)</label><select name="roomUnitId" id="b-unit"><option value="">— seluruh tipe —</option></select></div>
+      <div><label>Jumlah unit ditahan / malam</label><input name="rooms" type="number" min="1" value="1"></div>
+    </div>
+    <div class="row2">
+      <div><label>Dari tanggal <span style="color:#c0392b">*</span></label><input name="dateFrom" id="b-from" type="date" required></div>
+      <div><label>Sampai (eksklusif) <span style="color:#c0392b">*</span></label><input name="dateTo" id="b-to" type="date" required></div>
+    </div>
+    <div class="row2">
+      <div><label>Jenis</label><select name="kind"><option value="OOO">Out-of-Order (rusak)</option><option value="MAINTENANCE">Maintenance / Renovasi</option><option value="HOLD">Hold (tahan grup)</option></select></div>
+      <div><label>Alasan</label><input name="reason" placeholder="mis. AC rusak / renovasi kamar mandi"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn">Blokir Kamar</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Block Aktif & Mendatang</h3>
+  <table>
+    <thead><tr><th>Tipe / Kamar</th><th>Jenis</th><th>Periode</th><th>Alasan</th><th></th></tr></thead>
+    <tbody>
+      <% blocks.forEach(function(b){ %>
+        <tr>
+          <td><b><%= b.roomName %></b><%= b.unitNumber ? ' · #'+b.unitNumber : ' · '+b.rooms+' unit' %></td>
+          <td><span class="pill <%= b.kind==='OOO'?'CANCELLED':'PENDING' %>"><%= b.kind %></span></td>
+          <td><%= b.dateFrom %> → <%= b.dateTo %></td>
+          <td class="muted"><%= b.reason || '—' %></td>
+          <td><form method="post" action="/pms/blocks/<%= b.id %>/delete" data-confirm="Buka block ini? Kamar kembali tersedia." data-confirm-title="Buka Block" data-confirm-ok="Ya, buka"><button class="btn danger sm">Buka</button></form></td>
+        </tr>
+      <% }) %>
+      <% if(!blocks.length){ %><tr><td colspan="5" class="empty">Tidak ada block aktif.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  var BH = <%- JSON.stringify(hotels) %>;
+  var hs=document.getElementById('b-hotel'), rs=document.getElementById('b-room'), us=document.getElementById('b-unit');
+  document.getElementById('b-from').value = new Date().toISOString().slice(0,10);
+  document.getElementById('b-to').value = new Date(Date.now()+86400000).toISOString().slice(0,10);
+  function fr(){ var h=BH.find(function(x){return x.id===hs.value;})||BH[0]; rs.innerHTML=(h.rooms||[]).map(function(t){return '<option value="'+t.id+'">'+t.name+'</option>';}).join(''); fu(); }
+  function fu(){ var h=BH.find(function(x){return x.id===hs.value;})||BH[0]; var t=(h.rooms||[]).find(function(x){return x.id===rs.value;}); var o='<option value="">— seluruh tipe —</option>'; if(t) o+=(t.units||[]).map(function(u){return '<option value="'+u.id+'">'+u.number+'</option>';}).join(''); us.innerHTML=o; }
+  hs.addEventListener('change',fr); rs.addEventListener('change',fu); fr();
+</script>
+<% } %>
+
+<%- include('../partials/bottom') %>

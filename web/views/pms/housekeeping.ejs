@@ -1,0 +1,38 @@
+<%- include('../partials/top', { title:'Housekeeping', heading:'Housekeeping Board', section:'extranet', active:'housekeeping', me }) %>
+
+<% if (saved) { %><div class="notice ok">Status kamar diperbarui.</div><% } %>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+  <div class="stat"><div class="label">Bersih (Clean)</div><div class="value" style="color:#2f9e6f"><%= summary.CLEAN || 0 %></div></div>
+  <div class="stat"><div class="label">Kotor (Dirty)</div><div class="value" style="color:#a86616"><%= summary.DIRTY || 0 %></div></div>
+  <div class="stat"><div class="label">Inspeksi</div><div class="value" style="color:#2b5cad"><%= summary.INSPECT || 0 %></div></div>
+  <div class="stat"><div class="label">Out-of-Order</div><div class="value" style="color:#b02a2a"><%= summary.OOO || 0 %></div></div>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>No. Kamar</th><th>Tipe</th><th>Okupansi</th><th>Status</th><th>Ubah</th></tr></thead>
+    <tbody>
+      <% units.forEach(function(u){ %>
+        <tr>
+          <td><b>#<%= u.number %></b></td>
+          <td><%= u.room %></td>
+          <td><%= u.occupied ? '<span class="pill PAID">Terisi</span>' : '<span class="pill">Kosong</span>' %></td>
+          <td>
+            <% var c = {CLEAN:'#2f9e6f',DIRTY:'#a86616',INSPECT:'#2b5cad',OOO:'#b02a2a'}[u.status] || '#666'; %>
+            <span style="font-weight:700;color:<%= c %>"><%= u.status %></span>
+          </td>
+          <td>
+            <form method="post" action="/pms/housekeeping/unit/<%= u.id %>" style="display:flex;gap:6px;margin:0">
+              <select name="status" style="width:auto"><% ['CLEAN','DIRTY','INSPECT','OOO'].forEach(function(s){ %><option value="<%= s %>" <%= u.status===s?'selected':'' %>><%= s %></option><% }) %></select>
+              <button class="btn sm">Simpan</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if(!units.length){ %><tr><td colspan="5" class="empty">Belum ada unit kamar.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -1,0 +1,107 @@
+<%- include('../partials/top', { title:'Tape Chart', heading:'Tape Chart — Room Rack', section:'extranet', active:'rack', me }) %>
+
+<% if (saved) { %><div class="notice ok">Penempatan kamar diperbarui.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<%
+  function d2(s){ return new Date(s).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}); }
+  function dow(s){ return new Date(s).toLocaleDateString('id-ID',{weekday:'short'}); }
+  var today = new Date().toISOString().slice(0,10);
+  // Index reservations & blocks by unit for quick lookup.
+  var resByUnit = {}, unassigned = [];
+  (rack.reservations||[]).forEach(function(r){
+    if (r.roomUnitId) { (resByUnit[r.roomUnitId] = resByUnit[r.roomUnitId] || []).push(r); }
+    else if (!r.checkedOut) unassigned.push(r);
+  });
+  var blkByUnit = {};
+  (rack.blocks||[]).forEach(function(b){ if (b.roomUnitId) (blkByUnit[b.roomUnitId]=blkByUnit[b.roomUnitId]||[]).push(b); });
+  function resOn(unitId, date){ return (resByUnit[unitId]||[]).find(function(r){ return r.checkIn <= date && date < r.checkOut; }); }
+  function blkOn(unitId, date){ return (blkByUnit[unitId]||[]).find(function(b){ return b.from <= date && date < b.to; }); }
+  function firstCol(r, date){ return r.checkIn === date || date === rack.dates[0]; }
+  // prev/next window
+  function shift(days){ var d = new Date(rack.from); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+  // color per reservation (stable by code)
+  function barColor(r){ if(r.checkedOut) return '#c8ccd2'; if(r.inHouse) return '#2f9e6f'; if(r.status==='PAID') return '#E07C17'; return '#5b8def'; }
+%>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <div style="display:flex;gap:8px;align-items:center">
+    <a class="btn ghost sm" href="/pms/rack?from=<%= shift(-rack.days) %>&days=<%= rack.days %>">◀ Sebelumnya</a>
+    <form method="get" action="/pms/rack" style="display:flex;gap:6px;align-items:center;margin:0">
+      <input type="date" name="from" value="<%= rack.from %>" style="width:auto">
+      <select name="days" style="width:auto"><% [7,14,21,31].forEach(function(n){ %><option value="<%= n %>" <%= rack.days==n?'selected':'' %>><%= n %> hari</option><% }) %></select>
+      <button class="btn sm">Lihat</button>
+    </form>
+    <a class="btn ghost sm" href="/pms/rack?from=<%= shift(rack.days) %>&days=<%= rack.days %>">Berikutnya ▶</a>
+  </div>
+  <div style="display:flex;gap:14px;align-items:center;font-size:12px;color:var(--muted)">
+    <span><span style="display:inline-block;width:11px;height:11px;background:#5b8def;border-radius:3px"></span> Reservasi</span>
+    <span><span style="display:inline-block;width:11px;height:11px;background:#E07C17;border-radius:3px"></span> Lunas</span>
+    <span><span style="display:inline-block;width:11px;height:11px;background:#2f9e6f;border-radius:3px"></span> In-house</span>
+    <span><span style="display:inline-block;width:11px;height:11px;background:#b0b6bf;border-radius:3px"></span> OOO/Block</span>
+    <a class="btn sm" href="/pms/walk-in">+ Walk-in</a>
+  </div>
+</div>
+
+<% if (unassigned.length) { %>
+<div class="card" style="background:#fff8ef;border:1px solid #f0e0c8">
+  <h3 style="margin-top:0">Belum di-assign kamar (<%= unassigned.length %>)</h3>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <% unassigned.forEach(function(r){ %>
+      <% var units = []; (rack.hotels||[]).forEach(function(h){ (h.roomTypes||[]).forEach(function(t){ if(t.id===r.roomId) units = t.units; }); }); %>
+      <form method="post" action="/pms/rack/assign/<%= r.id %>" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0">
+        <input type="hidden" name="from" value="<%= rack.from %>">
+        <span class="pill <%= r.status==='PAID'?'PAID':'PENDING' %>"><%= r.code %></span>
+        <b style="min-width:150px"><%= r.guest %></b>
+        <span class="muted" style="font-size:12px"><%= d2(r.checkIn) %> → <%= d2(r.checkOut) %></span>
+        <select name="roomUnitId" required style="width:auto"><option value="">— pilih no. kamar —</option><% units.forEach(function(u){ %><option value="<%= u.id %>"><%= u.number %><%= u.status!=='CLEAN'?' ('+u.status+')':'' %></option><% }) %></select>
+        <button class="btn sm">Assign</button>
+      </form>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<div class="card" style="overflow-x:auto;padding:0">
+  <table class="rack">
+    <thead><tr><th class="rk-side">Kamar</th><% rack.dates.forEach(function(dt){ %><th class="<%= dt===today?'rk-today':'' %>"><div class="rk-dow"><%= dow(dt) %></div><%= d2(dt) %></th><% }) %></tr></thead>
+    <tbody>
+    <% rack.hotels.forEach(function(h){ %>
+      <% h.roomTypes.forEach(function(t){ %>
+        <tr class="rk-type"><td colspan="<%= rack.dates.length+1 %>"><%= t.name %><% if(rack.hotels.length>1){ %> · <span class="muted"><%= h.name %></span><% } %></td></tr>
+        <% if(!t.units.length){ %><tr><td class="rk-side muted">—</td><td colspan="<%= rack.dates.length %>" class="muted" style="padding-left:10px">Belum ada unit kamar</td></tr><% } %>
+        <% t.units.forEach(function(u){ %>
+          <tr>
+            <td class="rk-side">#<%= u.number %> <% if(u.status!=='CLEAN'){ %><span class="rk-badge <%= u.status %>"><%= u.status %></span><% } %></td>
+            <% rack.dates.forEach(function(dt){ var r = resOn(u.id, dt); var bk = blkOn(u.id, dt); %>
+              <% if (r) { %>
+                <td class="rk-cell"><div class="rk-bar" style="background:<%= barColor(r) %>" title="<%= r.code %> · <%= r.guest %>"><% if(firstCol(r,dt)){ %><a href="/pms/booking/<%= r.id %>" style="color:#fff;text-decoration:none"><%= r.guest %></a><% } %></div></td>
+              <% } else if (bk) { %>
+                <td class="rk-cell"><div class="rk-bar" style="background:#b0b6bf" title="<%= bk.kind %>: <%= bk.reason %>"><% if(bk.from<=dt && (dt===rack.dates[0]||bk.from===dt)){ %><%= bk.kind %><% } %></div></td>
+              <% } else { %>
+                <td class="rk-cell <%= dt===today?'rk-today':'' %>"></td>
+              <% } %>
+            <% }) %>
+          </tr>
+        <% }) %>
+      <% }) %>
+    <% }) %>
+    <% if(!rack.hotels.length){ %><tr><td class="muted" style="padding:14px">Belum ada hotel PMS.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<style>
+  table.rack{border-collapse:collapse;min-width:100%;font-size:13px}
+  table.rack th,table.rack td{border:1px solid #edeef1;padding:0}
+  table.rack th{background:#faf9f7;padding:6px 4px;text-align:center;font-weight:700;min-width:64px;color:#4b515a}
+  .rk-dow{font-size:10px;color:#9aa0a6;font-weight:600}
+  .rk-side{min-width:120px;padding:6px 10px !important;text-align:left;background:#fff;position:sticky;left:0;z-index:1;font-weight:600}
+  .rk-type td{background:#20262e;color:#fff;font-weight:700;padding:6px 10px !important}
+  .rk-cell{height:34px}.rk-today{background:#fff5ea}
+  .rk-bar{height:28px;margin:3px 2px;border-radius:5px;display:flex;align-items:center;padding:0 7px;color:#fff;font-weight:600;font-size:11.5px;white-space:nowrap;overflow:hidden}
+  .rk-badge{font-size:9px;padding:1px 5px;border-radius:6px;background:#eee;color:#666;font-weight:700}
+  .rk-badge.OOO{background:#f3d9d9;color:#b02a2a}.rk-badge.DIRTY{background:#fbe4cf;color:#a86616}.rk-badge.INSPECT{background:#dbe7fb;color:#2b5cad}
+</style>
+
+<%- include('../partials/bottom') %>

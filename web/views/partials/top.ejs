@@ -13,6 +13,9 @@
   <g id="i-dashboard"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></g>
   <g id="i-hotel"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M15 9h3a1 1 0 0 1 1 1v11M8 8h2M8 12h2M8 16h2"/></g>
   <g id="i-package"><path d="M21 8v13H3V8M1 3h22v5H1zM10 21V3M14 21V3"/></g>
+  <g id="i-grid"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></g>
+  <g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+  <g id="i-lock"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></g>
   <g id="i-rates"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></g>
   <g id="i-channels"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></g>
   <g id="i-distribution"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></g>
@@ -130,11 +133,18 @@
       <% } else if (pv === 'pms') { %>
         <div class="nav-label">Front Office</div>
         <a href="/pms" class="<%= active==='pms'?'active':'' %>"><%- ni('dashboard') %>Front Desk</a>
+        <a href="/pms/rack" class="<%= active==='rack'?'active':'' %>"><%- ni('grid') %>Tape Chart</a>
+        <a href="/pms/walk-in" class="<%= active==='walkin'?'active':'' %>"><%- ni('plus') %>Walk-in</a>
         <a href="/pms/guests" class="<%= active==='guests'?'active':'' %>"><%- ni('users') %>Profil Tamu</a>
         <a href="/pms/pos" class="<%= active==='pos'?'active':'' %>"><%- ni('finance') %>POS (Charge ke Kamar)</a>
+        <div class="nav-label">Kamar</div>
+        <a href="/pms/housekeeping" class="<%= active==='housekeeping'?'active':'' %>"><%- ni('hotel') %>Housekeeping</a>
+        <a href="/pms/blocks" class="<%= active==='blocks'?'active':'' %>"><%- ni('lock') %>Room Block / OOO</a>
         <a href="/pms/maintenance" class="<%= active==='maintenance'?'active':'' %>"><%- ni('plug') %>Maintenance</a>
-        <a href="/pms/reports" class="<%= active==='reports'?'active':'' %>"><%- ni('trend') %>Laporan Harian (D-Report)</a>
-        <a href="/pms#housekeeping"><%- ni('hotel') %>Housekeeping</a>
+        <div class="nav-label">Laporan</div>
+        <a href="/pms/flash" class="<%= active==='flash'?'active':'' %>"><%- ni('report') %>Flash Report</a>
+        <a href="/pms/manifest" class="<%= active==='manifest'?'active':'' %>"><%- ni('bookings') %>Arrival / Departure</a>
+        <a href="/pms/reports" class="<%= active==='reports'?'active':'' %>"><%- ni('trend') %>Night Audit (D-Report)</a>
         <div class="nav-label">Ekosistem</div>
         <a href="https://chanel.miruum.id/extranet/channel-manager" target="_blank" rel="noopener"><%- ni('channels') %>Channel Manager ↗</a>
         <a href="https://extranet.miruum.id/extranet" target="_blank" rel="noopener"><%- ni('package') %>Extranet Properti ↗</a>
