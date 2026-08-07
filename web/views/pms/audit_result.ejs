@@ -1,0 +1,41 @@
+<%- include('../partials/top', { title:'Night Audit', heading:'Hasil Night Audit', section:'extranet', active:'reports', me }) %>
+
+<div class="notice ok">Night audit selesai untuk <%= r.report.businessDate ? new Date(r.report.businessDate).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : 'hari ini' %>.</div>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+  <div class="stat"><div class="label">No-show ditandai</div><div class="value"><%= r.report.noShows %></div><div class="muted" style="font-size:11px">fee <%= rupiah(r.noShowFees||0) %></div></div>
+  <div class="stat"><div class="label">Room charge diposting</div><div class="value"><%= r.roomChargesPosted %></div></div>
+  <div class="stat"><div class="label">Overstay</div><div class="value" style="color:#c0392b"><%= r.overstays %></div></div>
+  <div class="stat"><div class="label">Shift kasir ditutup</div><div class="value"><%= r.shiftsClosed || 0 %></div></div>
+</div>
+
+<div class="row2">
+  <div class="card">
+    <h3 style="margin-top:0">D-Report (Manager)</h3>
+    <table>
+      <tr><td>Okupansi</td><td style="text-align:right"><b><%= r.report.occupancyPct %>%</b> (<%= r.report.occupiedRooms %>/<%= r.report.rooms %>)</td></tr>
+      <tr><td>ADR</td><td style="text-align:right"><%= rupiah(r.report.adr) %></td></tr>
+      <tr><td>RevPAR</td><td style="text-align:right"><%= rupiah(r.report.revpar) %></td></tr>
+      <tr><td>Kedatangan / Keberangkatan</td><td style="text-align:right"><%= r.report.arrivals %> / <%= r.report.departures %></td></tr>
+      <tr><td>Pendapatan Kamar</td><td style="text-align:right"><%= rupiah(r.report.roomRevenue) %></td></tr>
+      <tr><td>Pendapatan Ekstra</td><td style="text-align:right"><%= rupiah(r.report.extraRevenue) %></td></tr>
+      <tr style="font-weight:800;border-top:2px solid #20262e"><td>Total Pendapatan</td><td style="text-align:right"><%= rupiah(r.report.totalRevenue) %></td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Trial Balance (hari ini)</h3>
+    <table>
+      <tr><td>Charge diposting</td><td style="text-align:right"><%= rupiah(r.trialBalance.charges) %></td></tr>
+      <tr><td>Pembayaran diterima</td><td style="text-align:right;color:#2f9e6f"><%= rupiah(r.trialBalance.payments) %></td></tr>
+      <tr style="font-weight:800;border-top:2px solid #20262e"><td>Saldo terutang (in-house)</td><td style="text-align:right;color:<%= r.trialBalance.outstanding>0?'#c0392b':'#2f9e6f' %>"><%= rupiah(r.trialBalance.outstanding) %></td></tr>
+    </table>
+    <p class="muted" style="font-size:12px;margin-top:10px">No-show dikenai fee 1 malam, kas kasir ditutup otomatis, dan tanggal usaha digulung.</p>
+  </div>
+</div>
+
+<div style="margin-top:14px;display:flex;gap:8px">
+  <a class="btn ghost sm" href="/pms/reports">Riwayat D-Report</a>
+  <a class="btn ghost sm" href="/pms">Front Desk</a>
+</div>
+
+<%- include('../partials/bottom') %>

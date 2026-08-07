@@ -1,0 +1,35 @@
+<%- include('../partials/top', { title:'Forecast', heading:'Occupancy Forecast', section:'extranet', active:'forecast', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <div>Kapasitas: <b><%= capacity %></b> kamar</div>
+  <form method="get" action="/pms/forecast" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="margin:0">Rentang</label>
+    <select name="days" onchange="this.form.submit()" style="width:auto"><% [7,14,30,60].forEach(function(n){ %><option value="<%= n %>" <%= days==n?'selected':'' %>><%= n %> hari</option><% }) %></select>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Tanggal</th><th style="text-align:right">Terjual</th><th style="text-align:right">Block/OOO</th><th style="text-align:right">Tersedia</th><th style="text-align:right">Arr</th><th style="text-align:right">Dep</th><th style="width:180px">Okupansi</th></tr></thead>
+    <tbody>
+      <% forecast.forEach(function(f){ var g=new Date(f.date).getUTCDay(); var wk=(g===0||g===6); %>
+        <tr style="<%= wk?'background:#f7f8fb':'' %>">
+          <td><b><%= new Date(f.date).toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short'}) %></b></td>
+          <td style="text-align:right"><%= f.sold %></td>
+          <td style="text-align:right"><%= f.blocked %></td>
+          <td style="text-align:right"><%= f.available %></td>
+          <td style="text-align:right;color:#2f9e6f"><%= f.arrivals %></td>
+          <td style="text-align:right;color:#E07C17"><%= f.departures %></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="flex:1;height:8px;background:#eee;border-radius:5px;overflow:hidden"><div style="width:<%= Math.min(100,f.occupancyPct) %>%;height:100%;background:<%= f.occupancyPct>=90?'#c0392b':(f.occupancyPct>=70?'#E07C17':'#2f9e6f') %>"></div></div>
+              <span style="font-size:12px;font-weight:700;min-width:40px;text-align:right"><%= f.occupancyPct %>%</span>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

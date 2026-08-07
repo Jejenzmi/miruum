@@ -8,6 +8,7 @@
 <div style="display:flex;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
   <a class="btn ghost sm" href="/pms">← Front Desk</a>
   <div style="display:flex;gap:8px">
+    <a class="btn ghost sm" href="/pms/booking/<%= id %>/edit">✎ Ubah Reservasi</a>
     <a class="btn ghost sm" href="/pms/booking/<%= id %>/registration-card" target="_blank">🖨 Registration Card</a>
     <a class="btn ghost sm" href="/pms/booking/<%= id %>/invoice" target="_blank">🖨 Invoice / Bill</a>
   </div>
@@ -80,7 +81,8 @@
       <% }) %>
       <% (payments||[]).forEach(function(p){ %>
         <tr>
-          <td>Pembayaran — <%= p.method %><%= p.note ? (' ('+p.note+')') : '' %></td>
+          <% var isDep = (p.note||'').indexOf('[Uang Muka]')===0; %>
+          <td><%= isDep ? 'Uang Muka / Deposit' : 'Pembayaran' %> — <%= p.method %><%= p.note ? (' ('+p.note.replace('[Uang Muka]','').trim()+')').replace(' ()','') : '' %></td>
           <td><span class="pill PAID">BAYAR</span></td>
           <td style="text-align:right">—</td>
           <td style="text-align:right">—</td>
@@ -141,6 +143,35 @@
         <button class="btn sm">Pindah ke Piutang (<%= rupiah(balance) %>)</button>
       </form>
     </div>
+  <% } %>
+</div>
+
+<div class="row2">
+  <div class="card">
+    <h3 style="margin-top:0">Uang Muka / Deposit</h3>
+    <form method="post" action="/pms/booking/<%= id %>/deposit" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+      <div><label style="margin-top:0">Metode</label><select name="method"><% ['TRANSFER','CASH','CARD','QRIS','EWALLET','OTHER'].forEach(function(m){ %><option value="<%= m %>"><%= m %></option><% }) %></select></div>
+      <div><label style="margin-top:0">Jumlah</label><input name="amount" type="number" min="1" required style="max-width:130px"></div>
+      <div style="flex:1;min-width:120px"><label style="margin-top:0">Catatan</label><input name="note" placeholder="mis. DP via BCA"></div>
+      <button class="btn sm">Catat Deposit</button>
+    </form>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Uang muka mengurangi saldo folio dan tampil sebagai "Uang Muka / Deposit".</p>
+  </div>
+  <% if ((charges||[]).length && (inhouseOthers||[]).length) { %>
+  <div class="card">
+    <h3 style="margin-top:0">Transfer / Split Charge</h3>
+    <form method="post" action="/pms/folio/PLACEHOLDER/transfer/<%= id %>" id="xferForm" onsubmit="this.action='/pms/folio/'+document.getElementById('xc').value+'/transfer/<%= id %>'" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+      <div style="flex:1;min-width:150px"><label style="margin-top:0">Charge</label>
+        <select id="xc" required><% charges.forEach(function(c){ %><option value="<%= c.id %>"><%= c.description %> — <%= rupiah(c.amount*c.qty) %> (qty <%= c.qty %>)</option><% }) %></select>
+      </div>
+      <div><label style="margin-top:0">Qty (kosong = semua)</label><input name="qty" type="number" min="1" style="max-width:90px"></div>
+      <div style="flex:1;min-width:150px"><label style="margin-top:0">Ke kamar</label>
+        <select name="toBookingId" required><option value="">— pilih tamu in-house —</option><% inhouseOthers.forEach(function(o){ %><option value="<%= o.bookingId %>"><%= o.roomNumber?('#'+o.roomNumber+' '):'' %><%= o.guest %></option><% }) %></select>
+      </div>
+      <button class="btn sm">Pindahkan</button>
+    </form>
+    <p class="muted" style="font-size:12px;margin:6px 0 0">Pindahkan (atau split sebagian via qty) charge ke folio tamu/kamar lain yang sedang menginap.</p>
+  </div>
   <% } %>
 </div>
 

@@ -5419,7 +5419,7 @@ app.get("/api/partner/bookings/:id/folio", requireRole("PARTNER", "ADMIN"), asyn
   const grandTotal = Number(full!.totalPrice) + extras;
   const paid = full!.folioPayments.reduce((s, p) => s + Number(p.amount), 0);
   res.json({
-    booking: { code: full!.code, guest: full!.bookerName, room: full!.room.name, roomNumber: full!.roomUnit?.number ?? null, nights: full!.nights, status: full!.status, payAtHotel: full!.payAtHotel },
+    booking: { code: full!.code, guest: full!.bookerName, room: full!.room.name, roomId: full!.roomId, roomNumber: full!.roomUnit?.number ?? null, nights: full!.nights, status: full!.status, payAtHotel: full!.payAtHotel, checkIn: full!.checkIn.toISOString().slice(0, 10), checkOut: full!.checkOut.toISOString().slice(0, 10), guests: full!.guests },
     roomTotal: Number(full!.totalPrice), charges: full!.folioCharges, extras,
     payments: full!.folioPayments.map((p) => ({ id: p.id, method: p.method, amount: Number(p.amount), note: p.note, createdAt: p.createdAt })),
     grandTotal, paid, balance: grandTotal - paid,
@@ -5451,9 +5451,16 @@ app.post("/api/partner/pms/night-audit", requireRole("PARTNER", "ADMIN"), async 
   const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
   const endToday = new Date(startToday.getTime() + 86400000);
 
-  // 1) No-shows → cancel.
-  const noShows = await prisma.booking.findMany({ where: { hotelId: { in: ids }, status: { in: ["PENDING", "PAID"] }, checkedInAt: null, checkIn: { lt: startToday } }, select: { id: true } });
-  if (noShows.length) await prisma.booking.updateMany({ where: { id: { in: noShows.map((b) => b.id) } }, data: { noShow: true, status: "CANCELLED" } });
+  // 1) No-shows → cancel + post a one-night no-show fee to the folio.
+  const noShows = await prisma.booking.findMany({ where: { hotelId: { in: ids }, status: { in: ["PENDING", "PAID"] }, checkedInAt: null, checkIn: { lt: startToday } }, select: { id: true, roomPrice: true, nights: true } });
+  let noShowFees = 0;
+  if (noShows.length) {
+    await prisma.booking.updateMany({ where: { id: { in: noShows.map((b) => b.id) } }, data: { noShow: true, status: "CANCELLED" } });
+    for (const b of noShows) {
+      const fee = Math.round(Number(b.roomPrice) / Math.max(1, b.nights)); // 1 night
+      if (fee > 0) { await prisma.folioCharge.create({ data: { bookingId: b.id, kind: "OTHER", description: "No-show fee (1 malam)", amount: fee, qty: 1 } }); noShowFees += fee; }
+    }
+  }
 
   // 2) Post today's room charge to the folio of each in-house PAY-AT-HOTEL guest
   //    (avoid double posting per business date).
@@ -5487,12 +5494,28 @@ app.post("/api/partner/pms/night-audit", requireRole("PARTNER", "ADMIN"), async 
   const revpar = totalRooms ? Math.round(roomRevenue / totalRooms) : 0;
   const departures = await prisma.booking.count({ where: { hotelId: { in: ids }, checkedOutAt: { gte: startToday, lt: endToday } } });
 
+  // 4) Auto-close any open cashier shift for this operator (drawer must close at EOD).
+  const openShifts = await prisma.cashierShift.findMany({ where: { userId: req.userId!, status: "OPEN" } });
+  for (const s of openShifts) {
+    const tal = await shiftTally(s);
+    await prisma.cashierShift.update({ where: { id: s.id }, data: { status: "CLOSED", closedAt: new Date(), closingCounted: BigInt(tal.expectedCash), expectedCash: BigInt(tal.expectedCash), variance: BigInt(0), note: "Ditutup otomatis oleh Night Audit" } });
+  }
+
+  // 5) Trial balance for the business date: charges posted vs payments taken vs outstanding.
+  const [chargeAgg, payAgg, inhouseFull] = await Promise.all([
+    prisma.folioCharge.aggregate({ where: { createdAt: { gte: startToday, lt: endToday }, booking: { hotelId: { in: ids } } }, _sum: { amount: true } }),
+    prisma.folioPayment.aggregate({ where: { createdAt: { gte: startToday, lt: endToday }, booking: { hotelId: { in: ids } } }, _sum: { amount: true } }),
+    prisma.booking.findMany({ where: { hotelId: { in: ids }, checkedInAt: { not: null }, checkedOutAt: null }, include: { folioCharges: true, folioPayments: true } }),
+  ]);
+  const outstanding = inhouseFull.reduce((s, b) => s + (Number(b.totalPrice) + b.folioCharges.reduce((a, c) => a + Number(c.amount) * c.qty, 0) - b.folioPayments.reduce((a, p) => a + Number(p.amount), 0)), 0);
+  const trialBalance = { charges: Number(chargeAgg._sum.amount ?? 0), payments: Number(payAgg._sum.amount ?? 0), outstanding };
+
   const log = await prisma.nightAuditLog.create({ data: {
     hotelId: admin ? null : ids[0], businessDate: startToday, rooms: totalRooms, occupiedRooms, occupancyPct,
     adr, revpar, arrivals: arrivalsDone, departures, inhouse: occupiedRooms, noShows: noShows.length, roomRevenue, extraRevenue, totalRevenue,
   } });
-  audit(req, "pms.night-audit", "NightAudit", log.id, { noShows: noShows.length, posted });
-  res.json({ ok: true, report: log, roomChargesPosted: posted, overstays });
+  audit(req, "pms.night-audit", "NightAudit", log.id, { noShows: noShows.length, posted, noShowFees, shiftsClosed: openShifts.length });
+  res.json({ ok: true, report: log, roomChargesPosted: posted, overstays, noShowFees, shiftsClosed: openShifts.length, trialBalance });
 });
 
 // Past D-reports.
@@ -5881,6 +5904,107 @@ app.post("/api/partner/bookings/:id/city-ledger", requireRole("PARTNER", "ADMIN"
     prisma.folioPayment.create({ data: { bookingId: b.id, method: "CITY_LEDGER", amount: BigInt(balance), note: `Pindah ke city-ledger: ${acc.name}` } }),
   ]);
   res.json({ ok: true, transferred: balance, account: acc.name });
+});
+
+// ─────────── PMS: modify an existing reservation (front-desk edit) ───────────
+app.post("/api/partner/bookings/:id/modify", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
+  if (b.checkedOutAt) return res.status(400).json({ error: "Reservasi sudah check-out, tidak bisa diubah" });
+  if (b.packageId) return res.status(400).json({ error: "Reservasi paket tidak bisa diubah dari sini" });
+  const schema = z.object({ checkIn: z.string(), checkOut: z.string(), roomId: z.string(), ratePlanId: z.string().optional(), guests: z.coerce.number().int().min(1).optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const newRoom = await prisma.room.findFirst({ where: { id: p.data.roomId, hotelId: b.hotelId } });
+  if (!newRoom) return res.status(400).json({ error: "Tipe kamar tidak valid" });
+  const ci = new Date(p.data.checkIn), co = new Date(p.data.checkOut);
+  if (isNaN(+ci) || isNaN(+co) || co <= ci) return res.status(400).json({ error: "Tanggal tidak valid" });
+  // Free the old hold, take the new one; restore on failure.
+  await release(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms);
+  const q = await quote(prisma, newRoom.id, ci, co, b.rooms);
+  if (!q.available) { await consume(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms); return res.status(409).json({ error: q.reason ?? "Kamar tidak tersedia" }); }
+  const ok = await consume(prisma, newRoom.id, ci, co, b.rooms);
+  if (!ok) { await consume(prisma, b.roomId, b.checkIn, b.checkOut, b.rooms); return res.status(409).json({ error: "Kamar penuh untuk tanggal baru" }); }
+  let base = q.total; let ratePlanId: string | null = null, ratePlanName: string | null = null;
+  if (p.data.ratePlanId) { const plan = await prisma.ratePlan.findFirst({ where: { id: p.data.ratePlanId, roomId: newRoom.id, active: true } }); if (plan) { base += plan.priceDelta * q.nights * b.rooms; ratePlanId = plan.id; ratePlanName = plan.name; } }
+  const tax = Math.round((base * (await getNum("taxPct"))) / 100);
+  const roomChanged = newRoom.id !== b.roomId;
+  await prisma.booking.update({ where: { id: b.id }, data: { checkIn: ci, checkOut: co, nights: q.nights, roomId: newRoom.id, guests: p.data.guests ?? b.guests, roomPrice: base, taxFee: tax, totalPrice: base + tax, ratePlanId, ratePlanName, ...(roomChanged ? { roomUnitId: null } : {}) } });
+  res.json({ ok: true, roomPrice: base, taxFee: tax, totalPrice: base + tax, roomChanged });
+});
+
+// ─────────── PMS: folio split / transfer ───────────
+app.post("/api/partner/folio/:id/transfer", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const charge = await prisma.folioCharge.findUnique({ where: { id: req.params.id }, include: { booking: { select: { hotelId: true, hotel: { select: { ownerId: true } } } } } });
+  if (!charge) return res.status(404).json({ error: "Charge tidak ditemukan" });
+  if ((req as any).role !== "ADMIN" && charge.booking.hotel.ownerId !== req.userId) return res.status(403).json({ error: "Bukan milik Anda" });
+  const to = await ownsBooking(req, String(req.body?.toBookingId || ""));
+  if (!to) return res.status(400).json({ error: "Reservasi tujuan tidak valid" });
+  if (to.hotelId !== charge.booking.hotelId) return res.status(400).json({ error: "Harus di hotel yang sama" });
+  const qty = req.body?.qty ? Math.min(Math.max(1, Number(req.body.qty)), charge.qty) : charge.qty;
+  if (qty >= charge.qty) {
+    await prisma.folioCharge.update({ where: { id: charge.id }, data: { bookingId: to.id } });
+  } else {
+    await prisma.$transaction([
+      prisma.folioCharge.update({ where: { id: charge.id }, data: { qty: charge.qty - qty } }),
+      prisma.folioCharge.create({ data: { bookingId: to.id, kind: charge.kind, description: charge.description, amount: charge.amount, qty } }),
+    ]);
+  }
+  res.json({ ok: true });
+});
+
+// ─────────── PMS: folio deposit / advance (uang muka) ───────────
+app.post("/api/partner/bookings/:id/folio/deposit", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
+  const schema = z.object({ method: z.enum(["CASH", "CARD", "TRANSFER", "QRIS", "EWALLET", "OTHER"]).default("TRANSFER"), amount: z.coerce.number().int().positive(), note: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data deposit tidak valid" });
+  const pay = await prisma.folioPayment.create({ data: { bookingId: b.id, method: p.data.method, amount: BigInt(p.data.amount), note: `[Uang Muka] ${p.data.note}`.trim(), shiftId: await openShiftId(req.userId!) } });
+  res.json({ payment: pay });
+});
+
+// ─────────── PMS: extra reports (revenue-by-source, tax, forecast, in-house ledger) ───────────
+app.get("/api/partner/pms/report/revenue", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const from = new Date(String(req.query.from || "")); const to = new Date(String(req.query.to || ""));
+  const f = isNaN(+from) ? new Date(Date.now() - 30 * 86400000) : from; f.setHours(0, 0, 0, 0);
+  const t = isNaN(+to) ? new Date() : to; t.setHours(23, 59, 59, 999);
+  const rows = await prisma.booking.findMany({ where: { hotelId: { in: ids }, status: { in: ["PAID", "COMPLETED"] }, checkIn: { gte: f, lte: t } }, select: { source: true, walkIn: true, groupId: true, channel: { select: { type: true } }, roomPrice: true, taxFee: true, totalPrice: true } });
+  const seg: Record<string, { count: number; room: number; tax: number; total: number }> = {};
+  const key = (b: any) => b.groupId ? "GROUP" : b.walkIn ? "WALK_IN" : b.source === "HOTELBEDS" ? "BEDBANK" : b.channel?.type === "OTA" ? "OTA" : "DIRECT";
+  for (const b of rows) { const k = key(b); (seg[k] ??= { count: 0, room: 0, tax: 0, total: 0 }); seg[k].count++; seg[k].room += Number(b.roomPrice); seg[k].tax += Number(b.taxFee); seg[k].total += Number(b.totalPrice); }
+  const segments = Object.entries(seg).map(([k, v]) => ({ segment: k, ...v }));
+  const totals = segments.reduce((s, x) => ({ count: s.count + x.count, room: s.room + x.room, tax: s.tax + x.tax, total: s.total + x.total }), { count: 0, room: 0, tax: 0, total: 0 });
+  res.json({ from: f.toISOString().slice(0, 10), to: t.toISOString().slice(0, 10), segments, totals });
+});
+app.get("/api/partner/pms/report/forecast", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const days = Math.min(Math.max(Number(req.query.days) || 14, 5), 60);
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const capAgg = await prisma.room.aggregate({ where: { hotelId: { in: ids } }, _sum: { stock: true } });
+  const cap = Number(capAgg._sum.stock ?? 0) || (await prisma.roomUnit.count({ where: { room: { hotelId: { in: ids } } } }));
+  const active = { in: ["PENDING", "PAID", "COMPLETED"] as any };
+  const out: any[] = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start.getTime() + i * 86400000); const d1 = new Date(d.getTime() + 86400000);
+    const [sold, blocked, arr, dep] = await Promise.all([
+      prisma.booking.count({ where: { hotelId: { in: ids }, status: active, checkIn: { lte: d }, checkOut: { gt: d } } }),
+      prisma.roomBlock.count({ where: { hotelId: { in: ids }, dateFrom: { lte: d }, dateTo: { gt: d } } }),
+      prisma.booking.count({ where: { hotelId: { in: ids }, status: active, checkIn: { gte: d, lt: d1 } } }),
+      prisma.booking.count({ where: { hotelId: { in: ids }, status: active, checkOut: { gte: d, lt: d1 } } }),
+    ]);
+    const occ = cap ? Math.round(((sold + blocked) / cap) * 1000) / 10 : 0;
+    out.push({ date: d.toISOString().slice(0, 10), sold, blocked, arrivals: arr, departures: dep, available: Math.max(0, cap - sold - blocked), occupancyPct: occ });
+  }
+  res.json({ capacity: cap, days, forecast: out });
+});
+app.get("/api/partner/pms/report/inhouse-ledger", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const rows = await prisma.booking.findMany({ where: { hotelId: { in: ids }, checkedInAt: { not: null }, checkedOutAt: null }, include: { folioCharges: true, folioPayments: true, room: { select: { name: true } }, roomUnit: { select: { number: true } } }, orderBy: { checkIn: "asc" } });
+  const guests = rows.map((b) => { const extras = b.folioCharges.reduce((s, c) => s + Number(c.amount) * c.qty, 0); const paid = b.folioPayments.reduce((s, p) => s + Number(p.amount), 0); const grand = Number(b.totalPrice) + extras; return { id: b.id, code: b.code, guest: b.bookerName, room: b.room.name, roomNumber: b.roomUnit?.number ?? null, charges: grand, paid, balance: grand - paid }; });
+  const totals = guests.reduce((s, g) => ({ charges: s.charges + g.charges, paid: s.paid + g.paid, balance: s.balance + g.balance }), { charges: 0, paid: 0, balance: 0 });
+  res.json({ guests, totals });
 });
 
 // ─────────── PMS: maintenance / work orders ───────────

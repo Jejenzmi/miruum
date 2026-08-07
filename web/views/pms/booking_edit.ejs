@@ -1,0 +1,31 @@
+<%- include('../partials/top', { title:'Ubah Reservasi', heading:'Ubah Reservasi', section:'extranet', active:'pms', me }) %>
+
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+<a class="btn ghost sm" href="/pms/booking/<%= id %>" style="margin-bottom:12px">← Folio</a>
+
+<div class="card">
+  <p class="muted" style="margin-top:0"><b><%= booking.code %></b> · <%= booking.guest %> · saat ini <%= booking.room %>, <%= booking.checkIn %> → <%= booking.checkOut %></p>
+  <form method="post" action="/pms/booking/<%= id %>/modify">
+    <div class="row2">
+      <div><label>Tipe Kamar</label><select name="roomId" id="e-room" required></select></div>
+      <div><label>Jumlah Tamu</label><input name="guests" type="number" min="1" value="<%= booking.guests %>"></div>
+    </div>
+    <div class="row2">
+      <div><label>Check-in</label><input name="checkIn" type="date" value="<%= booking.checkIn %>" required></div>
+      <div><label>Check-out</label><input name="checkOut" type="date" value="<%= booking.checkOut %>" required></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn">Simpan Perubahan</button></div>
+    <p class="muted" style="font-size:12px;margin-top:8px">Mengubah tanggal/kamar akan menghitung ulang ketersediaan & harga. Jika ganti tipe kamar, nomor kamar yang lama dilepas (assign ulang di folio). Selisih tagihan tampil di folio.</p>
+  </form>
+</div>
+
+<script>
+  var EH = <%- JSON.stringify(hotels) %>;
+  var cur = <%- JSON.stringify(booking.roomId) %>;
+  var rSel = document.getElementById('e-room');
+  var opts = [];
+  EH.forEach(function(h){ (h.roomTypes||[]).forEach(function(t){ opts.push('<option value="'+t.id+'"'+(t.id===cur?' selected':'')+'>'+t.name+(EH.length>1?' — '+h.name:'')+'</option>'); }); });
+  rSel.innerHTML = opts.join('');
+</script>
+
+<%- include('../partials/bottom') %>

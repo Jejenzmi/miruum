@@ -1,0 +1,42 @@
+<%- include('../partials/top', { title:'Revenue', heading:'Pendapatan per Sumber & Pajak', section:'extranet', active:'revenue', me }) %>
+
+<% var LABEL={DIRECT:'Direct / Website',OTA:'OTA (Channel)',BEDBANK:'Bedbank (sub-agen)',WALK_IN:'Walk-in',GROUP:'Group / Rombongan'}; %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/revenue" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="margin:0">Dari</label><input type="date" name="from" value="<%= from %>" style="width:auto">
+    <label style="margin:0">Sampai</label><input type="date" name="to" value="<%= to %>" style="width:auto">
+    <button class="btn sm">Tampilkan</button>
+  </form>
+  <b><%= from %> → <%= to %></b>
+</div>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0">
+  <div class="stat"><div class="label">Reservasi</div><div class="value"><%= totals.count %></div></div>
+  <div class="stat"><div class="label">Pendapatan Kamar</div><div class="value" style="font-size:17px"><%= rupiah(totals.room) %></div></div>
+  <div class="stat"><div class="label">Pajak & Layanan</div><div class="value" style="font-size:17px"><%= rupiah(totals.tax) %></div></div>
+  <div class="stat"><div class="label">Total (incl. pajak)</div><div class="value" style="font-size:17px"><%= rupiah(totals.total) %></div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Rincian per Sumber</h3>
+  <table>
+    <thead><tr><th>Sumber</th><th style="text-align:right">Reservasi</th><th style="text-align:right">Kamar</th><th style="text-align:right">Pajak</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>
+      <% segments.forEach(function(s){ %>
+        <tr>
+          <td><b><%= LABEL[s.segment] || s.segment %></b></td>
+          <td style="text-align:right"><%= s.count %></td>
+          <td style="text-align:right"><%= rupiah(s.room) %></td>
+          <td style="text-align:right"><%= rupiah(s.tax) %></td>
+          <td style="text-align:right;font-weight:700"><%= rupiah(s.total) %></td>
+        </tr>
+      <% }) %>
+      <% if(!segments.length){ %><tr><td colspan="5" class="empty">Tidak ada pendapatan pada rentang ini.</td></tr><% } %>
+    </tbody>
+    <% if(segments.length){ %><tfoot><tr style="font-weight:800;border-top:2px solid #20262e"><td>Total</td><td style="text-align:right"><%= totals.count %></td><td style="text-align:right"><%= rupiah(totals.room) %></td><td style="text-align:right"><%= rupiah(totals.tax) %></td><td style="text-align:right"><%= rupiah(totals.total) %></td></tr></tfoot><% } %>
+  </table>
+  <p class="muted" style="font-size:12px;margin-top:10px">Laporan pajak = kolom "Pajak & Layanan" (total <%= rupiah(totals.tax) %>) yang dipungut atas reservasi lunas/selesai pada periode ini.</p>
+</div>
+
+<%- include('../partials/bottom') %>
