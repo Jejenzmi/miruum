@@ -5581,7 +5581,7 @@ app.post("/api/partner/pms/walk-in", requireRole("PARTNER", "ADMIN"), async (req
     await release(prisma, room.id, checkIn, checkOut, p.data.rooms).catch(() => {});
     throw e;
   }
-  if (paidNow) await prisma.folioPayment.create({ data: { bookingId: booking.id, method: (p.data.payMethod || "CASH").toUpperCase(), amount: BigInt(totalPrice), note: "Pembayaran walk-in" } });
+  if (paidNow) await prisma.folioPayment.create({ data: { bookingId: booking.id, method: (p.data.payMethod || "CASH").toUpperCase(), amount: BigInt(totalPrice), note: "Pembayaran walk-in", shiftId: await openShiftId(req.userId!) } });
   res.json({ booking: { id: booking.id, code: booking.code, status: booking.status } });
 });
 
@@ -5628,7 +5628,7 @@ app.post("/api/partner/bookings/:id/folio/payment", requireRole("PARTNER", "ADMI
   const schema = z.object({ method: z.enum(["CASH", "CARD", "TRANSFER", "QRIS", "EWALLET", "CITY_LEDGER", "OTHER"]).default("CASH"), amount: z.coerce.number().int().positive(), note: z.string().default("") });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data pembayaran tidak valid" });
-  const pay = await prisma.folioPayment.create({ data: { bookingId: b.id, method: p.data.method, amount: BigInt(p.data.amount), note: p.data.note } });
+  const pay = await prisma.folioPayment.create({ data: { bookingId: b.id, method: p.data.method, amount: BigInt(p.data.amount), note: p.data.note, shiftId: await openShiftId(req.userId!) } });
   res.json({ payment: pay });
 });
 app.delete("/api/partner/folio-payment/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
@@ -5707,6 +5707,180 @@ app.get("/api/partner/pms/guests.csv", requireRole("PARTNER", "ADMIN"), async (r
   const lines = [head.join(",")];
   for (const b of rows) lines.push([b.code, b.bookerName, b.bookerPhone, b.guestIdType, b.guestIdNumber, b.guestNationality, b.guestAddress, b.roomUnit?.number, b.checkIn.toISOString().slice(0, 10), b.checkOut.toISOString().slice(0, 10), b.guests].map(esc2).join(","));
   res.set("Content-Type", "text/csv; charset=utf-8").set("Content-Disposition", `attachment; filename="daftar-tamu-${day.toISOString().slice(0, 10)}.csv"`).send("﻿" + lines.join("\n"));
+});
+
+// ─────────── PMS: Group / Block booking ───────────
+async function groupMasterFolio(groupId: string) {
+  const members = await prisma.booking.findMany({ where: { groupId }, include: { folioCharges: true, folioPayments: true, room: { select: { name: true } }, roomUnit: { select: { number: true } } }, orderBy: { createdAt: "asc" } });
+  let charges = 0, room = 0, paid = 0;
+  for (const b of members) { room += Number(b.totalPrice); charges += b.folioCharges.reduce((s, c) => s + Number(c.amount) * c.qty, 0); paid += b.folioPayments.reduce((s, p) => s + Number(p.amount), 0); }
+  const grand = room + charges;
+  return { members, roomTotal: room, extras: charges, grandTotal: grand, paid, balance: grand - paid };
+}
+app.get("/api/partner/pms/groups", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const groups = await prisma.bookingGroup.findMany({ where: { hotelId: { in: ids } }, orderBy: { createdAt: "desc" }, take: 100, include: { _count: { select: { bookings: true } }, bookings: { select: { totalPrice: true } } } });
+  res.json({ groups: groups.map((g) => ({ id: g.id, name: g.name, company: g.company, checkIn: g.checkIn.toISOString().slice(0, 10), checkOut: g.checkOut.toISOString().slice(0, 10), rooms: g._count.bookings, total: g.bookings.reduce((s, b) => s + Number(b.totalPrice), 0) })) });
+});
+app.post("/api/partner/pms/groups", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ hotelId: z.string(), name: z.string().min(2), company: z.string().optional(), contactName: z.string().optional(), contactPhone: z.string().optional(),
+    checkIn: z.string(), checkOut: z.string(), notes: z.string().optional(),
+    rows: z.array(z.object({ roomId: z.string(), qty: z.coerce.number().int().min(1).default(1), guests: z.coerce.number().int().min(1).default(2) })).min(1) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data grup tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const checkIn = new Date(p.data.checkIn), checkOut = new Date(p.data.checkOut);
+  if (isNaN(+checkIn) || isNaN(+checkOut) || checkOut <= checkIn) return res.status(400).json({ error: "Tanggal tidak valid" });
+  const group = await prisma.bookingGroup.create({ data: { hotelId: p.data.hotelId, name: p.data.name, company: p.data.company || null, contactName: p.data.contactName || null, contactPhone: p.data.contactPhone || null, checkIn, checkOut, notes: p.data.notes || "", createdById: req.userId } });
+  const taxPct = await getNum("taxPct");
+  const created: string[] = []; const reserved: { roomId: string }[] = [];
+  try {
+    for (const row of p.data.rows) {
+      const room = await prisma.room.findFirst({ where: { id: row.roomId, hotelId: p.data.hotelId } });
+      if (!room) continue;
+      for (let i = 0; i < row.qty; i++) {
+        const q = await quote(prisma, room.id, checkIn, checkOut, 1);
+        if (!q.available) throw new Error(`${room.name} tidak tersedia (${q.reason})`);
+        const base = q.total; const tax = Math.round((base * taxPct) / 100);
+        const ok = await consume(prisma, room.id, checkIn, checkOut, 1);
+        if (!ok) throw new Error(`${room.name} penuh`);
+        reserved.push({ roomId: room.id });
+        const b = await prisma.booking.create({ data: {
+          code: makeCode(), userId: req.userId!, hotelId: p.data.hotelId, roomId: room.id, groupId: group.id, walkIn: true, source: "DIRECT",
+          checkIn, checkOut, nights: q.nights, guests: row.guests, rooms: 1,
+          bookerName: `${p.data.name} — ${room.name} #${i + 1}`, bookerEmail: "", bookerPhone: p.data.contactPhone || "",
+          roomPrice: base, taxFee: tax, discount: 0, totalPrice: base + tax, status: "PENDING", payAtHotel: true } });
+        created.push(b.id);
+      }
+    }
+  } catch (e: any) {
+    for (const r of reserved) await release(prisma, r.roomId, checkIn, checkOut, 1).catch(() => {});
+    await prisma.booking.deleteMany({ where: { id: { in: created } } });
+    await prisma.bookingGroup.delete({ where: { id: group.id } });
+    return res.status(409).json({ error: e.message || "Gagal membuat grup" });
+  }
+  res.json({ group: { id: group.id }, rooms: created.length });
+});
+app.get("/api/partner/pms/groups/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const g = await prisma.bookingGroup.findUnique({ where: { id: req.params.id } });
+  if (!g || !(await ownsHotel(req, g.hotelId))) return res.status(404).json({ error: "Grup tidak ditemukan" });
+  const f = await groupMasterFolio(g.id);
+  res.json({ group: { ...g, checkIn: g.checkIn.toISOString().slice(0, 10), checkOut: g.checkOut.toISOString().slice(0, 10) },
+    rooming: f.members.map((b) => ({ id: b.id, code: b.code, guest: b.bookerName, room: b.room.name, roomNumber: b.roomUnit?.number ?? null, status: b.status, inHouse: !!b.checkedInAt && !b.checkedOutAt, total: Number(b.totalPrice) })),
+    folio: { roomTotal: f.roomTotal, extras: f.extras, grandTotal: f.grandTotal, paid: f.paid, balance: f.balance, leadBookingId: f.members[0]?.id ?? null } });
+});
+app.post("/api/partner/pms/groups/:id/checkout", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const g = await prisma.bookingGroup.findUnique({ where: { id: req.params.id } });
+  if (!g || !(await ownsHotel(req, g.hotelId))) return res.status(404).json({ error: "Grup tidak ditemukan" });
+  const inHouse = await prisma.booking.findMany({ where: { groupId: g.id, checkedInAt: { not: null }, checkedOutAt: null }, select: { id: true, roomId: true, roomUnitId: true } });
+  for (const b of inHouse) {
+    const ops: any[] = [prisma.booking.update({ where: { id: b.id }, data: { checkedOutAt: new Date(), status: "COMPLETED" } }), prisma.room.update({ where: { id: b.roomId }, data: { housekeeping: "DIRTY" } })];
+    if (b.roomUnitId) ops.push(prisma.roomUnit.update({ where: { id: b.roomUnitId }, data: { status: "DIRTY" } }));
+    await prisma.$transaction(ops);
+  }
+  res.json({ ok: true, checkedOut: inHouse.length });
+});
+
+// ─────────── PMS: Cashier shift / cash drawer ───────────
+async function openShiftId(userId: string): Promise<string | null> {
+  const s = await prisma.cashierShift.findFirst({ where: { userId, status: "OPEN" }, select: { id: true } });
+  return s?.id ?? null;
+}
+async function shiftTally(shift: { id: string; openedAt: Date; openingFloat: bigint }) {
+  const pays = await prisma.folioPayment.findMany({ where: { shiftId: shift.id } });
+  const byMethod: Record<string, number> = {};
+  let cash = 0, total = 0;
+  for (const p of pays) { const a = Number(p.amount); byMethod[p.method] = (byMethod[p.method] || 0) + a; total += a; if (p.method === "CASH") cash += a; }
+  return { count: pays.length, byMethod, total, cash, expectedCash: Number(shift.openingFloat) + cash };
+}
+app.get("/api/partner/pms/cashier", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const open = await prisma.cashierShift.findFirst({ where: { userId: req.userId!, status: "OPEN" } });
+  const recent = await prisma.cashierShift.findMany({ where: { userId: req.userId! }, orderBy: { openedAt: "desc" }, take: 20 });
+  const tally = open ? await shiftTally(open) : null;
+  res.json({ open: open ? { id: open.id, openedAt: open.openedAt, openingFloat: Number(open.openingFloat) } : null, tally,
+    recent: recent.map((s) => ({ id: s.id, status: s.status, openedAt: s.openedAt, closedAt: s.closedAt, openingFloat: Number(s.openingFloat), expectedCash: s.expectedCash != null ? Number(s.expectedCash) : null, closingCounted: s.closingCounted != null ? Number(s.closingCounted) : null, variance: s.variance != null ? Number(s.variance) : null })) });
+});
+app.post("/api/partner/pms/cashier/open", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  if (await openShiftId(req.userId!)) return res.status(400).json({ error: "Masih ada shift terbuka. Tutup dulu." });
+  const floatAmt = Math.max(0, Number(req.body?.openingFloat) || 0);
+  const ids = await pmsHotelIds(req);
+  const shift = await prisma.cashierShift.create({ data: { userId: req.userId!, hotelId: ids[0] || null, openingFloat: BigInt(floatAmt) } });
+  res.json({ shift: { id: shift.id } });
+});
+app.post("/api/partner/pms/cashier/close", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const open = await prisma.cashierShift.findFirst({ where: { userId: req.userId!, status: "OPEN" } });
+  if (!open) return res.status(400).json({ error: "Tidak ada shift terbuka" });
+  const t = await shiftTally(open);
+  const counted = Math.max(0, Number(req.body?.closingCounted) || 0);
+  const variance = counted - t.expectedCash;
+  const shift = await prisma.cashierShift.update({ where: { id: open.id }, data: { status: "CLOSED", closedAt: new Date(), closingCounted: BigInt(counted), expectedCash: BigInt(t.expectedCash), variance: BigInt(variance), note: String(req.body?.note || "") } });
+  res.json({ shift: { id: shift.id, expectedCash: t.expectedCash, counted, variance, byMethod: t.byMethod } });
+});
+
+// ─────────── PMS: City ledger / AR (direct-bill) ───────────
+function agingBuckets(entries: { type: string; amount: number; entryDate: Date }[]) {
+  // FIFO: apply payments to oldest charges; bucket remaining charges by age.
+  const charges = entries.filter((e) => e.type === "CHARGE").sort((a, b) => +a.entryDate - +b.entryDate).map((e) => ({ amt: e.amount, date: e.entryDate }));
+  let pay = entries.filter((e) => e.type === "PAYMENT").reduce((s, e) => s + e.amount, 0);
+  pay += entries.filter((e) => e.type === "ADJUST").reduce((s, e) => s - e.amount, 0); // ADJUST reduces AR
+  for (const c of charges) { if (pay <= 0) break; const d = Math.min(pay, c.amt); c.amt -= d; pay -= d; }
+  const now = Date.now(); const b = { d0_30: 0, d31_60: 0, d61_90: 0, d90p: 0 };
+  for (const c of charges) { if (c.amt <= 0) continue; const age = (now - +c.date) / 86400000; if (age <= 30) b.d0_30 += c.amt; else if (age <= 60) b.d31_60 += c.amt; else if (age <= 90) b.d61_90 += c.amt; else b.d90p += c.amt; }
+  return b;
+}
+app.get("/api/partner/pms/ledger", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const accounts = await prisma.ledgerAccount.findMany({ where: { OR: [{ hotelId: { in: ids } }, { hotelId: null }] }, orderBy: { name: "asc" }, include: { entries: true } });
+  const out = accounts.map((a) => {
+    const entries = a.entries.map((e) => ({ type: e.type, amount: Number(e.amount), entryDate: e.entryDate }));
+    const bal = entries.reduce((s, e) => s + (e.type === "CHARGE" ? e.amount : -e.amount), 0);
+    return { id: a.id, name: a.name, contactName: a.contactName, creditLimit: Number(a.creditLimit), balance: bal, aging: agingBuckets(entries) };
+  });
+  const totals = out.reduce((s, a) => ({ balance: s.balance + a.balance, d0_30: s.d0_30 + a.aging.d0_30, d31_60: s.d31_60 + a.aging.d31_60, d61_90: s.d61_90 + a.aging.d61_90, d90p: s.d90p + a.aging.d90p }), { balance: 0, d0_30: 0, d31_60: 0, d61_90: 0, d90p: 0 });
+  res.json({ accounts: out, totals });
+});
+app.post("/api/partner/pms/ledger/accounts", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ name: z.string().min(2), contactName: z.string().optional(), contactPhone: z.string().optional(), email: z.string().optional(), creditLimit: z.coerce.number().int().min(0).default(0) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data akun tidak valid" });
+  const ids = await pmsHotelIds(req);
+  const acc = await prisma.ledgerAccount.create({ data: { hotelId: ids[0] || null, name: p.data.name, contactName: p.data.contactName || null, contactPhone: p.data.contactPhone || null, email: p.data.email || null, creditLimit: BigInt(p.data.creditLimit) } });
+  res.json({ account: acc });
+});
+app.get("/api/partner/pms/ledger/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const acc = await prisma.ledgerAccount.findFirst({ where: { id: req.params.id, OR: [{ hotelId: { in: ids } }, { hotelId: null }] }, include: { entries: { orderBy: { entryDate: "asc" } } } });
+  if (!acc) return res.status(404).json({ error: "Akun tidak ditemukan" });
+  let run = 0;
+  const entries = acc.entries.map((e) => { run += e.type === "CHARGE" ? Number(e.amount) : -Number(e.amount); return { id: e.id, type: e.type, amount: Number(e.amount), note: e.note, date: e.entryDate.toISOString().slice(0, 10), balance: run }; });
+  res.json({ account: { id: acc.id, name: acc.name, contactName: acc.contactName, contactPhone: acc.contactPhone, creditLimit: Number(acc.creditLimit), balance: run }, entries });
+});
+app.post("/api/partner/pms/ledger/:id/entry", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const acc = await prisma.ledgerAccount.findFirst({ where: { id: req.params.id, OR: [{ hotelId: { in: ids } }, { hotelId: null }] } });
+  if (!acc) return res.status(404).json({ error: "Akun tidak ditemukan" });
+  const schema = z.object({ type: z.enum(["CHARGE", "PAYMENT", "ADJUST"]), amount: z.coerce.number().int().positive(), note: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data entri tidak valid" });
+  const e = await prisma.ledgerEntry.create({ data: { accountId: acc.id, type: p.data.type, amount: BigInt(p.data.amount), note: p.data.note } });
+  res.json({ entry: e });
+});
+// Post a booking's outstanding folio balance to a city-ledger account (direct-bill).
+app.post("/api/partner/bookings/:id/city-ledger", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
+  const acc = await prisma.ledgerAccount.findUnique({ where: { id: String(req.body?.accountId || "") } });
+  if (!acc) return res.status(400).json({ error: "Pilih akun city-ledger" });
+  const full = await prisma.booking.findUnique({ where: { id: b.id }, include: { folioCharges: true, folioPayments: true } });
+  const extras = full!.folioCharges.reduce((s, c) => s + Number(c.amount) * c.qty, 0);
+  const paid = full!.folioPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const balance = Number(full!.totalPrice) + extras - paid;
+  if (balance <= 0) return res.status(400).json({ error: "Tidak ada saldo untuk ditagihkan" });
+  await prisma.$transaction([
+    prisma.ledgerEntry.create({ data: { accountId: acc.id, bookingId: b.id, type: "CHARGE", amount: BigInt(balance), note: `Direct-bill ${full!.code} — ${full!.bookerName}` } }),
+    prisma.folioPayment.create({ data: { bookingId: b.id, method: "CITY_LEDGER", amount: BigInt(balance), note: `Pindah ke city-ledger: ${acc.name}` } }),
+  ]);
+  res.json({ ok: true, transferred: balance, account: acc.name });
 });
 
 // ─────────── PMS: maintenance / work orders ───────────

@@ -921,10 +921,82 @@ model FolioPayment {
   method      String   // CASH | CARD | TRANSFER | QRIS | EWALLET | CITY_LEDGER | OTHER
   amount      BigInt   // rupiah
   note        String   @default("")
+  shiftId     String?  // cashier shift this payment was taken in
   createdAt   DateTime @default(now())
   booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  shift       CashierShift? @relation(fields: [shiftId], references: [id])
 
   @@index([bookingId])
+  @@index([shiftId])
+}
+
+// A group / block reservation — one master record over many room bookings, with an
+// optional master folio (charges routed to the group's lead booking) + rooming list.
+model BookingGroup {
+  id           String    @id @default(cuid())
+  hotelId      String
+  name         String
+  company      String?
+  contactName  String?
+  contactPhone String?
+  checkIn      DateTime
+  checkOut     DateTime
+  masterFolio  Boolean   @default(true)
+  notes        String    @default("")
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+
+  @@index([hotelId])
+}
+
+// Cashier shift / cash drawer session — opening float, payments taken, close-out
+// with expected vs counted variance.
+model CashierShift {
+  id             String    @id @default(cuid())
+  userId         String
+  hotelId        String?
+  openingFloat   BigInt    @default(0)
+  closingCounted BigInt?
+  expectedCash   BigInt?
+  variance       BigInt?
+  status         String    @default("OPEN") // OPEN | CLOSED
+  note           String    @default("")
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  payments       FolioPayment[]
+
+  @@index([userId])
+}
+
+// City-ledger / accounts-receivable account (direct-bill company / travel agent).
+model LedgerAccount {
+  id           String   @id @default(cuid())
+  hotelId      String?
+  name         String
+  contactName  String?
+  contactPhone String?
+  email        String?
+  creditLimit  BigInt   @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  entries      LedgerEntry[]
+
+  @@index([hotelId])
+}
+
+model LedgerEntry {
+  id         String   @id @default(cuid())
+  accountId  String
+  bookingId  String?
+  type       String   // CHARGE | PAYMENT | ADJUST
+  amount     BigInt   // rupiah (CHARGE increases AR, PAYMENT reduces)
+  note       String   @default("")
+  entryDate  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  account    LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
 }
 
 // Room / unit block — Out-of-Order, maintenance, or a manual hold. Blocking a whole
@@ -1092,8 +1164,10 @@ model Booking {
   guestAddress   String?
   guestNationality String?
   walkIn         Boolean       @default(false) // created at the front desk (not via app/OTA)
+  groupId        String?       // part of a group / block booking
   createdAt      DateTime      @default(now())
   roomUnit       RoomUnit?     @relation(fields: [roomUnitId], references: [id])
+  group          BookingGroup? @relation(fields: [groupId], references: [id])
   folioCharges   FolioCharge[]
   folioPayments  FolioPayment[]
 

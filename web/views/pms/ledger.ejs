@@ -1,0 +1,49 @@
+<%- include('../partials/top', { title:'City Ledger', heading:'City Ledger / Piutang (AR)', section:'extranet', active:'ledger', me }) %>
+
+<% if (done==='acc') { %><div class="notice ok">Akun city-ledger dibuat.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+<p class="muted" style="margin:-4px 0 16px">Tagihan direct-bill ke perusahaan / travel-agent. Saldo folio bisa dipindah ke akun di sini (dari halaman folio tamu), lalu ditagih & dilunasi terpisah dengan aging piutang.</p>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
+  <div class="stat"><div class="label">Total Piutang</div><div class="value" style="font-size:17px"><%= rupiah(totals.balance) %></div></div>
+  <div class="stat"><div class="label">0–30 hari</div><div class="value" style="font-size:15px"><%= rupiah(totals.d0_30) %></div></div>
+  <div class="stat"><div class="label">31–60</div><div class="value" style="font-size:15px"><%= rupiah(totals.d31_60) %></div></div>
+  <div class="stat"><div class="label">61–90</div><div class="value" style="font-size:15px"><%= rupiah(totals.d61_90) %></div></div>
+  <div class="stat"><div class="label">90+ hari</div><div class="value" style="font-size:15px;color:#c0392b"><%= rupiah(totals.d90p) %></div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Tambah Akun</h3>
+  <form method="post" action="/pms/ledger/accounts" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px"><label style="margin-top:0">Nama Perusahaan / Agen <span style="color:#c0392b">*</span></label><input name="name" required placeholder="mis. PT Traveloka"></div>
+    <div><label style="margin-top:0">PIC</label><input name="contactName"></div>
+    <div><label style="margin-top:0">No. HP</label><input name="contactPhone"></div>
+    <div><label style="margin-top:0">Limit Kredit</label><input name="creditLimit" type="number" min="0" value="0"></div>
+    <button class="btn sm">Simpan</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Akun & Saldo</h3>
+  <table>
+    <thead><tr><th>Perusahaan</th><th>PIC</th><th>Limit</th><th>0–30</th><th>31–60</th><th>61–90</th><th>90+</th><th>Saldo</th><th></th></tr></thead>
+    <tbody>
+      <% accounts.forEach(function(a){ %>
+        <tr>
+          <td><b><%= a.name %></b></td>
+          <td class="muted"><%= a.contactName || '—' %></td>
+          <td><%= rupiah(a.creditLimit) %></td>
+          <td><%= rupiah(a.aging.d0_30) %></td>
+          <td><%= rupiah(a.aging.d31_60) %></td>
+          <td><%= rupiah(a.aging.d61_90) %></td>
+          <td style="color:#c0392b"><%= rupiah(a.aging.d90p) %></td>
+          <td style="font-weight:800;color:<%= a.balance>0?'#c0392b':'#2f9e6f' %>"><%= rupiah(a.balance) %></td>
+          <td><a class="btn ghost sm" href="/pms/ledger/<%= a.id %>">Statement</a></td>
+        </tr>
+      <% }) %>
+      <% if(!accounts.length){ %><tr><td colspan="9" class="empty">Belum ada akun city-ledger.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

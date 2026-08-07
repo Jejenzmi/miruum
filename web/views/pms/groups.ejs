@@ -1,0 +1,27 @@
+<%- include('../partials/top', { title:'Group Booking', heading:'Group / Block Booking', section:'extranet', active:'groups', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+  <p class="muted" style="margin:0">Reservasi rombongan — banyak kamar dalam satu grup, master folio & rooming list.</p>
+  <a class="btn" href="/pms/groups/new">+ Buat Grup</a>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Grup</th><th>Perusahaan</th><th>Kamar</th><th>Periode</th><th>Nilai</th><th></th></tr></thead>
+    <tbody>
+      <% groups.forEach(function(g){ %>
+        <tr>
+          <td><b><%= g.name %></b></td>
+          <td><%= g.company || '—' %></td>
+          <td><%= g.rooms %> kamar</td>
+          <td><%= g.checkIn %> → <%= g.checkOut %></td>
+          <td><%= rupiah(g.total) %></td>
+          <td><a class="btn ghost sm" href="/pms/groups/<%= g.id %>">Buka</a></td>
+        </tr>
+      <% }) %>
+      <% if(!groups.length){ %><tr><td colspan="6" class="empty">Belum ada grup.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

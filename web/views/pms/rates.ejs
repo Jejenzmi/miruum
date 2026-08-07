@@ -1,0 +1,94 @@
+<%- include('../partials/top', { title:'Rate & Restriction', heading:'Rate & Restriction Manager', section:'extranet', active:'rates', me }) %>
+
+<% if (saved) { %><div class="notice ok">Harga & restriksi diperbarui untuk rentang tanggal.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<% if (!hotels.length) { %>
+  <div class="card"><div class="empty">Belum ada hotel PMS aktif.</div></div>
+<% } else if (!cal) { %>
+  <div class="card"><div class="empty">Gagal memuat kalender.</div></div>
+<% } else {
+  function d2(s){ var d=new Date(s); return d.getUTCDate(); }
+  function dow(s){ return ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][new Date(s).getUTCDay()]; }
+  function wknd(s){ var g=new Date(s).getUTCDay(); return g===0||g===6; }
+  var today = new Date().toISOString().slice(0,10);
+%>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/rates" style="display:flex;gap:8px;align-items:center;margin:0">
+    <% if (hotels.length>1) { %>
+    <select name="hotel" onchange="this.form.submit()" style="width:auto"><% hotels.forEach(function(h){ %><option value="<%= h.id %>" <%= h.id===hotelId?'selected':'' %>><%= h.name %></option><% }) %></select>
+    <% } else { %><input type="hidden" name="hotel" value="<%= hotelId %>"><b><%= hotels[0].name %></b><% } %>
+  </form>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a class="btn ghost sm" href="/pms/rates?hotel=<%= hotelId %>&month=<%= cal.prev %>">◀ <%= cal.prev %></a>
+    <b><%= cal.month %></b>
+    <a class="btn ghost sm" href="/pms/rates?hotel=<%= hotelId %>&month=<%= cal.next %>"><%= cal.next %> ▶</a>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Ubah Massal (rentang tanggal)</h3>
+  <form method="post" action="/pms/rates/bulk">
+    <input type="hidden" name="hotelId" value="<%= hotelId %>"><input type="hidden" name="month" value="<%= cal.month %>">
+    <div class="row2">
+      <div><label>Tipe Kamar</label><select name="roomId" required><% cal.rooms.forEach(function(r){ %><option value="<%= r.id %>"><%= r.name %></option><% }) %></select></div>
+      <div><label>Harga / malam (kosongkan = tetap)</label><input name="price" type="number" min="0" placeholder="mis. 600000"></div>
+    </div>
+    <div class="row2">
+      <div><label>Dari tanggal</label><input name="from" type="date" value="<%= cal.month %>-01" required></div>
+      <div><label>Sampai tanggal</label><input name="to" type="date" value="<%= cal.days[cal.days.length-1] %>" required></div>
+    </div>
+    <div class="row2">
+      <div><label>Alokasi/allotment (kosongkan = tetap)</label><input name="allotment" type="number" min="0" placeholder="mis. 10"></div>
+      <div><label>Min. menginap (malam)</label><input name="minStay" type="number" min="1" placeholder="1"></div>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px">
+      <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="closed" style="width:auto"> Stop-sell / Close-out</label>
+      <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="cta" style="width:auto"> CTA (Closed to Arrival)</label>
+      <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="ctd" style="width:auto"> CTD (Closed to Departure)</label>
+    </div>
+    <div style="margin-top:14px"><button class="btn">Terapkan ke Rentang</button></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Centang stop-sell untuk menutup penjualan; CTA/CTD membatasi tamu check-in/out di tanggal itu. Kosongkan harga/allotment agar nilainya tidak diubah.</p>
+  </form>
+</div>
+
+<div class="card" style="overflow-x:auto;padding:0">
+  <table class="rack">
+    <thead><tr><th class="rk-side">Kamar \ Tgl</th><% cal.days.forEach(function(dt){ %><th class="<%= dt===today?'rk-today':'' %> <%= wknd(dt)?'rk-wk':'' %>"><div class="rk-dow"><%= dow(dt) %></div><%= d2(dt) %></th><% }) %></tr></thead>
+    <tbody>
+      <% cal.rooms.forEach(function(r){ %>
+        <tr>
+          <td class="rk-side"><%= r.name %></td>
+          <% cal.days.forEach(function(dt){ var c = r.cells[dt] || {}; %>
+            <td class="rt-cell <%= c.closed?'rt-closed':'' %> <%= wknd(dt)?'rk-wk':'' %> <%= dt===today?'rk-today':'' %>">
+              <div class="rt-price"><%= Math.round((c.price||r.price)/1000) %>k</div>
+              <div class="rt-meta"><%= c.allotment!=null?c.allotment:r.stock %><% if(c.minStay>1){ %> · m<%= c.minStay %><% } %></div>
+              <div class="rt-badges"><% if(c.closed){ %><span class="rb ss">SS</span><% } %><% if(c.cta){ %><span class="rb">A</span><% } %><% if(c.ctd){ %><span class="rb">D</span><% } %></div>
+            </td>
+          <% }) %>
+        </tr>
+      <% }) %>
+      <% if(!cal.rooms.length){ %><tr><td class="muted" style="padding:14px">Belum ada kamar.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<p class="muted" style="font-size:12px">Legenda: <b>SS</b> = stop-sell · <b>A</b> = CTA (closed to arrival) · <b>D</b> = CTD · <b>m3</b> = min-stay 3 malam · harga dalam ribuan (k).</p>
+
+<style>
+  table.rack{border-collapse:collapse;min-width:100%;font-size:12px}
+  table.rack th,table.rack td{border:1px solid #edeef1}
+  table.rack th{background:#faf9f7;padding:5px 3px;text-align:center;font-weight:700;min-width:52px;color:#4b515a}
+  .rk-dow{font-size:9px;color:#9aa0a6;font-weight:600}
+  .rk-side{min-width:130px;padding:6px 10px !important;text-align:left;background:#fff;position:sticky;left:0;z-index:1;font-weight:600}
+  .rk-today{background:#fff5ea}.rk-wk{background:#f7f8fb}
+  .rt-cell{text-align:center;padding:4px 2px;vertical-align:top}
+  .rt-price{font-weight:700;color:#20262e}.rt-meta{font-size:10px;color:#8a8f98}
+  .rt-closed{background:#fbeaea !important}
+  .rt-badges{margin-top:2px;display:flex;gap:2px;justify-content:center}
+  .rb{font-size:8px;font-weight:800;background:#dde3ee;color:#3a4b6b;border-radius:4px;padding:0 3px}
+  .rb.ss{background:#f3d0d0;color:#b02a2a}
+</style>
+<% } %>
+
+<%- include('../partials/bottom') %>

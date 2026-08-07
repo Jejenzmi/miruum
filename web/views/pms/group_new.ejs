@@ -1,0 +1,54 @@
+<%- include('../partials/top', { title:'Grup Baru', heading:'Buat Group Booking', section:'extranet', active:'groups', me }) %>
+
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+<a class="btn ghost sm" href="/pms/groups" style="margin-bottom:12px">← Daftar Grup</a>
+
+<% if (!hotels.length) { %><div class="card"><div class="empty">Belum ada hotel PMS aktif.</div></div><% } else { %>
+<div class="card">
+  <form method="post" action="/pms/groups" id="gf" onsubmit="return buildRows()">
+    <div class="row2">
+      <div><label>Nama Grup <span style="color:#c0392b">*</span></label><input name="name" required placeholder="mis. Rombongan PT Maju"></div>
+      <div><label>Perusahaan</label><input name="company" placeholder="opsional"></div>
+    </div>
+    <div class="row2">
+      <div><label>Kontak (PIC)</label><input name="contactName"></div>
+      <div><label>No. HP PIC</label><input name="contactPhone"></div>
+    </div>
+    <div class="row2">
+      <div><label>Hotel <span style="color:#c0392b">*</span></label><select name="hotelId" id="g-hotel" required><% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select></div>
+      <div></div>
+    </div>
+    <div class="row2">
+      <div><label>Check-in <span style="color:#c0392b">*</span></label><input name="checkIn" id="g-in" type="date" required></div>
+      <div><label>Check-out <span style="color:#c0392b">*</span></label><input name="checkOut" id="g-out" type="date" required></div>
+    </div>
+    <h3 style="margin:16px 0 8px">Rooming List — jumlah kamar per tipe</h3>
+    <div id="g-rooms"></div>
+    <textarea name="notes" rows="2" class="input" placeholder="Catatan grup (opsional)" style="margin-top:10px"></textarea>
+    <input type="hidden" name="rowsJson" id="rowsJson">
+    <div style="margin-top:14px"><button class="btn">Buat Grup & Reservasi</button></div>
+  </form>
+</div>
+
+<script>
+  var GH = <%- JSON.stringify(hotels) %>;
+  var hSel=document.getElementById('g-hotel'), box=document.getElementById('g-rooms');
+  document.getElementById('g-in').value=new Date().toISOString().slice(0,10);
+  document.getElementById('g-out').value=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  function render(){
+    var h=GH.find(function(x){return x.id===hSel.value;})||GH[0];
+    box.innerHTML=(h.roomTypes||[]).map(function(t){
+      return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0"><div style="flex:1"><b>'+t.name+'</b> <span class="muted" style="font-size:12px">('+(t.units||[]).length+' unit)</span></div><label style="margin:0;font-size:12px">Jumlah kamar</label><input type="number" min="0" value="0" data-room="'+t.id+'" class="g-qty" style="width:80px"></div>';
+    }).join('') || '<p class="muted">Hotel ini belum punya kamar.</p>';
+  }
+  function buildRows(){
+    var rows=[];
+    document.querySelectorAll('.g-qty').forEach(function(i){ var q=parseInt(i.value||'0',10); if(q>0) rows.push({roomId:i.getAttribute('data-room'),qty:q,guests:2}); });
+    if(!rows.length){ alert('Isi minimal satu kamar.'); return false; }
+    document.getElementById('rowsJson').value=JSON.stringify(rows); return true;
+  }
+  hSel.addEventListener('change',render); render();
+</script>
+<% } %>
+
+<%- include('../partials/bottom') %>

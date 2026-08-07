@@ -135,9 +135,14 @@
         <a href="/pms" class="<%= active==='pms'?'active':'' %>"><%- ni('dashboard') %>Front Desk</a>
         <a href="/pms/rack" class="<%= active==='rack'?'active':'' %>"><%- ni('grid') %>Tape Chart</a>
         <a href="/pms/walk-in" class="<%= active==='walkin'?'active':'' %>"><%- ni('plus') %>Walk-in</a>
+        <a href="/pms/groups" class="<%= active==='groups'?'active':'' %>"><%- ni('users') %>Group Booking</a>
         <a href="/pms/guests" class="<%= active==='guests'?'active':'' %>"><%- ni('users') %>Profil Tamu</a>
         <a href="/pms/pos" class="<%= active==='pos'?'active':'' %>"><%- ni('finance') %>POS (Charge ke Kamar)</a>
-        <div class="nav-label">Kamar</div>
+        <div class="nav-label">Kasir & Piutang</div>
+        <a href="/pms/cashier" class="<%= active==='cashier'?'active':'' %>"><%- ni('finance') %>Kasir / Shift</a>
+        <a href="/pms/ledger" class="<%= active==='ledger'?'active':'' %>"><%- ni('finance') %>City Ledger / Piutang</a>
+        <div class="nav-label">Kamar & Tarif</div>
+        <a href="/pms/rates" class="<%= active==='rates'?'active':'' %>"><%- ni('finance') %>Rate &amp; Restriction</a>
         <a href="/pms/housekeeping" class="<%= active==='housekeeping'?'active':'' %>"><%- ni('hotel') %>Housekeeping</a>
         <a href="/pms/blocks" class="<%= active==='blocks'?'active':'' %>"><%- ni('lock') %>Room Block / OOO</a>
         <a href="/pms/maintenance" class="<%= active==='maintenance'?'active':'' %>"><%- ni('plug') %>Maintenance</a>

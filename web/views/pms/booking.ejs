@@ -131,6 +131,17 @@
       </form>
     </div>
   </div>
+  <% if (balance>0 && (ledgerAccounts||[]).length) { %>
+    <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px">
+      <h3 style="margin:0 0 8px">Direct-bill ke City Ledger (piutang)</h3>
+      <form method="post" action="/pms/booking/<%= id %>/city-ledger" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap" data-confirm="Pindahkan saldo <%= rupiah(balance) %> ke akun city-ledger? Folio jadi lunas & piutang tercatat di akun." data-confirm-title="Direct-bill">
+        <div style="flex:1;min-width:180px"><label style="margin-top:0">Tagihkan ke akun</label>
+          <select name="accountId" required><option value="">— pilih perusahaan/agen —</option><% ledgerAccounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.name %></option><% }) %></select>
+        </div>
+        <button class="btn sm">Pindah ke Piutang (<%= rupiah(balance) %>)</button>
+      </form>
+    </div>
+  <% } %>
 </div>
 
 <%- include('../partials/bottom') %>

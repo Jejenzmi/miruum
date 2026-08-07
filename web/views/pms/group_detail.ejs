@@ -1,0 +1,43 @@
+<%- include('../partials/top', { title:'Grup', heading:'Detail Grup', section:'extranet', active:'groups', me }) %>
+
+<% if (saved==='checkout') { %><div class="notice ok">Seluruh anggota grup yang in-house sudah check-out.</div><% } %>
+<a class="btn ghost sm" href="/pms/groups" style="margin-bottom:12px">← Daftar Grup</a>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="margin:0"><%= group.name %></h2>
+      <p class="muted" style="margin:2px 0 0"><%= group.company || 'Tanpa perusahaan' %> · <%= group.checkIn %> → <%= group.checkOut %><%= group.contactName ? (' · PIC: '+group.contactName) : '' %></p>
+    </div>
+    <form method="post" action="/pms/groups/<%= group.id %>/checkout" data-confirm="Check-out semua tamu grup yang menginap?" data-confirm-title="Check-out Grup"><button class="btn">Check-out Grup</button></form>
+  </div>
+</div>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+  <div class="stat"><div class="label">Total Tagihan (Master)</div><div class="value" style="font-size:18px"><%= rupiah(folio.grandTotal) %></div></div>
+  <div class="stat"><div class="label">Kamar</div><div class="value" style="font-size:18px"><%= rupiah(folio.roomTotal) %></div></div>
+  <div class="stat"><div class="label">Sudah Dibayar</div><div class="value" style="font-size:18px;color:#2f9e6f"><%= rupiah(folio.paid) %></div></div>
+  <div class="stat"><div class="label">Saldo</div><div class="value" style="font-size:18px;color:<%= folio.balance>0?'#c0392b':'#2f9e6f' %>"><%= rupiah(folio.balance) %></div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Rooming List (<%= rooming.length %> kamar)</h3>
+  <table>
+    <thead><tr><th>Kode</th><th>Tamu / Kamar</th><th>No. Kamar</th><th>Status</th><th>Nilai</th><th></th></tr></thead>
+    <tbody>
+      <% rooming.forEach(function(b){ %>
+        <tr>
+          <td><span class="pill <%= b.status==='PAID'?'PAID':'PENDING' %>"><%= b.code %></span></td>
+          <td><%= b.guest %></td>
+          <td><%= b.roomNumber ? '#'+b.roomNumber : '—' %></td>
+          <td><%= b.inHouse ? '<span class="pill PAID">In-house</span>' : b.status %></td>
+          <td><%= rupiah(b.total) %></td>
+          <td><a class="btn ghost sm" href="/pms/booking/<%= b.id %>">Folio</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <p class="muted" style="font-size:12px;margin-top:10px">Master folio menjumlahkan seluruh kamar grup. Untuk menerima pembayaran master, buka folio kamar pertama (lead) lalu catat pembayaran, atau tagihkan ke City Ledger.</p>
+</div>
+
+<%- include('../partials/bottom') %>

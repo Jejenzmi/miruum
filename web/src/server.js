@@ -1251,11 +1251,12 @@ app.post("/pms/housekeeping/:id", partnerGuard, productGuard("pms", "PMS"), asyn
 const pmsG = [partnerGuard, productGuard("pms", "PMS")];
 app.get("/pms/booking/:id", ...pmsG, async (req, res) => {
   try {
-    const [folio, units] = await Promise.all([
+    const [folio, units, ledger] = await Promise.all([
       api(`/partner/bookings/${req.params.id}/folio`, { token: res.locals.token }),
       api(`/partner/bookings/${req.params.id}/room-units`, { token: res.locals.token }),
+      api("/partner/pms/ledger", { token: res.locals.token }).catch(() => ({ accounts: [] })),
     ]);
-    res.render("pms/booking", { id: req.params.id, ...folio, units: units.units, active: "pms", saved: req.query.saved });
+    res.render("pms/booking", { id: req.params.id, ...folio, units: units.units, ledgerAccounts: ledger.accounts || [], active: "pms", saved: req.query.saved });
   } catch (e) { res.redirect("/pms"); }
 });
 app.post("/pms/booking/:id/checkin", ...pmsG, async (req, res) => {
@@ -1389,6 +1390,85 @@ app.get("/pms/booking/:id/invoice", ...pmsG, async (req, res) => {
 app.get("/pms/booking/:id/registration-card", ...pmsG, async (req, res) => {
   const r = await fetch(API + `/partner/bookings/${req.params.id}/registration-card`, { headers: { Authorization: `Bearer ${res.locals.token}` } });
   res.set("Content-Type", "text/html; charset=utf-8").send(await r.text());
+});
+
+// ── Rate & Restriction Manager (price / min-stay / CTA / CTD / stop-sell) ──
+app.get("/pms/rates", ...pmsG, async (req, res) => {
+  const ent = await api("/partner/entitlements", { token: res.locals.token });
+  const hotels = (ent.hotels || []).filter((h) => h.productPMS || res.locals.me.role === "ADMIN");
+  const hotelId = req.query.hotel || (hotels[0] && hotels[0].id);
+  let cal = null;
+  if (hotelId) cal = await api(`/partner/hotels/${hotelId}/calendar?month=${req.query.month || ""}`, { token: res.locals.token }).catch(() => null);
+  res.render("pms/rates", { hotels, hotelId, cal, active: "rates", saved: req.query.saved, err: req.query.err });
+});
+app.post("/pms/rates/bulk", ...pmsG, async (req, res) => {
+  const b = req.body;
+  const body = { from: b.from, to: b.to };
+  ["price", "allotment", "minStay"].forEach((k) => { if (b[k] !== undefined && b[k] !== "") body[k] = b[k]; });
+  ["cta", "ctd", "closed"].forEach((k) => { body[k] = b[k] === "on" || b[k] === "true"; });
+  try { await api(`/partner/rooms/${b.roomId}/availability`, { method: "PUT", token: res.locals.token, body }); res.redirect(`/pms/rates?hotel=${b.hotelId || ""}&month=${b.month || ""}&saved=1`); }
+  catch (e) { res.redirect(`/pms/rates?hotel=${b.hotelId || ""}&month=${b.month || ""}&err=` + encodeURIComponent(e.message)); }
+});
+
+// ── Group / Block booking ──
+app.get("/pms/groups", ...pmsG, async (req, res) => {
+  const { groups } = await api("/partner/pms/groups", { token: res.locals.token });
+  res.render("pms/groups", { groups, active: "groups", done: req.query.done });
+});
+app.get("/pms/groups/new", ...pmsG, async (req, res) => {
+  const rack = await api("/partner/pms/rack?days=1", { token: res.locals.token });
+  res.render("pms/group_new", { hotels: rack.hotels, active: "groups", err: req.query.err });
+});
+app.post("/pms/groups", ...pmsG, async (req, res) => {
+  try {
+    const body = { hotelId: req.body.hotelId, name: req.body.name, company: req.body.company, contactName: req.body.contactName, contactPhone: req.body.contactPhone, checkIn: req.body.checkIn, checkOut: req.body.checkOut, notes: req.body.notes, rows: JSON.parse(req.body.rowsJson || "[]") };
+    const r = await api("/partner/pms/groups", { method: "POST", token: res.locals.token, body });
+    res.redirect(`/pms/groups/${r.group.id}`);
+  } catch (e) { res.redirect("/pms/groups/new?err=" + encodeURIComponent(e.message)); }
+});
+app.get("/pms/groups/:id", ...pmsG, async (req, res) => {
+  const data = await api(`/partner/pms/groups/${req.params.id}`, { token: res.locals.token });
+  res.render("pms/group_detail", { ...data, active: "groups", saved: req.query.saved });
+});
+app.post("/pms/groups/:id/checkout", ...pmsG, async (req, res) => {
+  try { await api(`/partner/pms/groups/${req.params.id}/checkout`, { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect(`/pms/groups/${req.params.id}?saved=checkout`);
+});
+
+// ── Cashier shift / cash drawer ──
+app.get("/pms/cashier", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pms/cashier", { token: res.locals.token });
+  res.render("pms/cashier", { ...data, active: "cashier", done: req.query.done, err: req.query.err });
+});
+app.post("/pms/cashier/open", ...pmsG, async (req, res) => {
+  try { await api("/partner/pms/cashier/open", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/cashier?done=open"); }
+  catch (e) { res.redirect("/pms/cashier?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/pms/cashier/close", ...pmsG, async (req, res) => {
+  try { await api("/partner/pms/cashier/close", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/cashier?done=close"); }
+  catch (e) { res.redirect("/pms/cashier?err=" + encodeURIComponent(e.message)); }
+});
+
+// ── City ledger / AR ──
+app.get("/pms/ledger", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pms/ledger", { token: res.locals.token });
+  res.render("pms/ledger", { ...data, active: "ledger", done: req.query.done, err: req.query.err });
+});
+app.post("/pms/ledger/accounts", ...pmsG, async (req, res) => {
+  try { await api("/partner/pms/ledger/accounts", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/ledger?done=acc"); }
+  catch (e) { res.redirect("/pms/ledger?err=" + encodeURIComponent(e.message)); }
+});
+app.get("/pms/ledger/:id", ...pmsG, async (req, res) => {
+  const data = await api(`/partner/pms/ledger/${req.params.id}`, { token: res.locals.token });
+  res.render("pms/ledger_detail", { ...data, active: "ledger", done: req.query.done });
+});
+app.post("/pms/ledger/:id/entry", ...pmsG, async (req, res) => {
+  try { await api(`/partner/pms/ledger/${req.params.id}/entry`, { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect(`/pms/ledger/${req.params.id}?done=entry`);
+});
+app.post("/pms/booking/:id/city-ledger", ...pmsG, async (req, res) => {
+  try { await api(`/partner/bookings/${req.params.id}/city-ledger`, { method: "POST", token: res.locals.token, body: { accountId: req.body.accountId } }); } catch (_) {}
+  res.redirect(`/pms/booking/${req.params.id}?saved=pay`);
 });
 
 // Add a new room type — makes a freshly-onboarded hotel go live in the app.

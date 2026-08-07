@@ -1,0 +1,45 @@
+<%- include('../partials/top', { title:'Statement', heading:'Statement Piutang', section:'extranet', active:'ledger', me }) %>
+
+<a class="btn ghost sm" href="/pms/ledger" style="margin-bottom:12px">← City Ledger</a>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <div>
+      <h2 style="margin:0"><%= account.name %></h2>
+      <p class="muted" style="margin:2px 0 0"><%= account.contactName || 'Tanpa PIC' %><%= account.contactPhone ? (' · '+account.contactPhone) : '' %> · Limit <%= rupiah(account.creditLimit) %></p>
+    </div>
+    <div style="text-align:right"><div class="muted" style="font-size:12px">Saldo Piutang</div><div style="font-weight:800;font-size:20px;color:<%= account.balance>0?'#c0392b':'#2f9e6f' %>"><%= rupiah(account.balance) %></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Catat Entri</h3>
+  <form method="post" action="/pms/ledger/<%= account.id %>/entry" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+    <div><label style="margin-top:0">Jenis</label><select name="type"><option value="PAYMENT">Pembayaran (kurangi piutang)</option><option value="CHARGE">Tagihan (tambah piutang)</option><option value="ADJUST">Penyesuaian (kurangi)</option></select></div>
+    <div><label style="margin-top:0">Jumlah</label><input name="amount" type="number" min="1" required></div>
+    <div style="flex:1;min-width:150px"><label style="margin-top:0">Catatan</label><input name="note" placeholder="mis. transfer BCA 12 Agu"></div>
+    <button class="btn sm">Simpan</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Mutasi</h3>
+  <table>
+    <thead><tr><th>Tanggal</th><th>Jenis</th><th>Catatan</th><th style="text-align:right">Debit</th><th style="text-align:right">Kredit</th><th style="text-align:right">Saldo</th></tr></thead>
+    <tbody>
+      <% entries.forEach(function(e){ %>
+        <tr>
+          <td><%= e.date %></td>
+          <td><span class="pill <%= e.type==='CHARGE'?'PENDING':(e.type==='PAYMENT'?'PAID':'') %>"><%= e.type %></span></td>
+          <td class="muted"><%= e.note || '—' %></td>
+          <td style="text-align:right"><%= e.type==='CHARGE'?rupiah(e.amount):'' %></td>
+          <td style="text-align:right"><%= e.type!=='CHARGE'?rupiah(e.amount):'' %></td>
+          <td style="text-align:right;font-weight:600"><%= rupiah(e.balance) %></td>
+        </tr>
+      <% }) %>
+      <% if(!entries.length){ %><tr><td colspan="6" class="empty">Belum ada mutasi.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>
