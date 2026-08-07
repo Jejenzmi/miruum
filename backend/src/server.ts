@@ -5531,12 +5531,35 @@ app.get("/api/partner/pms/reports", requireRole("PARTNER", "ADMIN"), async (req:
 
 // ─────────── PMS: POS integration (restoran/spa → auto-charge folio by room) ───────────
 const POS_OUTLETS = ["Restoran", "Bar", "Room Service", "Spa", "Laundry", "Minibar"];
+// A simulated product catalog per outlet (a real POS terminal would send its own
+// line items to /api/partner/pos/charge or /charge-cart).
+const POS_MENU: Record<string, { name: string; price: number }[]> = {
+  Restoran: [{ name: "Nasi Goreng Spesial", price: 65000 }, { name: "Mie Goreng", price: 55000 }, { name: "Ayam Bakar", price: 75000 }, { name: "Gado-gado", price: 45000 }, { name: "Sate Ayam (10)", price: 60000 }, { name: "Nasi Campur", price: 70000 }],
+  Bar: [{ name: "Bir Bintang", price: 55000 }, { name: "Mojito", price: 75000 }, { name: "Jus Jeruk", price: 35000 }, { name: "Kopi", price: 30000 }, { name: "Teh", price: 20000 }, { name: "Air Mineral", price: 15000 }],
+  "Room Service": [{ name: "Club Sandwich", price: 70000 }, { name: "French Fries", price: 45000 }, { name: "Fruit Platter", price: 55000 }, { name: "Indomie Rebus", price: 35000 }, { name: "Es Krim", price: 40000 }],
+  Spa: [{ name: "Massage 60'", price: 250000 }, { name: "Facial", price: 200000 }, { name: "Body Scrub", price: 180000 }, { name: "Reflexology 45'", price: 150000 }],
+  Laundry: [{ name: "Cuci Kiloan (kg)", price: 40000 }, { name: "Setrika (pcs)", price: 25000 }, { name: "Dry Clean Jas", price: 60000 }, { name: "Express +50%", price: 80000 }],
+  Minibar: [{ name: "Snack", price: 25000 }, { name: "Cokelat", price: 30000 }, { name: "Soft Drink", price: 20000 }, { name: "Kacang", price: 15000 }, { name: "Beer Can", price: 45000 }],
+};
 app.get("/api/partner/pos/rooms", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const admin = (req as any).role === "ADMIN";
   const where: any = { checkedInAt: { not: null }, checkedOutAt: null, roomUnitId: { not: null } };
   if (!admin) where.hotel = { ownerId: req.userId };
   const inhouse = await prisma.booking.findMany({ where, select: { id: true, bookerName: true, roomUnit: { select: { number: true } }, hotel: { select: { name: true } } } });
-  res.json({ outlets: POS_OUTLETS, rooms: inhouse.map((b) => ({ bookingId: b.id, guest: b.bookerName, roomNumber: b.roomUnit?.number, hotel: b.hotel.name })) });
+  res.json({ outlets: POS_OUTLETS, menu: POS_MENU, rooms: inhouse.map((b) => ({ bookingId: b.id, guest: b.bookerName, roomNumber: b.roomUnit?.number, hotel: b.hotel.name })) });
+});
+// Charge a whole cart (multiple line items) to a room's folio in one call.
+app.post("/api/partner/pos/charge-cart", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ bookingId: z.string(), outlet: z.string().min(1), items: z.array(z.object({ name: z.string().min(1), price: z.coerce.number().int().positive(), qty: z.coerce.number().int().min(1).default(1) })).min(1) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Keranjang POS tidak valid" });
+  const b = await ownsBooking(req, p.data.bookingId);
+  if (!b || !b.checkedInAt || b.checkedOutAt) return res.status(400).json({ error: "Tamu tidak sedang menginap" });
+  const kindByOutlet: Record<string, string> = { Restoran: "FNB", Bar: "FNB", "Room Service": "FNB", Spa: "SPA", Laundry: "LAUNDRY", Minibar: "MINIBAR" };
+  const kind = kindByOutlet[p.data.outlet] ?? "OTHER";
+  await prisma.folioCharge.createMany({ data: p.data.items.map((it) => ({ bookingId: b.id, kind, description: `[${p.data.outlet}] ${it.name}`, amount: it.price, qty: it.qty })) });
+  const total = p.data.items.reduce((s, it) => s + it.price * it.qty, 0);
+  res.json({ ok: true, count: p.data.items.length, total });
 });
 app.post("/api/partner/pos/charge", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const schema = z.object({ bookingId: z.string(), outlet: z.string().min(1), description: z.string().min(1), amount: z.coerce.number().int().positive(), qty: z.coerce.number().int().min(1).default(1) });

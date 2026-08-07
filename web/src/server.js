@@ -1287,6 +1287,10 @@ app.get("/pms/pos", ...pmsG, async (req, res) => {
   const data = await api("/partner/pos/rooms", { token: res.locals.token });
   res.render("pms/pos", { ...data, active: "pos", saved: req.query.saved });
 });
+app.post("/pms/pos/charge-cart", ...pmsG, async (req, res) => {
+  try { await api("/partner/pos/charge-cart", { method: "POST", token: res.locals.token, body: { bookingId: req.body.bookingId, outlet: req.body.outlet, items: JSON.parse(req.body.itemsJson || "[]") } }); res.redirect("/pms/pos?saved=1"); }
+  catch (e) { res.redirect("/pms/pos?saved=err"); }
+});
 app.post("/pms/pos/charge", ...pmsG, async (req, res) => {
   try { await api("/partner/pos/charge", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/pos?saved=1"); }
   catch (e) { res.redirect("/pms/pos?saved=err"); }
