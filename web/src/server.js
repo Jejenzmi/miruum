@@ -1291,6 +1291,42 @@ app.post("/pms/pos/charge-cart", ...pmsG, async (req, res) => {
   try { await api("/partner/pos/charge-cart", { method: "POST", token: res.locals.token, body: { bookingId: req.body.bookingId, outlet: req.body.outlet, items: JSON.parse(req.body.itemsJson || "[]") } }); res.redirect("/pms/pos?saved=1"); }
   catch (e) { res.redirect("/pms/pos?saved=err"); }
 });
+// Unified POS sale (room folio or direct payment)
+app.post("/pms/pos/sale", ...pmsG, async (req, res) => {
+  try {
+    const body = { outlet: req.body.outlet, settle: req.body.settle, items: JSON.parse(req.body.itemsJson || "[]") };
+    if (req.body.settle === "ROOM") body.bookingId = req.body.bookingId;
+    else { body.hotelId = req.body.hotelId; body.method = req.body.method; body.customerName = req.body.customerName; }
+    await api("/partner/pos/sale", { method: "POST", token: res.locals.token, body });
+    res.redirect("/pms/pos?saved=1");
+  } catch (e) { res.redirect("/pms/pos?saved=err"); }
+});
+// POS menu management
+app.get("/pms/pos/menu", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pos/products", { token: res.locals.token });
+  res.render("pms/pos_menu", { ...data, active: "posmenu", done: req.query.done, err: req.query.err });
+});
+app.post("/pms/pos/menu", ...pmsG, async (req, res) => {
+  try { await api("/partner/pos/products", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/pos/menu?done=1"); }
+  catch (e) { res.redirect("/pms/pos/menu?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/pms/pos/menu/seed", ...pmsG, async (req, res) => {
+  try { await api("/partner/pos/products/seed-default", { method: "POST", token: res.locals.token, body: { hotelId: req.body.hotelId } }); res.redirect("/pms/pos/menu?done=seed"); }
+  catch (e) { res.redirect("/pms/pos/menu?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/pms/pos/menu/:id", ...pmsG, async (req, res) => {
+  try { await api(`/partner/pos/products/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect("/pms/pos/menu?done=1");
+});
+app.post("/pms/pos/menu/:id/delete", ...pmsG, async (req, res) => {
+  try { await api(`/partner/pos/products/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/pms/pos/menu");
+});
+// POS sales report
+app.get("/pms/pos/report", ...pmsG, async (req, res) => {
+  const data = await api(`/partner/pms/pos/report?from=${req.query.from || ""}&to=${req.query.to || ""}`, { token: res.locals.token });
+  res.render("pms/pos_report", { ...data, active: "posreport" });
+});
 app.post("/pms/pos/charge", ...pmsG, async (req, res) => {
   try { await api("/partner/pos/charge", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/pms/pos?saved=1"); }
   catch (e) { res.redirect("/pms/pos?saved=err"); }

@@ -1,0 +1,54 @@
+<%- include('../partials/top', { title:'Menu POS', heading:'Kelola Menu POS', section:'extranet', active:'posmenu', me }) %>
+
+<% if (done) { %><div class="notice ok"><%= done==='seed'?'Menu contoh dimuat.':'Menu diperbarui.' %></div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+<a class="btn ghost sm" href="/pms/pos" style="margin-bottom:12px">← Terminal POS</a>
+
+<% if (!hotels.length) { %><div class="card"><div class="empty">Belum ada hotel PMS aktif.</div></div><% } else { %>
+<div class="card">
+  <h3 style="margin-top:0">Tambah Produk</h3>
+  <form method="post" action="/pms/pos/menu" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+    <% if (hotels.length>1) { %><div><label style="margin-top:0">Hotel</label><select name="hotelId"><% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select></div><% } else { %><input type="hidden" name="hotelId" value="<%= hotels[0].id %>"><% } %>
+    <div><label style="margin-top:0">Outlet</label><select name="outlet"><% outlets.forEach(function(o){ %><option><%= o %></option><% }) %></select></div>
+    <div style="flex:1;min-width:150px"><label style="margin-top:0">Nama Produk</label><input name="name" required placeholder="mis. Nasi Goreng"></div>
+    <div><label style="margin-top:0">Harga</label><input name="price" type="number" min="0" required style="max-width:120px"></div>
+    <button class="btn sm">Tambah</button>
+  </form>
+  <% if (!products.length) { %>
+    <div style="margin-top:12px"><form method="post" action="/pms/pos/menu/seed" style="display:inline"><input type="hidden" name="hotelId" value="<%= hotels[0].id %>"><button class="btn ghost sm">Muat Menu Contoh (bawaan)</button></form></div>
+  <% } %>
+</div>
+
+<% outlets.forEach(function(o){ var list = products.filter(function(p){return p.outlet===o;}); if(!list.length) return; %>
+  <div class="card">
+    <h3 style="margin-top:0"><%= o %> <span class="muted" style="font-weight:400;font-size:13px">(<%= list.length %> item)</span></h3>
+    <table>
+      <thead><tr><th>Nama</th><th style="text-align:right">Harga</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <% list.forEach(function(p){ %>
+          <tr>
+            <td>
+              <form method="post" action="/pms/pos/menu/<%= p.id %>" style="display:flex;gap:6px;align-items:center;margin:0">
+                <input name="name" value="<%= p.name %>" style="min-width:160px">
+                <input name="price" type="number" value="<%= p.price %>" style="max-width:110px">
+                <button class="btn ghost sm">Simpan</button>
+              </form>
+            </td>
+            <td style="text-align:right;color:#E07C17;font-weight:700"><%= rupiah(p.price) %></td>
+            <td>
+              <form method="post" action="/pms/pos/menu/<%= p.id %>" style="margin:0">
+                <input type="hidden" name="active" value="<%= p.active?'false':'true' %>">
+                <button class="btn ghost sm"><%= p.active?'Nonaktifkan':'Aktifkan' %></button>
+              </form>
+            </td>
+            <td><form method="post" action="/pms/pos/menu/<%= p.id %>/delete" data-confirm="Hapus produk?"><button class="btn danger sm">Hapus</button></form></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% }) %>
+<% if(!products.length){ %><div class="card"><div class="empty">Belum ada produk. Tambahkan di atas atau muat menu contoh.</div></div><% } %>
+<% } %>
+
+<%- include('../partials/bottom') %>

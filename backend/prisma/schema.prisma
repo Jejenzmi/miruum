@@ -1018,6 +1018,52 @@ model RoomBlock {
   @@index([roomId])
 }
 
+// POS product catalog (F&B / spa / laundry menu) — managed per hotel.
+model PosProduct {
+  id        String   @id @default(cuid())
+  hotelId   String
+  outlet    String   // Restoran | Bar | Room Service | Spa | Laundry | Minibar | (custom)
+  category  String?
+  name      String
+  price     BigInt
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([hotelId])
+}
+
+// A POS sale (F&B/spa/…): either charged to a room folio or paid directly at
+// the outlet (walk-in customer). Line items kept for sales reporting.
+model PosSale {
+  id           String        @id @default(cuid())
+  hotelId      String
+  outlet       String
+  settle       String        // ROOM | DIRECT
+  bookingId    String?       // when charged to a room
+  method       String?       // when paid direct: CASH | QRIS | CARD | EWALLET | TRANSFER
+  customerName String?
+  total        BigInt
+  shiftId      String?       // cashier shift (direct sales)
+  createdById  String?
+  createdAt    DateTime      @default(now())
+  items        PosSaleItem[]
+
+  @@index([hotelId])
+  @@index([shiftId])
+}
+
+model PosSaleItem {
+  id     String  @id @default(cuid())
+  saleId String
+  name   String
+  price  BigInt
+  qty    Int     @default(1)
+  sale   PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+}
+
 // Night audit / manager's daily report (D-report) snapshot.
 model NightAuditLog {
   id           String   @id @default(cuid())

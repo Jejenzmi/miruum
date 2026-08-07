@@ -1,0 +1,46 @@
+<%- include('../partials/top', { title:'Laporan POS', heading:'Laporan Penjualan POS', section:'extranet', active:'posreport', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/pos/report" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="margin:0">Dari</label><input type="date" name="from" value="<%= from %>" style="width:auto">
+    <label style="margin:0">Sampai</label><input type="date" name="to" value="<%= to %>" style="width:auto">
+    <button class="btn sm">Tampilkan</button>
+  </form>
+  <a class="btn ghost sm" href="/pms/pos">← Terminal POS</a>
+</div>
+
+<div class="stat-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0">
+  <div class="stat"><div class="label">Total Penjualan</div><div class="value" style="font-size:18px"><%= rupiah(total) %></div></div>
+  <div class="stat"><div class="label">Transaksi</div><div class="value"><%= count %></div></div>
+  <div class="stat"><div class="label">Charge ke Kamar</div><div class="value" style="font-size:16px"><%= rupiah(bySettle.ROOM||0) %></div></div>
+  <div class="stat"><div class="label">Bayar Langsung</div><div class="value" style="font-size:16px"><%= rupiah(bySettle.DIRECT||0) %></div></div>
+</div>
+
+<div class="row2">
+  <div class="card">
+    <h3 style="margin-top:0">Per Outlet</h3>
+    <table>
+      <thead><tr><th>Outlet</th><th style="text-align:right">Transaksi</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>
+        <% byOutlet.forEach(function(o){ %><tr><td><b><%= o.outlet %></b></td><td style="text-align:right"><%= o.count %></td><td style="text-align:right;font-weight:700"><%= rupiah(o.total) %></td></tr><% }) %>
+        <% if(!byOutlet.length){ %><tr><td colspan="3" class="empty">Belum ada penjualan.</td></tr><% } %>
+      </tbody>
+    </table>
+    <% var mk=Object.keys(byMethod||{}); if(mk.length){ %>
+      <h3 style="margin:16px 0 8px">Bayar Langsung per Metode</h3>
+      <table><tbody><% mk.forEach(function(m){ %><tr><td><%= m %></td><td style="text-align:right"><%= rupiah(byMethod[m]) %></td></tr><% }) %></tbody></table>
+    <% } %>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Item Terlaris</h3>
+    <table>
+      <thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>
+        <% topItems.forEach(function(it){ %><tr><td><%= it.name %></td><td style="text-align:right"><b><%= it.qty %></b></td><td style="text-align:right"><%= rupiah(it.total) %></td></tr><% }) %>
+        <% if(!topItems.length){ %><tr><td colspan="3" class="empty">—</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/bottom') %>

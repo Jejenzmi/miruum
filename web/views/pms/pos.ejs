@@ -1,23 +1,18 @@
 <%- include('../partials/top', { title:'POS', heading:'POS Terminal', section:'extranet', active:'pos', me }) %>
 
-<% if (saved==='1') { %><div class="notice ok">Pesanan diposting ke folio kamar.</div><% } %>
-<% if (saved==='err') { %><div class="notice bad">Gagal — pastikan tamu sedang menginap & keranjang tidak kosong.</div><% } %>
+<% if (saved==='1') { %><div class="notice ok">Transaksi POS tersimpan.</div><% } %>
+<% if (saved==='err') { %><div class="notice bad">Gagal — cek keranjang / tamu in-house / metode.</div><% } %>
+<% if (usingDefault) { %><div class="notice" style="background:#fff8ef;border:1px solid #f0e0c8">Menu masih contoh bawaan. <a href="/pms/pos/menu"><b>Kelola Menu</b></a> untuk atur produk & harga sendiri.</div><% } %>
 
-<% if (!(rooms||[]).length) { %>
-  <div class="card"><div class="empty">Belum ada tamu in-house dengan kamar ditetapkan. Lakukan check-in + assign kamar dulu.</div></div>
-<% } else { %>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+  <a class="btn ghost sm" href="/pms/pos/menu">Kelola Menu</a>
+  <a class="btn ghost sm" href="/pms/pos/report">Laporan POS</a>
+</div>
 
 <div class="pos-wrap">
-  <!-- Left: outlet + menu -->
   <div>
     <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px">
-          <label style="margin-top:0">Kamar / Tamu</label>
-          <select id="pos-room" style="font-weight:700"><% rooms.forEach(function(r){ %><option value="<%= r.bookingId %>">Kamar <%= r.roomNumber %> — <%= r.guest %></option><% }) %></select>
-        </div>
-        <div class="pos-tabs" id="pos-tabs"><% outlets.forEach(function(o,i){ %><button type="button" class="pos-tab <%= i===0?'on':'' %>" data-outlet="<%= o %>"><%= o %></button><% }) %></div>
-      </div>
+      <div class="pos-tabs" id="pos-tabs"><% outlets.forEach(function(o,i){ %><button type="button" class="pos-tab <%= i===0?'on':'' %>" data-outlet="<%= o %>"><%= o %></button><% }) %></div>
     </div>
     <div class="card">
       <div id="pos-menu" class="pos-grid"></div>
@@ -32,58 +27,74 @@
     </div>
   </div>
 
-  <!-- Right: cart -->
   <div class="card pos-cart">
     <h3 style="margin-top:0">Keranjang <span id="cart-outlet" class="muted" style="font-weight:400;font-size:13px"></span></h3>
-    <div id="cart-lines"></div>
+    <!-- Settle toggle -->
+    <div class="seg" style="margin-bottom:10px">
+      <button type="button" class="seg-b on" data-settle="ROOM" onclick="setSettle('ROOM')">Charge ke Kamar</button>
+      <button type="button" class="seg-b" data-settle="DIRECT" onclick="setSettle('DIRECT')">Bayar Langsung</button>
+    </div>
+    <div id="settle-room">
+      <% if ((rooms||[]).length) { %>
+        <label style="margin-top:0">Kamar / Tamu</label>
+        <select id="pos-room" style="font-weight:700"><% rooms.forEach(function(r){ %><option value="<%= r.bookingId %>">Kamar <%= r.roomNumber %> — <%= r.guest %></option><% }) %></select>
+      <% } else { %><p class="muted" style="font-size:13px">Tidak ada tamu in-house. Gunakan <b>Bayar Langsung</b> untuk pelanggan umum.</p><% } %>
+    </div>
+    <div id="settle-direct" style="display:none">
+      <div class="row2">
+        <div><label style="margin-top:0">Metode</label><select id="pos-method"><% ['CASH','QRIS','CARD','EWALLET','TRANSFER'].forEach(function(m){ %><option value="<%= m %>"><%= m %></option><% }) %></select></div>
+        <div><label style="margin-top:0">Nama (opsional)</label><input id="pos-cust" placeholder="Pelanggan"></div>
+      </div>
+      <% if ((hotels||[]).length>1) { %><label style="margin-top:8px">Hotel</label><select id="pos-hotel"><% hotels.forEach(function(h){ %><option value="<%= h.id %>"><%= h.name %></option><% }) %></select><% } %>
+    </div>
+
+    <div id="cart-lines" style="margin-top:10px"></div>
     <div class="pos-total"><span>Total</span><b id="cart-total">Rp 0</b></div>
-    <form method="post" action="/pms/pos/charge-cart" onsubmit="return submitCart()">
-      <input type="hidden" name="bookingId" id="f-room"><input type="hidden" name="outlet" id="f-outlet"><input type="hidden" name="itemsJson" id="f-items">
-      <button class="btn" id="charge-btn" style="width:100%;margin-top:12px" disabled>Charge ke Folio Kamar</button>
+    <form method="post" action="/pms/pos/sale" onsubmit="return submitCart()">
+      <input type="hidden" name="settle" id="f-settle" value="ROOM">
+      <input type="hidden" name="bookingId" id="f-room"><input type="hidden" name="outlet" id="f-outlet">
+      <input type="hidden" name="hotelId" id="f-hotel" value="<%= hotelId || '' %>"><input type="hidden" name="method" id="f-method"><input type="hidden" name="customerName" id="f-cust">
+      <input type="hidden" name="itemsJson" id="f-items">
+      <button class="btn" id="charge-btn" style="width:100%;margin-top:12px" disabled>Proses</button>
     </form>
-    <p class="muted" style="font-size:11.5px;margin:10px 0 0;line-height:1.5">Charge otomatis masuk ke folio kamar & dibayar saat check-out. Terminal POS asli tinggal panggil <code>/api/partner/pos/charge-cart</code>.</p>
   </div>
 </div>
 
 <script>
   var MENU = <%- JSON.stringify(menu || {}) %>;
-  var cart = {}, outlet = <%- JSON.stringify((outlets&&outlets[0])||'') %>;
+  var cart = {}, outlet = <%- JSON.stringify((outlets&&outlets[0])||'') %>, settle='ROOM';
   var fmt = function(n){ return 'Rp ' + (n||0).toLocaleString('id-ID'); };
   var menuBox=document.getElementById('pos-menu'), linesBox=document.getElementById('cart-lines');
   function renderMenu(){
     document.getElementById('cart-outlet').textContent = '· ' + outlet;
     var items = MENU[outlet] || [];
-    menuBox.innerHTML = items.map(function(it,idx){
-      return '<button type="button" class="pos-item" onclick="add(\''+outlet+'\','+idx+')"><div class="pi-name">'+it.name+'</div><div class="pi-price">'+fmt(it.price)+'</div></button>';
-    }).join('') || '<p class="muted">Tidak ada menu.</p>';
+    menuBox.innerHTML = items.map(function(it,idx){ return '<button type="button" class="pos-item" onclick="add(\''+outlet+'\','+idx+')"><div class="pi-name">'+it.name+'</div><div class="pi-price">'+fmt(it.price)+'</div></button>'; }).join('') || '<p class="muted">Belum ada item di outlet ini.</p>';
   }
+  function setSettle(s){ settle=s; document.querySelectorAll('.seg-b').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-settle')===s); }); document.getElementById('settle-room').style.display = s==='ROOM'?'':'none'; document.getElementById('settle-direct').style.display = s==='DIRECT'?'':'none'; updateBtn(); }
   function key(name){ return outlet+'|'+name; }
-  function add(o,idx){ var it=MENU[o][idx]; bump(it.name, it.price, 1); }
-  function addCustom(){ var n=document.getElementById('c-name').value.trim(), p=parseInt(document.getElementById('c-price').value||'0',10); if(!n||p<=0){alert('Isi nama & harga.');return;} bump(n,p,1); document.getElementById('c-name').value='';document.getElementById('c-price').value=''; }
-  function bump(name,price,d){ var k=key(name); if(!cart[k]) cart[k]={name:name,price:price,qty:0,outlet:outlet}; cart[k].qty+=d; if(cart[k].qty<=0) delete cart[k]; renderCart(); }
+  function add(o,idx){ var it=MENU[o][idx]; bump(it.name,it.price); }
+  function addCustom(){ var n=document.getElementById('c-name').value.trim(), p=parseInt(document.getElementById('c-price').value||'0',10); if(!n||p<=0){alert('Isi nama & harga.');return;} bump(n,p); document.getElementById('c-name').value='';document.getElementById('c-price').value=''; }
+  function bump(name,price){ var k=key(name); if(!cart[k]) cart[k]={name:name,price:price,qty:0,outlet:outlet}; cart[k].qty++; renderCart(); }
+  function bumpKey(k,d){ if(!cart[k])return; cart[k].qty+=d; if(cart[k].qty<=0) delete cart[k]; renderCart(); }
   function renderCart(){
     var keys=Object.keys(cart), total=0;
     linesBox.innerHTML = keys.map(function(k){ var c=cart[k]; total+=c.price*c.qty;
-      return '<div class="pos-line"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+c.name+'</div><div class="muted" style="font-size:11px">'+fmt(c.price)+' · '+c.outlet+'</div></div>'+
-        '<div class="pos-qty"><button type="button" onclick="bumpKey(\''+k.replace(/'/g,"\\'")+'\',-1)">−</button><span>'+c.qty+'</span><button type="button" onclick="bumpKey(\''+k.replace(/'/g,"\\'")+'\',1)">+</button></div>'+
-        '<div style="width:90px;text-align:right;font-weight:700">'+fmt(c.price*c.qty)+'</div></div>';
-    }).join('') || '<p class="muted" style="font-size:13px">Keranjang kosong — pilih item dari menu.</p>';
-    document.getElementById('cart-total').textContent=fmt(total);
-    document.getElementById('charge-btn').disabled = keys.length===0;
+      return '<div class="pos-line"><div style="flex:1"><div style="font-weight:600;font-size:13px">'+c.name+'</div><div class="muted" style="font-size:11px">'+fmt(c.price)+' · '+c.outlet+'</div></div><div class="pos-qty"><button type="button" onclick="bumpKey(\''+k.replace(/\'/g,"\\'")+'\',-1)">−</button><span>'+c.qty+'</span><button type="button" onclick="bumpKey(\''+k.replace(/\'/g,"\\'")+'\',1)">+</button></div><div style="width:90px;text-align:right;font-weight:700">'+fmt(c.price*c.qty)+'</div></div>';
+    }).join('') || '<p class="muted" style="font-size:13px">Keranjang kosong.</p>';
+    document.getElementById('cart-total').textContent=fmt(total); updateBtn();
   }
-  function bumpKey(k,d){ if(!cart[k])return; cart[k].qty+=d; if(cart[k].qty<=0) delete cart[k]; renderCart(); }
+  function updateBtn(){ var has=Object.keys(cart).length>0; var okRoom = settle==='DIRECT' || document.getElementById('pos-room'); document.getElementById('charge-btn').disabled = !has || !okRoom; document.getElementById('charge-btn').textContent = settle==='ROOM'?'Charge ke Folio Kamar':'Terima Pembayaran'; }
   function submitCart(){
     var keys=Object.keys(cart); if(!keys.length){alert('Keranjang kosong.');return false;}
-    // Group by outlet — post the dominant outlet's items (cart may mix). Send all items with their own outlet is not supported; charge per outlet.
     var byOutlet={}; keys.forEach(function(k){ var c=cart[k]; (byOutlet[c.outlet]=byOutlet[c.outlet]||[]).push({name:c.name,price:c.price,qty:c.qty}); });
     var outs=Object.keys(byOutlet);
-    document.getElementById('f-room').value=document.getElementById('pos-room').value;
-    document.getElementById('f-outlet').value=outs[0];
-    document.getElementById('f-items').value=JSON.stringify(byOutlet[outs[0]]);
-    if(outs.length>1){ alert('Keranjang berisi beberapa outlet — hanya "'+outs[0]+'" yang diposting kali ini. Charge outlet lain terpisah.'); }
+    document.getElementById('f-settle').value=settle; document.getElementById('f-outlet').value=outs[0]; document.getElementById('f-items').value=JSON.stringify(byOutlet[outs[0]]);
+    if(settle==='ROOM'){ var rs=document.getElementById('pos-room'); if(!rs){alert('Tidak ada kamar in-house.');return false;} document.getElementById('f-room').value=rs.value; }
+    else { document.getElementById('f-method').value=document.getElementById('pos-method').value; document.getElementById('f-cust').value=document.getElementById('pos-cust').value; var hs=document.getElementById('pos-hotel'); if(hs) document.getElementById('f-hotel').value=hs.value; }
+    if(outs.length>1) alert('Keranjang campur outlet — hanya "'+outs[0]+'" diproses kali ini.');
     return true;
   }
-  document.querySelectorAll('.pos-tab').forEach(function(b){ b.addEventListener('click', function(){ document.querySelectorAll('.pos-tab').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); outlet=b.getAttribute('data-outlet'); renderMenu(); renderCart(); }); });
+  document.querySelectorAll('.pos-tab').forEach(function(b){ b.addEventListener('click', function(){ document.querySelectorAll('.pos-tab').forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); outlet=b.getAttribute('data-outlet'); renderMenu(); }); });
   renderMenu(); renderCart();
 </script>
 
@@ -103,7 +114,9 @@
   .pos-qty button{width:26px;height:26px;border:1px solid var(--line);background:#fff;border-radius:7px;font-weight:800;cursor:pointer;font-size:15px;line-height:1}
   .pos-qty span{min-width:20px;text-align:center;font-weight:700}
   .pos-total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid #20262e;font-size:17px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg-b{flex:1;padding:8px;background:#fff;border:0;cursor:pointer;font-weight:600;font-size:13px}
+  .seg-b.on{background:#20262e;color:#fff}
 </style>
-<% } %>
 
 <%- include('../partials/bottom') %>

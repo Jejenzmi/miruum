@@ -5541,25 +5541,125 @@ const POS_MENU: Record<string, { name: string; price: number }[]> = {
   Laundry: [{ name: "Cuci Kiloan (kg)", price: 40000 }, { name: "Setrika (pcs)", price: 25000 }, { name: "Dry Clean Jas", price: 60000 }, { name: "Express +50%", price: 80000 }],
   Minibar: [{ name: "Snack", price: 25000 }, { name: "Cokelat", price: 30000 }, { name: "Soft Drink", price: 20000 }, { name: "Kacang", price: 15000 }, { name: "Beer Can", price: 45000 }],
 };
+const POS_KIND: Record<string, string> = { Restoran: "FNB", Bar: "FNB", "Room Service": "FNB", Spa: "SPA", Laundry: "LAUNDRY", Minibar: "MINIBAR" };
+const posSaleItem = z.object({ name: z.string().min(1), price: z.coerce.number().int().positive(), qty: z.coerce.number().int().min(1).default(1) });
+// Record a POS sale header + line items (for reporting), independent of settlement.
+async function recordPosSale(data: { hotelId: string; outlet: string; settle: string; bookingId?: string | null; method?: string | null; customerName?: string | null; shiftId?: string | null; createdById?: string | null; items: { name: string; price: number; qty: number }[] }) {
+  const total = data.items.reduce((s, it) => s + it.price * it.qty, 0);
+  return prisma.posSale.create({ data: { hotelId: data.hotelId, outlet: data.outlet, settle: data.settle, bookingId: data.bookingId ?? null, method: data.method ?? null, customerName: data.customerName ?? null, total: BigInt(total), shiftId: data.shiftId ?? null, createdById: data.createdById ?? null, items: { create: data.items.map((it) => ({ name: it.name, price: BigInt(it.price), qty: it.qty })) } } });
+}
+
 app.get("/api/partner/pos/rooms", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const admin = (req as any).role === "ADMIN";
-  const where: any = { checkedInAt: { not: null }, checkedOutAt: null, roomUnitId: { not: null } };
-  if (!admin) where.hotel = { ownerId: req.userId };
-  const inhouse = await prisma.booking.findMany({ where, select: { id: true, bookerName: true, roomUnit: { select: { number: true } }, hotel: { select: { name: true } } } });
-  res.json({ outlets: POS_OUTLETS, menu: POS_MENU, rooms: inhouse.map((b) => ({ bookingId: b.id, guest: b.bookerName, roomNumber: b.roomUnit?.number, hotel: b.hotel.name })) });
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId, productPMS: true }, select: { id: true, name: true } });
+  const ids = hotels.map((h) => h.id);
+  const inhouse = await prisma.booking.findMany({ where: { hotelId: { in: ids }, checkedInAt: { not: null }, checkedOutAt: null, roomUnitId: { not: null } }, select: { id: true, bookerName: true, roomUnit: { select: { number: true } }, hotel: { select: { name: true } } } });
+  // Menu from the hotel's managed catalog; fall back to the built-in starter set.
+  const products = await prisma.posProduct.findMany({ where: { hotelId: { in: ids }, active: true }, orderBy: [{ outlet: "asc" }, { sortOrder: "asc" }, { name: "asc" }] });
+  const menu: Record<string, any[]> = {};
+  for (const p of products) (menu[p.outlet] ??= []).push({ id: p.id, name: p.name, price: Number(p.price) });
+  const usingDefault = Object.keys(menu).length === 0;
+  const outMenu = usingDefault ? POS_MENU : menu;
+  res.json({ hotels, hotelId: ids[0] ?? null, outlets: Object.keys(outMenu), menu: outMenu, usingDefault, rooms: inhouse.map((b) => ({ bookingId: b.id, guest: b.bookerName, roomNumber: b.roomUnit?.number, hotel: b.hotel.name })) });
 });
-// Charge a whole cart (multiple line items) to a room's folio in one call.
+
+// Unified POS sale: charge to a room folio OR take direct payment (walk-in customer).
+app.post("/api/partner/pos/sale", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ outlet: z.string().min(1), settle: z.enum(["ROOM", "DIRECT"]), bookingId: z.string().optional(), hotelId: z.string().optional(), method: z.enum(["CASH", "QRIS", "CARD", "EWALLET", "TRANSFER"]).optional(), customerName: z.string().optional(), items: z.array(posSaleItem).min(1) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data POS tidak valid" });
+  const items = p.data.items.map((it) => ({ name: it.name, price: it.price, qty: it.qty }));
+  const total = items.reduce((s, it) => s + it.price * it.qty, 0);
+  if (p.data.settle === "ROOM") {
+    const b = await ownsBooking(req, String(p.data.bookingId || ""));
+    if (!b || !b.checkedInAt || b.checkedOutAt) return res.status(400).json({ error: "Tamu tidak sedang menginap" });
+    const kind = POS_KIND[p.data.outlet] ?? "OTHER";
+    await prisma.folioCharge.createMany({ data: items.map((it) => ({ bookingId: b.id, kind, description: `[${p.data.outlet}] ${it.name}`, amount: it.price, qty: it.qty })) });
+    const sale = await recordPosSale({ hotelId: b.hotelId, outlet: p.data.outlet, settle: "ROOM", bookingId: b.id, createdById: req.userId, items });
+    return res.json({ ok: true, saleId: sale.id, total, settle: "ROOM" });
+  }
+  // DIRECT
+  if (!p.data.hotelId || !(await ownsHotel(req, p.data.hotelId))) return res.status(400).json({ error: "Hotel tidak valid" });
+  const sale = await recordPosSale({ hotelId: p.data.hotelId, outlet: p.data.outlet, settle: "DIRECT", method: p.data.method || "CASH", customerName: p.data.customerName || null, shiftId: await openShiftId(req.userId!), createdById: req.userId, items });
+  res.json({ ok: true, saleId: sale.id, total, settle: "DIRECT" });
+});
+
+// Legacy: charge a whole cart to a room folio (also records a POS sale).
 app.post("/api/partner/pos/charge-cart", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
-  const schema = z.object({ bookingId: z.string(), outlet: z.string().min(1), items: z.array(z.object({ name: z.string().min(1), price: z.coerce.number().int().positive(), qty: z.coerce.number().int().min(1).default(1) })).min(1) });
+  const schema = z.object({ bookingId: z.string(), outlet: z.string().min(1), items: z.array(posSaleItem).min(1) });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Keranjang POS tidak valid" });
   const b = await ownsBooking(req, p.data.bookingId);
   if (!b || !b.checkedInAt || b.checkedOutAt) return res.status(400).json({ error: "Tamu tidak sedang menginap" });
-  const kindByOutlet: Record<string, string> = { Restoran: "FNB", Bar: "FNB", "Room Service": "FNB", Spa: "SPA", Laundry: "LAUNDRY", Minibar: "MINIBAR" };
-  const kind = kindByOutlet[p.data.outlet] ?? "OTHER";
-  await prisma.folioCharge.createMany({ data: p.data.items.map((it) => ({ bookingId: b.id, kind, description: `[${p.data.outlet}] ${it.name}`, amount: it.price, qty: it.qty })) });
-  const total = p.data.items.reduce((s, it) => s + it.price * it.qty, 0);
-  res.json({ ok: true, count: p.data.items.length, total });
+  const kind = POS_KIND[p.data.outlet] ?? "OTHER";
+  const items = p.data.items.map((it) => ({ name: it.name, price: it.price, qty: it.qty }));
+  await prisma.folioCharge.createMany({ data: items.map((it) => ({ bookingId: b.id, kind, description: `[${p.data.outlet}] ${it.name}`, amount: it.price, qty: it.qty })) });
+  await recordPosSale({ hotelId: b.hotelId, outlet: p.data.outlet, settle: "ROOM", bookingId: b.id, createdById: req.userId, items });
+  res.json({ ok: true, count: items.length, total: items.reduce((s, it) => s + it.price * it.qty, 0) });
+});
+
+// ── POS menu management (per-hotel product catalog) ──
+app.get("/api/partner/pos/products", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId, productPMS: true }, select: { id: true, name: true } });
+  const products = await prisma.posProduct.findMany({ where: { hotelId: { in: hotels.map((h) => h.id) } }, orderBy: [{ outlet: "asc" }, { sortOrder: "asc" }, { name: "asc" }] });
+  res.json({ hotels, outlets: POS_OUTLETS, products: products.map((p) => ({ ...p, price: Number(p.price) })) });
+});
+app.post("/api/partner/pos/products", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ hotelId: z.string(), outlet: z.string().min(1), name: z.string().min(1), price: z.coerce.number().int().min(0), category: z.string().optional(), sortOrder: z.coerce.number().int().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data produk tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const prod = await prisma.posProduct.create({ data: { hotelId: p.data.hotelId, outlet: p.data.outlet, name: p.data.name, price: BigInt(p.data.price), category: p.data.category || null, sortOrder: p.data.sortOrder ?? 0 } });
+  res.json({ product: prod });
+});
+app.put("/api/partner/pos/products/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const prod = await prisma.posProduct.findUnique({ where: { id: req.params.id } });
+  if (!prod || !(await ownsHotel(req, prod.hotelId))) return res.status(404).json({ error: "Produk tidak ditemukan" });
+  const schema = z.object({ name: z.string().optional(), outlet: z.string().optional(), price: z.coerce.number().int().min(0).optional(), category: z.string().optional(), active: z.coerce.boolean().optional(), sortOrder: z.coerce.number().int().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = { ...p.data }; if (data.price != null) data.price = BigInt(data.price);
+  const upd = await prisma.posProduct.update({ where: { id: prod.id }, data });
+  res.json({ product: { ...upd, price: Number(upd.price) } });
+});
+app.delete("/api/partner/pos/products/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const prod = await prisma.posProduct.findUnique({ where: { id: req.params.id } });
+  if (!prod || !(await ownsHotel(req, prod.hotelId))) return res.status(404).json({ error: "Produk tidak ditemukan" });
+  await prisma.posProduct.delete({ where: { id: prod.id } });
+  res.json({ ok: true });
+});
+app.post("/api/partner/pos/products/seed-default", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = String(req.body?.hotelId || "");
+  if (!(await ownsHotel(req, hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const existing = await prisma.posProduct.count({ where: { hotelId } });
+  if (existing > 0) return res.status(400).json({ error: "Menu sudah ada — hapus dulu jika ingin reset." });
+  const data: any[] = [];
+  for (const [outlet, items] of Object.entries(POS_MENU)) items.forEach((it, i) => data.push({ hotelId, outlet, name: it.name, price: BigInt(it.price), sortOrder: i }));
+  await prisma.posProduct.createMany({ data });
+  res.json({ ok: true, added: data.length });
+});
+
+// ── POS sales report ──
+app.get("/api/partner/pms/pos/report", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const from = new Date(String(req.query.from || "")); const to = new Date(String(req.query.to || ""));
+  const f = isNaN(+from) ? new Date(Date.now() - 30 * 86400000) : from; f.setHours(0, 0, 0, 0);
+  const t = isNaN(+to) ? new Date() : to; t.setHours(23, 59, 59, 999);
+  const sales = await prisma.posSale.findMany({ where: { hotelId: { in: ids }, createdAt: { gte: f, lte: t } }, include: { items: true } });
+  const byOutlet: Record<string, { count: number; total: number }> = {};
+  const byMethod: Record<string, number> = {}; const bySettle = { ROOM: 0, DIRECT: 0 };
+  const itemAgg: Record<string, { qty: number; total: number }> = {};
+  let total = 0;
+  for (const s of sales) {
+    const amt = Number(s.total); total += amt;
+    (byOutlet[s.outlet] ??= { count: 0, total: 0 }); byOutlet[s.outlet].count++; byOutlet[s.outlet].total += amt;
+    (bySettle as any)[s.settle] = ((bySettle as any)[s.settle] || 0) + amt;
+    if (s.settle === "DIRECT") { const m = s.method || "CASH"; byMethod[m] = (byMethod[m] || 0) + amt; }
+    for (const it of s.items) { (itemAgg[it.name] ??= { qty: 0, total: 0 }); itemAgg[it.name].qty += it.qty; itemAgg[it.name].total += Number(it.price) * it.qty; }
+  }
+  const topItems = Object.entries(itemAgg).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.qty - a.qty).slice(0, 15);
+  res.json({ from: f.toISOString().slice(0, 10), to: t.toISOString().slice(0, 10), total, count: sales.length, byOutlet: Object.entries(byOutlet).map(([outlet, v]) => ({ outlet, ...v })), byMethod, bySettle, topItems });
 });
 app.post("/api/partner/pos/charge", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const schema = z.object({ bookingId: z.string(), outlet: z.string().min(1), description: z.string().min(1), amount: z.coerce.number().int().positive(), qty: z.coerce.number().int().min(1).default(1) });
@@ -5833,11 +5933,15 @@ async function openShiftId(userId: string): Promise<string | null> {
   return s?.id ?? null;
 }
 async function shiftTally(shift: { id: string; openedAt: Date; openingFloat: bigint }) {
-  const pays = await prisma.folioPayment.findMany({ where: { shiftId: shift.id } });
+  const [pays, posSales] = await Promise.all([
+    prisma.folioPayment.findMany({ where: { shiftId: shift.id } }),
+    prisma.posSale.findMany({ where: { shiftId: shift.id, settle: "DIRECT" } }),
+  ]);
   const byMethod: Record<string, number> = {};
-  let cash = 0, total = 0;
-  for (const p of pays) { const a = Number(p.amount); byMethod[p.method] = (byMethod[p.method] || 0) + a; total += a; if (p.method === "CASH") cash += a; }
-  return { count: pays.length, byMethod, total, cash, expectedCash: Number(shift.openingFloat) + cash };
+  let cash = 0, total = 0, count = 0;
+  for (const p of pays) { const a = Number(p.amount); byMethod[p.method] = (byMethod[p.method] || 0) + a; total += a; count++; if (p.method === "CASH") cash += a; }
+  for (const s of posSales) { const a = Number(s.total); const m = s.method || "CASH"; byMethod[m] = (byMethod[m] || 0) + a; total += a; count++; if (m === "CASH") cash += a; }
+  return { count, byMethod, total, cash, expectedCash: Number(shift.openingFloat) + cash };
 }
 app.get("/api/partner/pms/cashier", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const open = await prisma.cashierShift.findFirst({ where: { userId: req.userId!, status: "OPEN" } });
