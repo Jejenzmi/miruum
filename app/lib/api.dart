@@ -468,6 +468,15 @@ class Api {
       (await _post('/tours/$id/book', {'date': date, 'pax': pax, 'bookerName': bookerName, 'bookerPhone': bookerPhone, 'paymentMethod': paymentMethod})) as Map<String, dynamic>;
   Future<List<dynamic>> tourBookings() async => (await _get('/tour-bookings'))['bookings'] as List;
 
+  // ── Venue / MICE ──
+  Future<List<dynamic>> venues({String? type}) async =>
+      ((await _get('/venues', {if (type != null) 'type': type}))['venues'] as List?) ?? [];
+  Future<Map<String, dynamic>> venue(String id) async =>
+      (await _get('/venues/$id'))['venue'] as Map<String, dynamic>;
+  /// Instant-book or submit an inquiry (depends on the venue's bookingMode).
+  Future<Map<String, dynamic>> venueBook(String id, Map<String, dynamic> body) async =>
+      (await _post('/venues/$id/book', body)) as Map<String, dynamic>;
+
   // ── Shuttle ──
   Future<List<ShuttleVehicleType>> shuttleVehicleTypes() async =>
       ((await _get('/shuttle/vehicle-types'))['vehicleTypes'] as List).map((v) => ShuttleVehicleType.fromJson(v)).toList();

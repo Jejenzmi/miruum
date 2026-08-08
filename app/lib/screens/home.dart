@@ -21,6 +21,7 @@ import 'package_list.dart';
 import 'results.dart';
 import 'tour_list.dart';
 import 'shuttle.dart';
+import 'venue_list.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -210,6 +211,8 @@ class _HomeView extends StatelessWidget {
               _categoryTile(context, tr('Tur', 'Tour'), Icons.travel_explore_rounded, MC.success, const TourListScreen()),
             if (mods['shuttle'] ?? true)
               _categoryTile(context, tr('Shuttle Bandara', 'Airport Shuttle'), Icons.local_airport_rounded, MC.accent, const ShuttleScreen()),
+            if (mods['venue'] ?? true)
+              _categoryTile(context, tr('Venue & Meeting', 'Venues & Meetings'), Icons.meeting_room_rounded, const Color(0xFF7E57C2), const VenueListScreen()),
           ];
           // 2 per row.
           final rows = <Widget>[];

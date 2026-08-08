@@ -30,7 +30,7 @@ class AppSettings {
   /// Which mobile modules are enabled (toggled by admin). Default all on so the
   /// UI never hides anything before the first config fetch completes.
   static final modules = ValueNotifier<Map<String, bool>>({
-    'hotel': true, 'hotelPackage': true, 'tour': true, 'shuttle': true,
+    'hotel': true, 'hotelPackage': true, 'tour': true, 'shuttle': true, 'venue': true,
   });
   static bool moduleOn(String key) => AppSettings.modules.value[key] ?? true;
 }
