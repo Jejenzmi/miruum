@@ -465,6 +465,7 @@ model Hotel {
   favorites   Favorite[]
   bookings    Booking[]
   packages    HotelPackage[]
+  venues      Venue[]
   offers      HotelOffer[]
   settlements Settlement[]
   payoutClaims PayoutClaim[]
@@ -1016,6 +1017,75 @@ model RoomBlock {
 
   @@index([hotelId])
   @@index([roomId])
+}
+
+// ─────────────────────────── Venue / MICE ───────────────────────────
+// Function space sold by a hotel: meeting room / ballroom / wedding venue.
+// bookingMode INSTANT = fixed price, book+confirm; INQUIRY = lead → quotation.
+model Venue {
+  id           String         @id @default(cuid())
+  hotelId      String
+  name         String
+  type         String         @default("MEETING_ROOM") // MEETING_ROOM | BALLROOM | FUNCTION_HALL | OUTDOOR
+  bookingMode  String         @default("INSTANT")       // INSTANT | INQUIRY
+  description  String         @default("")
+  imageUrl     String         @default("")
+  area         Int            @default(0) // m²
+  capTheatre   Int            @default(0)
+  capClassroom Int            @default(0)
+  capRound     Int            @default(0)
+  capStanding  Int            @default(0)
+  priceBasis   String         @default("FULLDAY") // HOUR | HALFDAY | FULLDAY | PERPAX
+  basePrice    BigInt         @default(0)
+  active       Boolean        @default(true)
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+  hotel        Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  packages     VenuePackage[]
+  bookings     VenueBooking[]
+
+  @@index([hotelId])
+}
+
+model VenuePackage {
+  id          String   @id @default(cuid())
+  venueId     String
+  name        String
+  description String   @default("")
+  perPax      Boolean  @default(false)
+  price       BigInt   @default(0)
+  inclusions  String[]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  venue       Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+}
+
+model VenueBooking {
+  id           String        @id @default(cuid())
+  hotelId      String
+  venueId      String
+  packageId    String?
+  mode         String        // INSTANT | INQUIRY
+  status       String        @default("INQUIRY") // INQUIRY | QUOTED | CONFIRMED | CANCELLED | COMPLETED
+  eventDate    DateTime      @db.Date
+  slot         String        @default("FULLDAY") // MORNING | AFTERNOON | EVENING | FULLDAY
+  eventType    String        @default("")
+  pax          Int           @default(0)
+  customerName String
+  customerPhone String        @default("")
+  customerEmail String        @default("")
+  notes        String        @default("")
+  quotedPrice  BigInt?
+  totalPrice   BigInt?
+  depositPaid  BigInt        @default(0)
+  userId       String?
+  createdAt    DateTime      @default(now())
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId])
+  @@index([venueId])
 }
 
 // POS product catalog (F&B / spa / laundry menu) — managed per hotel.

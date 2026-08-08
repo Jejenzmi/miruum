@@ -635,7 +635,7 @@ app.put("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
 app.post("/api/uploads", requireAuth, async (req: AuthRequest, res) => {
   const schema = z.object({
     dataUrl: z.string().regex(/^data:image\/(png|jpe?g|webp);base64,/, "Format gambar tidak didukung"),
-    folder: z.enum(["avatars", "hotels", "packages"]).default("avatars"),
+    folder: z.enum(["avatars", "hotels", "packages", "venues"]).default("avatars"),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Data tidak valid" });
@@ -1256,6 +1256,7 @@ function moduleFlags(s: Record<string, string>) {
     hotelPackage: s.moduleHotelPackage !== "0",
     tour: s.moduleTour !== "0",
     shuttle: s.moduleShuttle !== "0",
+    venue: s.moduleVenue !== "0",
   };
 }
 
@@ -3667,7 +3668,7 @@ app.get("/api/hotels/receipt/:code", docLimiter, async (req, res) => {
 });
 
 // ═══════════════════════════ Tour module ═══════════════════════════
-async function requireModule(key: "moduleTour" | "moduleShuttle" | "moduleHotelPackage", res: any): Promise<boolean> {
+async function requireModule(key: "moduleTour" | "moduleShuttle" | "moduleHotelPackage" | "moduleVenue", res: any): Promise<boolean> {
   const s = await getSettings();
   if (s[key] === "0") { res.status(403).json({ error: "Modul sedang tidak aktif" }); return false; }
   return true;
@@ -5527,6 +5528,167 @@ app.get("/api/partner/pms/reports", requireRole("PARTNER", "ADMIN"), async (req:
     orderBy: { createdAt: "desc" }, take: 60,
   });
   res.json({ reports });
+});
+
+// ═══════════════════════════ Venue / MICE ═══════════════════════════
+const VENUE_SLOTS = ["MORNING", "AFTERNOON", "EVENING", "FULLDAY"];
+// A CONFIRMED booking blocks its slot; FULLDAY blocks (and is blocked by) everything.
+async function venueSlotTaken(venueId: string, eventDate: Date, slot: string, exceptId?: string): Promise<boolean> {
+  const rows = await prisma.venueBooking.findMany({ where: { venueId, eventDate, status: "CONFIRMED", ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { slot: true } });
+  return rows.some((b) => b.slot === "FULLDAY" || slot === "FULLDAY" || b.slot === slot);
+}
+function venuePrice(venue: { basePrice: bigint }, pkg: { perPax: boolean; price: bigint } | null, pax: number): number {
+  if (pkg) return pkg.perPax ? Number(pkg.price) * Math.max(1, pax) : Number(pkg.price);
+  return Number(venue.basePrice);
+}
+
+// Public: browse active venues (gated by the moduleVenue toggle).
+app.get("/api/venues", async (req, res) => {
+  if (!(await requireModule("moduleVenue", res))) return;
+  const q = req.query as Record<string, string>;
+  const where: any = { active: true, hotel: { /* public */ } };
+  if (q.type) where.type = q.type;
+  if (q.hotel) where.hotelId = q.hotel;
+  const venues = await prisma.venue.findMany({
+    where, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], take: 100,
+    include: { hotel: { select: { id: true, name: true, city: true, imageUrl: true } }, packages: { where: { active: true } } },
+  });
+  const filtered = q.city ? venues.filter((v) => v.hotel.city?.toLowerCase().includes(q.city.toLowerCase())) : venues;
+  res.json({ venues: filtered.map((v) => ({ ...v, basePrice: Number(v.basePrice), packages: v.packages.map((p) => ({ ...p, price: Number(p.price) })) })) });
+});
+app.get("/api/venues/:id", async (req, res) => {
+  if (!(await requireModule("moduleVenue", res))) return;
+  const v = await prisma.venue.findFirst({ where: { id: req.params.id, active: true }, include: { hotel: { select: { id: true, name: true, city: true, address: true, imageUrl: true, starRating: true } }, packages: { where: { active: true } } } });
+  if (!v) return res.status(404).json({ error: "Venue tidak ditemukan" });
+  res.json({ venue: { ...v, basePrice: Number(v.basePrice), packages: v.packages.map((p) => ({ ...p, price: Number(p.price) })) } });
+});
+app.post("/api/venues/:id/availability", async (req, res) => {
+  if (!(await requireModule("moduleVenue", res))) return;
+  const v = await prisma.venue.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!v) return res.status(404).json({ error: "Venue tidak ditemukan" });
+  const eventDate = new Date(String(req.body?.eventDate || "")); const slot = String(req.body?.slot || "FULLDAY");
+  if (isNaN(+eventDate)) return res.status(400).json({ error: "Tanggal tidak valid" });
+  res.json({ available: !(await venueSlotTaken(v.id, eventDate, slot)) });
+});
+// Public: instant-book OR submit an inquiry (depends on the venue's bookingMode).
+app.post("/api/venues/:id/book", optionalAuth, async (req: AuthRequest, res) => {
+  if (!(await requireModule("moduleVenue", res))) return;
+  const venue = await prisma.venue.findFirst({ where: { id: req.params.id, active: true }, include: { hotel: { select: { ownerId: true, name: true } } } });
+  if (!venue) return res.status(404).json({ error: "Venue tidak ditemukan" });
+  const schema = z.object({ packageId: z.string().optional(), eventDate: z.string(), slot: z.enum(["MORNING", "AFTERNOON", "EVENING", "FULLDAY"]).default("FULLDAY"),
+    eventType: z.string().optional(), pax: z.coerce.number().int().min(0).default(0),
+    customerName: z.string().min(1, "Nama wajib diisi"), customerPhone: z.string().default(""), customerEmail: z.string().default(""), notes: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || "Data tidak valid" });
+  const eventDate = new Date(p.data.eventDate);
+  if (isNaN(+eventDate)) return res.status(400).json({ error: "Tanggal tidak valid" });
+  let pkg: any = null;
+  if (p.data.packageId) { pkg = await prisma.venuePackage.findFirst({ where: { id: p.data.packageId, venueId: venue.id, active: true } }); if (!pkg) return res.status(400).json({ error: "Paket tidak valid" }); }
+  const price = venuePrice(venue, pkg, p.data.pax);
+  const instant = venue.bookingMode === "INSTANT";
+  if (instant && await venueSlotTaken(venue.id, eventDate, p.data.slot)) return res.status(409).json({ error: "Slot venue sudah dipesan untuk tanggal itu" });
+  const booking = await prisma.venueBooking.create({ data: {
+    hotelId: venue.hotelId, venueId: venue.id, packageId: pkg?.id ?? null, mode: venue.bookingMode,
+    status: instant ? "CONFIRMED" : "INQUIRY", eventDate, slot: p.data.slot, eventType: p.data.eventType || "", pax: p.data.pax,
+    customerName: p.data.customerName, customerPhone: p.data.customerPhone, customerEmail: p.data.customerEmail, notes: p.data.notes,
+    totalPrice: instant ? BigInt(price) : null, userId: req.userId ?? null } });
+  if (venue.hotel.ownerId) await dispatch(prisma, { userId: venue.hotel.ownerId, title: instant ? `Booking venue baru — ${venue.name}` : `Inquiry venue baru — ${venue.name}`, body: `${p.data.customerName} · ${p.data.slot} ${eventDate.toISOString().slice(0, 10)} · ${p.data.pax || "-"} pax.${instant ? ` Total ${rupiah(price)}.` : " Kirim penawaran di Extranet → Venue."}`, type: instant ? "success" : "info" });
+  res.json({ booking: { id: booking.id, status: booking.status, mode: booking.mode, estimate: price } });
+});
+
+// ── Partner: manage venues + packages ──
+app.get("/api/partner/venues", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true, name: true } });
+  const venues = await prisma.venue.findMany({ where: { hotelId: { in: hotels.map((h) => h.id) } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], include: { packages: true, _count: { select: { bookings: true } } } });
+  res.json({ hotels, venues: venues.map((v) => ({ ...v, basePrice: Number(v.basePrice), packages: v.packages.map((p) => ({ ...p, price: Number(p.price) })) })) });
+});
+app.post("/api/partner/venues", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const schema = z.object({ hotelId: z.string(), name: z.string().min(2), type: z.enum(["MEETING_ROOM", "BALLROOM", "FUNCTION_HALL", "OUTDOOR"]).default("MEETING_ROOM"),
+    bookingMode: z.enum(["INSTANT", "INQUIRY"]).default("INSTANT"), description: z.string().default(""), imageUrl: z.string().default(""),
+    area: z.coerce.number().int().min(0).default(0), capTheatre: z.coerce.number().int().min(0).default(0), capClassroom: z.coerce.number().int().min(0).default(0), capRound: z.coerce.number().int().min(0).default(0), capStanding: z.coerce.number().int().min(0).default(0),
+    priceBasis: z.enum(["HOUR", "HALFDAY", "FULLDAY", "PERPAX"]).default("FULLDAY"), basePrice: z.coerce.number().int().min(0).default(0) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: p.error.issues[0]?.message || "Data venue tidak valid" });
+  if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
+  const { basePrice, ...rest } = p.data;
+  const venue = await prisma.venue.create({ data: { ...rest, basePrice: BigInt(basePrice) } });
+  await invalidate("miruum:"); res.json({ venue });
+});
+app.put("/api/partner/venues/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const venue = await prisma.venue.findUnique({ where: { id: req.params.id } });
+  if (!venue || !(await ownsHotel(req, venue.hotelId))) return res.status(404).json({ error: "Venue tidak ditemukan" });
+  const schema = z.object({ name: z.string().optional(), type: z.string().optional(), bookingMode: z.enum(["INSTANT", "INQUIRY"]).optional(), description: z.string().optional(), imageUrl: z.string().optional(),
+    area: z.coerce.number().int().optional(), capTheatre: z.coerce.number().int().optional(), capClassroom: z.coerce.number().int().optional(), capRound: z.coerce.number().int().optional(), capStanding: z.coerce.number().int().optional(),
+    priceBasis: z.string().optional(), basePrice: z.coerce.number().int().optional(), active: z.coerce.boolean().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = { ...p.data }; if (data.basePrice != null) data.basePrice = BigInt(data.basePrice);
+  const upd = await prisma.venue.update({ where: { id: venue.id }, data });
+  await invalidate("miruum:"); res.json({ venue: { ...upd, basePrice: Number(upd.basePrice) } });
+});
+app.delete("/api/partner/venues/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const venue = await prisma.venue.findUnique({ where: { id: req.params.id } });
+  if (!venue || !(await ownsHotel(req, venue.hotelId))) return res.status(404).json({ error: "Venue tidak ditemukan" });
+  await prisma.venue.delete({ where: { id: venue.id } });
+  await invalidate("miruum:"); res.json({ ok: true });
+});
+app.post("/api/partner/venues/:id/packages", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const venue = await prisma.venue.findUnique({ where: { id: req.params.id } });
+  if (!venue || !(await ownsHotel(req, venue.hotelId))) return res.status(404).json({ error: "Venue tidak ditemukan" });
+  const schema = z.object({ name: z.string().min(1), description: z.string().default(""), perPax: z.coerce.boolean().default(false), price: z.coerce.number().int().min(0), inclusions: z.string().default("") });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data paket tidak valid" });
+  const pkg = await prisma.venuePackage.create({ data: { venueId: venue.id, name: p.data.name, description: p.data.description, perPax: p.data.perPax, price: BigInt(p.data.price), inclusions: p.data.inclusions.split(/[\n,]/).map((s) => s.trim()).filter(Boolean) } });
+  await invalidate("miruum:"); res.json({ package: { ...pkg, price: Number(pkg.price) } });
+});
+app.delete("/api/partner/venue-packages/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const pkg = await prisma.venuePackage.findUnique({ where: { id: req.params.id }, include: { venue: { select: { hotelId: true } } } });
+  if (!pkg || !(await ownsHotel(req, pkg.venue.hotelId))) return res.status(404).json({ error: "Paket tidak ditemukan" });
+  await prisma.venuePackage.delete({ where: { id: pkg.id } });
+  await invalidate("miruum:"); res.json({ ok: true });
+});
+
+// ── Partner: venue bookings & inquiries ──
+app.get("/api/partner/venue-bookings", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const admin = (req as any).role === "ADMIN";
+  const hotels = await prisma.hotel.findMany({ where: admin ? {} : { ownerId: req.userId }, select: { id: true } });
+  const rows = await prisma.venueBooking.findMany({ where: { hotelId: { in: hotels.map((h) => h.id) } }, orderBy: { createdAt: "desc" }, take: 200, include: { venue: { select: { name: true, type: true } } } });
+  res.json({ bookings: rows.map((b) => ({ id: b.id, venue: b.venue.name, venueType: b.venue.type, mode: b.mode, status: b.status, eventDate: b.eventDate.toISOString().slice(0, 10), slot: b.slot, eventType: b.eventType, pax: b.pax, customerName: b.customerName, customerPhone: b.customerPhone, customerEmail: b.customerEmail, notes: b.notes, quotedPrice: b.quotedPrice != null ? Number(b.quotedPrice) : null, totalPrice: b.totalPrice != null ? Number(b.totalPrice) : null, depositPaid: Number(b.depositPaid) })) });
+});
+async function ownsVenueBooking(req: AuthRequest, id: string) {
+  const b = await prisma.venueBooking.findUnique({ where: { id } });
+  if (!b) return null;
+  return (await ownsHotel(req, b.hotelId)) ? b : null;
+}
+app.post("/api/partner/venue-bookings/:id/quote", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsVenueBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Booking tidak ditemukan" });
+  const amount = Math.max(0, Number(req.body?.quotedPrice) || 0);
+  if (!amount) return res.status(400).json({ error: "Isi nominal penawaran" });
+  await prisma.venueBooking.update({ where: { id: b.id }, data: { status: "QUOTED", quotedPrice: BigInt(amount), totalPrice: BigInt(amount) } });
+  if (b.userId) await dispatch(prisma, { userId: b.userId, title: "Penawaran Venue", body: `Penawaran untuk acara Anda: ${rupiah(amount)}. Buka aplikasi untuk konfirmasi.`, type: "info", email: b.customerEmail || undefined, phone: b.customerPhone || undefined });
+  res.json({ ok: true });
+});
+app.post("/api/partner/venue-bookings/:id/confirm", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsVenueBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Booking tidak ditemukan" });
+  if (await venueSlotTaken(b.venueId, b.eventDate, b.slot, b.id)) return res.status(409).json({ error: "Slot sudah dikonfirmasi untuk booking lain" });
+  await prisma.venueBooking.update({ where: { id: b.id }, data: { status: "CONFIRMED", ...(b.totalPrice == null && b.quotedPrice != null ? { totalPrice: b.quotedPrice } : {}) } });
+  res.json({ ok: true });
+});
+app.post("/api/partner/venue-bookings/:id/cancel", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsVenueBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Booking tidak ditemukan" });
+  await prisma.venueBooking.update({ where: { id: b.id }, data: { status: "CANCELLED" } });
+  res.json({ ok: true });
+});
+app.post("/api/partner/venue-bookings/:id/deposit", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const b = await ownsVenueBooking(req, req.params.id);
+  if (!b) return res.status(404).json({ error: "Booking tidak ditemukan" });
+  const amount = Math.max(0, Number(req.body?.amount) || 0);
+  await prisma.venueBooking.update({ where: { id: b.id }, data: { depositPaid: BigInt(Number(b.depositPaid) + amount) } });
+  res.json({ ok: true });
 });
 
 // ─────────── PMS: POS integration (restoran/spa → auto-charge folio by room) ───────────

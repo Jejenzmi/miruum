@@ -37,6 +37,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   moduleHotelPackage: "1",
   moduleTour: "1",
   moduleShuttle: "1",
+  moduleVenue: "1", // MICE: meeting room / ballroom / wedding venue booking
   // AI rate shopper — auto-finds each hotel's price on other OTAs (web search).
   ai_enabled: "0",       // "1" = enabled (needs ai_api_key)
   ai_api_key: "",        // Anthropic API key

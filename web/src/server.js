@@ -1202,6 +1202,50 @@ app.post("/extranet/packages/:id/delete", partnerGuard, async (req, res) => {
   res.redirect("/extranet/packages");
 });
 
+// ── Venue / MICE management ──
+app.get("/extranet/venues", partnerGuard, async (req, res) => {
+  const data = await api("/partner/venues", { token: res.locals.token });
+  res.render("extranet/venues", { ...data, active: "venues", done: req.query.done, err: req.query.err });
+});
+app.post("/extranet/venues", partnerGuard, upload.single("image"), async (req, res) => {
+  try {
+    const body = { ...req.body };
+    if (req.file) body.imageUrl = await uploadFile(res.locals.token, req.file, "venues");
+    await api("/partner/venues", { method: "POST", token: res.locals.token, body });
+    res.redirect("/extranet/venues?done=1");
+  } catch (e) { res.redirect("/extranet/venues?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/extranet/venues/:id", partnerGuard, upload.single("image"), async (req, res) => {
+  try {
+    const body = { ...req.body };
+    if (req.file) body.imageUrl = await uploadFile(res.locals.token, req.file, "venues"); else if (!body.imageUrl) delete body.imageUrl;
+    await api(`/partner/venues/${req.params.id}`, { method: "PUT", token: res.locals.token, body });
+  } catch (_) {}
+  res.redirect("/extranet/venues?done=1");
+});
+app.post("/extranet/venues/:id/delete", partnerGuard, async (req, res) => {
+  try { await api(`/partner/venues/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/extranet/venues");
+});
+app.post("/extranet/venues/:id/packages", partnerGuard, async (req, res) => {
+  try { await api(`/partner/venues/${req.params.id}/packages`, { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect("/extranet/venues?done=1");
+});
+app.post("/extranet/venue-packages/:id/delete", partnerGuard, async (req, res) => {
+  try { await api(`/partner/venue-packages/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/extranet/venues");
+});
+app.get("/extranet/venue-bookings", partnerGuard, async (req, res) => {
+  const data = await api("/partner/venue-bookings", { token: res.locals.token });
+  res.render("extranet/venue_bookings", { ...data, active: "venuebookings", done: req.query.done });
+});
+["quote", "confirm", "cancel", "deposit"].forEach((act) => {
+  app.post(`/extranet/venue-bookings/:id/${act}`, partnerGuard, async (req, res) => {
+    try { await api(`/partner/venue-bookings/${req.params.id}/${act}`, { method: "POST", token: res.locals.token, body: req.body }); } catch (_) {}
+    res.redirect("/extranet/venue-bookings?done=1");
+  });
+});
+
 // ── Advance Deposit Program ──
 app.get("/extranet/deposit", partnerGuard, async (req, res) => {
   const data = await api("/partner/deposit", { token: res.locals.token });

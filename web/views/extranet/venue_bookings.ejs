@@ -1,0 +1,44 @@
+<%- include('../partials/top', { title:'Booking Venue', heading:'Inquiry & Booking Venue', section:'extranet', active:'venuebookings', me }) %>
+
+<% if (done) { %><div class="notice ok">Diperbarui.</div><% } %>
+<%
+  var SL={MORNING:'Pagi',AFTERNOON:'Siang',EVENING:'Malam',FULLDAY:'Full-day'};
+  var ST={INQUIRY:'PENDING',QUOTED:'PARTNER',CONFIRMED:'PAID',CANCELLED:'CANCELLED',COMPLETED:''};
+%>
+<p class="muted" style="margin:-4px 0 16px">Inquiry masuk dari calon tamu → kirim <b>penawaran</b> → <b>konfirmasi</b> saat deal. Booking Instant langsung berstatus Confirmed.</p>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Venue</th><th>Acara</th><th>Tanggal / Slot</th><th>Kontak</th><th>Nilai</th><th>Status</th><th>Aksi</th></tr></thead>
+    <tbody>
+      <% bookings.forEach(function(b){ %>
+        <tr>
+          <td><b><%= b.venue %></b><br><span class="muted" style="font-size:11px"><%= b.mode==='INSTANT'?'Instant':'Inquiry' %></span></td>
+          <td><%= b.eventType||'—' %><br><span class="muted" style="font-size:11px"><%= b.pax?(b.pax+' pax'):'' %></span></td>
+          <td><%= b.eventDate %><br><span class="muted" style="font-size:11px"><%= SL[b.slot]||b.slot %></span></td>
+          <td><%= b.customerName %><br><span class="muted" style="font-size:11px"><%= b.customerPhone||b.customerEmail||'—' %></span></td>
+          <td><%= b.totalPrice!=null?rupiah(b.totalPrice):(b.quotedPrice!=null?rupiah(b.quotedPrice):'—') %><% if(b.depositPaid){ %><br><span class="muted" style="font-size:11px">DP <%= rupiah(b.depositPaid) %></span><% } %></td>
+          <td><span class="pill <%= ST[b.status]||'' %>"><%= b.status %></span></td>
+          <td style="white-space:nowrap">
+            <% if (b.status==='INQUIRY') { %>
+              <form method="post" action="/extranet/venue-bookings/<%= b.id %>/quote" style="display:flex;gap:4px;margin:0 0 4px"><input name="quotedPrice" type="number" min="0" placeholder="Penawaran" style="max-width:120px"><button class="btn sm">Kirim</button></form>
+            <% } %>
+            <% if (b.status==='INQUIRY'||b.status==='QUOTED') { %>
+              <form method="post" action="/extranet/venue-bookings/<%= b.id %>/confirm" style="display:inline" data-confirm="Konfirmasi booking? Slot akan dikunci."><button class="btn sm">Konfirmasi</button></form>
+            <% } %>
+            <% if (b.status==='CONFIRMED') { %>
+              <form method="post" action="/extranet/venue-bookings/<%= b.id %>/deposit" style="display:flex;gap:4px;margin:0"><input name="amount" type="number" min="0" placeholder="DP" style="max-width:110px"><button class="btn ghost sm">+DP</button></form>
+            <% } %>
+            <% if (b.status!=='CANCELLED'&&b.status!=='COMPLETED') { %>
+              <form method="post" action="/extranet/venue-bookings/<%= b.id %>/cancel" style="display:inline" data-confirm="Batalkan?"><button class="btn danger sm">Batal</button></form>
+            <% } %>
+          </td>
+        </tr>
+        <% if (b.notes) { %><tr><td colspan="7" class="muted" style="font-size:12px;padding-top:0">Catatan: <%= b.notes %></td></tr><% } %>
+      <% }) %>
+      <% if(!bookings.length){ %><tr><td colspan="7" class="empty">Belum ada inquiry/booking venue.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>
