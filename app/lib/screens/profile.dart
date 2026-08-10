@@ -182,7 +182,7 @@ class _EditableAvatarState extends State<_EditableAvatar> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthBloc>().state.user!;
-    final hasPhoto = (user.avatarUrl ?? '').isNotEmpty;
+    final hasPhoto = isHttpUrl(user.avatarUrl);
     return GestureDetector(
       onTap: _change,
       child: Stack(children: [

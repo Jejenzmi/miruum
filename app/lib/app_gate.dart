@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'api.dart';
 import 'l10n.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 /// On app launch: show a forced/optional update prompt or an admin announcement
 /// popup — whichever applies first. Animated & non-blocking (never throws).
@@ -292,7 +293,7 @@ class _PopupCard extends StatelessWidget {
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            if (img.isNotEmpty)
+            if (isHttpUrl(img))
               Image.network(img, height: 150, width: double.infinity, fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _headerFallback())
             else

@@ -123,6 +123,16 @@ class SectionHeader extends StatelessWidget {
 }
 
 /// Network image with graceful placeholder + error fallback.
+/// True only for an absolute http(s) URL with a host. Guards against empty or
+/// relative strings that make `Image.network` throw "No host specified in URI
+/// file:///" synchronously (before any errorBuilder can catch it) → crash.
+bool isHttpUrl(String? u) {
+  final s = (u ?? '').trim();
+  if (s.isEmpty) return false;
+  final uri = Uri.tryParse(s);
+  return uri != null && (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
+}
+
 class NetImage extends StatelessWidget {
   final String url;
   final double? width, height;
@@ -139,9 +149,7 @@ class NetImage extends StatelessWidget {
     // GUARD: URL kosong / tanpa host (mis. imageUrl API kosong atau path relatif)
     // membuat Image.network melempar "No host specified in URI" SEBELUM errorBuilder
     // sempat menangkap → crash (Crashlytics). Tampilkan placeholder langsung.
-    final uri = Uri.tryParse(url.trim());
-    final valid = url.trim().isNotEmpty && uri != null && uri.hasScheme && uri.host.isNotEmpty;
-    if (!valid) return _placeholder();
+    if (!isHttpUrl(url)) return _placeholder();
     return Image.network(
       url, width: width, height: height, fit: fit,
       loadingBuilder: (c, child, p) => p == null
