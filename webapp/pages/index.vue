@@ -3,7 +3,9 @@
     <!-- ── Hero ── -->
     <section class="relative overflow-hidden">
       <div class="absolute inset-0">
-        <img :src="heroImg" alt="" class="w-full h-full object-cover" />
+        <img v-for="(img, i) in heroImages" :key="img" :src="img" alt=""
+             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
+             :class="i === heroIdx ? 'opacity-100' : 'opacity-0'" />
         <div class="absolute inset-0 bg-gradient-to-r from-navy-900/90 via-navy-800/75 to-navy/25"></div>
       </div>
       <div class="container-site relative py-16 sm:py-24">
@@ -13,6 +15,10 @@
         <div class="flex flex-wrap gap-3 mt-7">
           <NuxtLink to="/search" class="btn-brand !px-6 !py-3 font-bold inline-flex items-center gap-2">{{ t('Jelajahi Hotel', 'Explore Hotels') }} <span>→</span></NuxtLink>
           <NuxtLink v-if="packages.length" to="/packages" class="btn !px-6 !py-3 font-bold bg-white/10 text-white border border-white/25 hover:bg-white/20">{{ t('Lihat Paket', 'View Packages') }}</NuxtLink>
+        </div>
+        <div v-if="heroImages.length > 1" class="flex gap-2 mt-8">
+          <button v-for="(img, i) in heroImages" :key="i" @click="heroIdx = i" :aria-label="`Slide ${i + 1}`"
+                  class="h-1.5 rounded-full transition-all" :class="i === heroIdx ? 'w-7 bg-brand' : 'w-2.5 bg-white/40 hover:bg-white/70'"></button>
         </div>
       </div>
     </section>
@@ -276,7 +282,20 @@ const { content, sc, resolveL } = await useSiteCopy()
 const propTypes = computed(() => Object.entries(propertyTypeLabels()).map(([key, label]) => ({ key, label })))
 
 const HERO_FALLBACK = 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=70'
-const heroImg = computed(() => banners.value[0]?.imageUrl || HERO_FALLBACK)
+// Hero background = rotating slider of REAL hotel photos (+ admin banners).
+const heroImages = computed(() => {
+  const imgs = [
+    ...banners.value.map((b: any) => b.imageUrl),
+    ...recommended.value.map((h: any) => h.imageUrl),
+    ...promo.value.map((h: any) => h.imageUrl),
+  ].filter(Boolean)
+  const uniq = [...new Set(imgs)].slice(0, 5)
+  return uniq.length ? uniq : [HERO_FALLBACK]
+})
+const heroIdx = ref(0)
+let heroTimer: any = null
+onMounted(() => { heroTimer = setInterval(() => { heroIdx.value = (heroIdx.value + 1) % heroImages.value.length }, 5000) })
+onBeforeUnmount(() => { if (heroTimer) clearInterval(heroTimer) })
 const promoImg = computed(() => banners.value[1]?.imageUrl || banners.value[0]?.imageUrl || 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=70')
 // Only show a % if a real program/promo advertises one.
 const promoPct = computed(() => {

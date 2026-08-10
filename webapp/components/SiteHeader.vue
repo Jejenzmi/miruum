@@ -6,12 +6,12 @@
       </NuxtLink>
 
       <nav class="hidden md:flex items-center gap-1 ml-2 text-[15px] font-semibold text-ink-muted">
-        <NuxtLink to="/search" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50">{{ t('Hotel', 'Hotels') }}</NuxtLink>
-        <NuxtLink to="/packages" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50">{{ t('Paket', 'Packages') }}</NuxtLink>
-        <NuxtLink v-if="modules.tour" to="/tours" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50">{{ t('Tour', 'Tours') }}</NuxtLink>
-        <NuxtLink v-if="modules.shuttle" to="/shuttle" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50">{{ t('Transfer Bandara', 'Airport Transfer') }}</NuxtLink>
-        <NuxtLink v-if="modules.venue" to="/venues" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50">{{ t('Venue & Meeting', 'Venues & Meetings') }}</NuxtLink>
-        <NuxtLink to="/articles" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50">{{ t('Artikel', 'Articles') }}</NuxtLink>
+        <NuxtLink to="/search" active-class="!text-brand-700 bg-brand-50" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50 transition-colors">{{ t('Hotel', 'Hotels') }}</NuxtLink>
+        <NuxtLink to="/packages" active-class="!text-brand-700 bg-brand-50" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50 transition-colors">{{ t('Paket', 'Packages') }}</NuxtLink>
+        <NuxtLink v-if="modules.tour" to="/tours" active-class="!text-brand-700 bg-brand-50" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50 transition-colors">{{ t('Tour', 'Tours') }}</NuxtLink>
+        <NuxtLink v-if="modules.shuttle" to="/shuttle" active-class="!text-brand-700 bg-brand-50" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50 transition-colors">{{ t('Transfer Bandara', 'Airport Transfer') }}</NuxtLink>
+        <NuxtLink v-if="modules.venue" to="/venues" active-class="!text-brand-700 bg-brand-50" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50 transition-colors">{{ t('Venue & Meeting', 'Venues & Meetings') }}</NuxtLink>
+        <NuxtLink to="/articles" active-class="!text-brand-700 bg-brand-50" class="px-3 py-2 rounded-lg hover:text-brand hover:bg-brand-50 transition-colors">{{ t('Artikel', 'Articles') }}</NuxtLink>
       </nav>
 
       <div class="flex-1"></div>
