@@ -128,18 +128,27 @@ class NetImage extends StatelessWidget {
   final double? width, height;
   final BoxFit fit;
   const NetImage(this.url, {super.key, this.width, this.height, this.fit = BoxFit.cover});
+
+  Widget _placeholder() => Container(
+        width: width, height: height, color: MC.field,
+        child: Icon(Icons.hotel_rounded, color: MC.inkFaint, size: 34),
+      );
+
   @override
   Widget build(BuildContext context) {
+    // GUARD: URL kosong / tanpa host (mis. imageUrl API kosong atau path relatif)
+    // membuat Image.network melempar "No host specified in URI" SEBELUM errorBuilder
+    // sempat menangkap → crash (Crashlytics). Tampilkan placeholder langsung.
+    final uri = Uri.tryParse(url.trim());
+    final valid = url.trim().isNotEmpty && uri != null && uri.hasScheme && uri.host.isNotEmpty;
+    if (!valid) return _placeholder();
     return Image.network(
       url, width: width, height: height, fit: fit,
       loadingBuilder: (c, child, p) => p == null
           ? child
           : Container(width: width, height: height, color: MC.field, child: Center(
               child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: MC.inkFaint)))),
-      errorBuilder: (c, e, s) => Container(
-        width: width, height: height, color: MC.field,
-        child: Icon(Icons.hotel_rounded, color: MC.inkFaint, size: 34),
-      ),
+      errorBuilder: (c, e, s) => _placeholder(),
     );
   }
 }

@@ -19,6 +19,9 @@ export default {
         leaf: { DEFAULT: '#2FA84F', dark: '#1E7E38', soft: '#E8F6ED' },
         // Traveloka-style hero blue (used for hero/product tabs)
         sky: { DEFAULT: '#0770E3', 600: '#0555C4', 700: '#0442A0', 50: '#EAF3FE', 100: '#D3E6FD' },
+        // Deep navy for hero/section backgrounds (hybrid look) + teal accent.
+        navy: { DEFAULT: '#1B2A5B', 700: '#152246', 800: '#0F1934', 900: '#0A1226' },
+        teal: { DEFAULT: '#1F9E8F', dark: '#147d70', soft: '#E6F5F3' },
         paper: '#F7F5F2',
         line: '#ECE8E2',
       },

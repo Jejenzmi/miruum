@@ -1338,6 +1338,14 @@ app.get("/api/destinations", async (_req, res) => {
 });
 
 // Real, non-fabricated social proof: aggregate counts + genuine guest reviews.
+// Newsletter / deals email signup (public homepage block).
+app.post("/api/newsletter", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: "Email tidak valid" });
+  await prisma.newsletterSubscriber.upsert({ where: { email }, create: { email }, update: {} });
+  res.json({ ok: true });
+});
+
 app.get("/api/site-stats", async (_req, res) => {
   const stats = await cached("miruum:site-stats", 300, async () => {
     const [hotels, cityGroups, reviewCount, ratingAgg, completed] = await Promise.all([
