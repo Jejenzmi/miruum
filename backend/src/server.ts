@@ -5566,9 +5566,11 @@ app.get("/api/venues", async (req, res) => {
 });
 app.get("/api/venues/:id", async (req, res) => {
   if (!(await requireModule("moduleVenue", res))) return;
-  const v = await prisma.venue.findFirst({ where: { id: req.params.id, active: true }, include: { hotel: { select: { id: true, name: true, city: true, address: true, imageUrl: true, starRating: true } }, packages: { where: { active: true } } } });
+  const v = await prisma.venue.findFirst({ where: { id: req.params.id, active: true }, include: { hotel: { select: { id: true, name: true, city: true, address: true, imageUrl: true, starRating: true, photos: { orderBy: { sort: "asc" }, take: 6, select: { url: true } } } }, packages: { where: { active: true } } } });
   if (!v) return res.status(404).json({ error: "Venue tidak ditemukan" });
-  res.json({ venue: { ...v, basePrice: Number(v.basePrice), packages: v.packages.map((p) => ({ ...p, price: Number(p.price) })) } });
+  // Gallery = the venue's own photo first, then the hotel's photos.
+  const gallery = [v.imageUrl, ...v.hotel.photos.map((p) => p.url)].filter(Boolean);
+  res.json({ venue: { ...v, basePrice: Number(v.basePrice), gallery, packages: v.packages.map((p) => ({ ...p, price: Number(p.price) })) } });
 });
 app.post("/api/venues/:id/availability", async (req, res) => {
   if (!(await requireModule("moduleVenue", res))) return;
