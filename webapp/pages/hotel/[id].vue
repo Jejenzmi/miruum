@@ -21,7 +21,7 @@
               <span class="pill bg-brand-50 text-brand-700">{{ propType }}</span>
               <StarRating :value="hotel.starRating" />
             </div>
-            <h1 class="text-2xl sm:text-3xl font-bold">{{ hotel.name }}</h1>
+            <h1 class="text-2xl sm:text-3xl font-display font-bold">{{ hotel.name }}</h1>
             <p class="text-ink-muted text-sm flex items-center gap-1 mt-1">
               <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
               {{ hotel.address }}
@@ -47,7 +47,7 @@
         <!-- Rooms -->
         <div id="rooms" class="mt-7">
           <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
-            <h2 class="font-bold text-xl">{{ t('Pilih Kamar', 'Choose a Room') }}</h2>
+            <h2 class="font-display font-bold text-xl">{{ t('Pilih Kamar', 'Choose a Room') }}</h2>
             <div class="flex items-end gap-2 text-sm">
               <div><label class="label !mb-0.5">{{ t('Check-in', 'Check-in') }}</label><input v-model="checkIn" type="date" :min="todayStr" class="input !py-2 !text-sm" /></div>
               <div><label class="label !mb-0.5">{{ t('Check-out', 'Check-out') }}</label><input v-model="checkOut" type="date" :min="checkIn" class="input !py-2 !text-sm" /></div>

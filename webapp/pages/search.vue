@@ -4,7 +4,11 @@
 
     <div class="grid lg:grid-cols-[260px_1fr] gap-6">
       <!-- Filters -->
-      <aside class="space-y-5">
+      <aside class="space-y-4 lg:sticky lg:top-24 h-fit">
+        <h2 class="font-display font-bold text-lg px-1 flex items-center gap-2">
+          <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-brand-600" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+          {{ t('Saring Hasil', 'Filter Results') }}
+        </h2>
         <div class="card p-4">
           <h3 class="font-bold mb-3">{{ t('Urutkan', 'Sort by') }}</h3>
           <select v-model="sort" class="input">
@@ -49,7 +53,7 @@
       <div>
         <div class="mb-4">
           <div class="flex items-center justify-between">
-            <h1 class="text-xl font-bold">
+            <h1 class="text-2xl font-display font-bold">
               {{ heading }}
               <span class="text-ink-faint font-normal text-base">· {{ hotels.length }} {{ t('properti', 'properties') }}</span>
             </h1>
