@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../api.dart';
 import '../app_gate.dart';
 import '../feedback.dart';
 import '../image_upload.dart';
@@ -17,7 +19,7 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late int _index = widget.initialIndex;
 
   final _tabs = const [HomeScreen(), PesananScreen(), JelajahScreen(), FavoritScreen(), ProfileScreen()];
@@ -26,12 +28,34 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     AppSettings.lastTab = _index;
+    WidgetsBinding.instance.addObserver(this);
+    _refreshModules(); // keep module toggles fresh on entering the app
     // Ask for notification permission once the app is up (Android 13+ / iOS),
     // then check for an update prompt / announcement popup.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ensureNotificationPermission();
       if (mounted) await AppGate.check(context);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning from background → re-read module toggles so admin changes
+    // (e.g. disabling Venue/Shuttle) apply without a full app restart.
+    if (state == AppLifecycleState.resumed) _refreshModules();
+  }
+
+  Future<void> _refreshModules() async {
+    try {
+      final m = await context.read<Api>().modules();
+      if (m.isNotEmpty) AppSettings.modules.value = {...AppSettings.modules.value, ...m};
+    } catch (_) {}
   }
 
   @override
