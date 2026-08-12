@@ -13,9 +13,10 @@
         <h4 class="text-sm font-bold mb-4 text-white/90">{{ t('Jelajahi', 'Explore') }}</h4>
         <ul class="space-y-2.5 text-sm text-white/60">
           <li><NuxtLink to="/search" class="hover:text-brand-200">{{ t('Cari Hotel', 'Search Hotels') }}</NuxtLink></li>
-          <li><NuxtLink to="/packages" class="hover:text-brand-200">{{ t('Paket Hotel', 'Hotel Packages') }}</NuxtLink></li>
-          <li><NuxtLink to="/venues" class="hover:text-brand-200">{{ t('Venue & Meeting', 'Venues & Meetings') }}</NuxtLink></li>
-          <li><NuxtLink to="/tours" class="hover:text-brand-200">{{ t('Tour & Aktivitas', 'Tours & Activities') }}</NuxtLink></li>
+          <li v-if="modules.hotelPackage !== false"><NuxtLink to="/packages" class="hover:text-brand-200">{{ t('Paket Hotel', 'Hotel Packages') }}</NuxtLink></li>
+          <li v-if="modules.venue"><NuxtLink to="/venues" class="hover:text-brand-200">{{ t('Venue & Meeting', 'Venues & Meetings') }}</NuxtLink></li>
+          <li v-if="modules.tour"><NuxtLink to="/tours" class="hover:text-brand-200">{{ t('Tour & Aktivitas', 'Tours & Activities') }}</NuxtLink></li>
+          <li v-if="modules.shuttle"><NuxtLink to="/shuttle" class="hover:text-brand-200">{{ t('Transfer Bandara', 'Airport Transfer') }}</NuxtLink></li>
           <li><NuxtLink to="/articles" class="hover:text-brand-200">{{ t('Artikel & Inspirasi', 'Articles & Inspiration') }}</NuxtLink></li>
         </ul>
       </div>
@@ -70,6 +71,9 @@
 const { t } = useLang()
 const { $api } = useNuxtApp()
 const { sc } = await useSiteCopy()
+// Module flags — hide footer links for modules the admin turned off.
+const { data: cfg } = await useAsyncData('appcfg', () => $api('/app/config').catch(() => ({ modules: {} })))
+const modules = computed<any>(() => (cfg.value as any)?.modules || {})
 
 const FALLBACK_METHODS = ['BCA', 'BNI', 'Mandiri', 'BRI', 'Permata', 'QRIS', 'GoPay', 'OVO', 'DANA', 'ShopeePay']
 const { data: pmData } = await useAsyncData('footer-payment-methods', () => $api('/payment-methods').catch(() => ({ methods: [] })))

@@ -6,15 +6,19 @@
         <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M15 9h3a1 1 0 0 1 1 1v11"/></svg>
         {{ t('Hotel', 'Hotels') }}
       </button>
-      <NuxtLink to="/packages" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
+      <NuxtLink v-if="modules.hotelPackage !== false" to="/packages" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
         <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 21V3M14 21V3"/></svg>
         {{ t('Paket', 'Packages') }}
       </NuxtLink>
-      <NuxtLink to="/tours" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
+      <NuxtLink v-if="modules.tour" to="/tours" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
         <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>
         {{ t('Tour', 'Tours') }}
       </NuxtLink>
-      <NuxtLink to="/shuttle" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
+      <NuxtLink v-if="modules.venue" to="/venues" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
+        <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><path d="M3 21h18M6 21V8l6-4 6 4v13M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/></svg>
+        {{ t('Venue', 'Venues') }}
+      </NuxtLink>
+      <NuxtLink v-if="modules.shuttle" to="/shuttle" class="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-[14px] whitespace-nowrap text-ink-muted hover:bg-paper">
         <svg viewBox="0 0 24 24" class="w-4 h-4 fill-none stroke-current" stroke-width="2"><path d="M5 17h14M6 17l-1-6 2-4h10l2 4-1 6M8 17v2M16 17v2"/></svg>
         {{ t('Transfer Bandara', 'Airport Transfer') }}
       </NuxtLink>
@@ -92,8 +96,12 @@
 type AreaRegion = { id: string; name: string; level?: string; path?: string; hotels?: number }
 
 const { t } = useLang()
+const { $api } = useNuxtApp()
 const route = useRoute()
 const todayStr = isoDate(new Date())
+// Module flags — hide product tabs for modules the admin turned off.
+const { data: _cfg } = await useAsyncData('appcfg', () => $api('/app/config').catch(() => ({ modules: {} })))
+const modules = computed<any>(() => (_cfg.value as any)?.modules || {})
 
 // A destination is either a *structured area* (regionId, picked from the
 // autocomplete) or plain free text — free text keeps behaving exactly as before.
