@@ -5185,6 +5185,16 @@ async function ownsBooking(req: AuthRequest, bookingId: string): Promise<any> {
   return prisma.booking.findFirst({ where, include: { room: true } });
 }
 
+// Look up a booking by its code (scanned e-voucher QR) → returns its id for the
+// front desk to open. Scoped to the operator's own hotels.
+app.get("/api/partner/bookings/by-code/:code", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const where: any = { code: String(req.params.code || "").trim().toUpperCase() };
+  if ((req as any).role !== "ADMIN") where.hotel = { ownerId: req.userId };
+  const b = await prisma.booking.findFirst({ where, select: { id: true, code: true, bookerName: true } });
+  if (!b) return res.status(404).json({ error: "Reservasi tidak ditemukan" });
+  res.json({ booking: b });
+});
+
 app.get("/api/partner/pms", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const admin = (req as any).role === "ADMIN";
   const hotelWhere: any = admin ? {} : { ownerId: req.userId, productPMS: true };
@@ -5729,7 +5739,7 @@ app.get("/api/partner/pos/rooms", requireRole("PARTNER", "ADMIN"), async (req: A
   // Menu from the hotel's managed catalog; fall back to the built-in starter set.
   const products = await prisma.posProduct.findMany({ where: { hotelId: { in: ids }, active: true }, orderBy: [{ outlet: "asc" }, { sortOrder: "asc" }, { name: "asc" }] });
   const menu: Record<string, any[]> = {};
-  for (const p of products) (menu[p.outlet] ??= []).push({ id: p.id, name: p.name, price: Number(p.price) });
+  for (const p of products) (menu[p.outlet] ??= []).push({ id: p.id, name: p.name, price: Number(p.price), barcode: p.barcode ?? null });
   const usingDefault = Object.keys(menu).length === 0;
   const outMenu = usingDefault ? POS_MENU : menu;
   res.json({ hotels, hotelId: ids[0] ?? null, outlets: Object.keys(outMenu), menu: outMenu, usingDefault, rooms: inhouse.map((b) => ({ bookingId: b.id, guest: b.bookerName, roomNumber: b.roomUnit?.number, hotel: b.hotel.name })) });
@@ -5778,20 +5788,20 @@ app.get("/api/partner/pos/products", requireRole("PARTNER", "ADMIN"), async (req
   res.json({ hotels, outlets: POS_OUTLETS, products: products.map((p) => ({ ...p, price: Number(p.price) })) });
 });
 app.post("/api/partner/pos/products", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
-  const schema = z.object({ hotelId: z.string(), outlet: z.string().min(1), name: z.string().min(1), price: z.coerce.number().int().min(0), category: z.string().optional(), sortOrder: z.coerce.number().int().optional() });
+  const schema = z.object({ hotelId: z.string(), outlet: z.string().min(1), name: z.string().min(1), price: z.coerce.number().int().min(0), category: z.string().optional(), barcode: z.string().optional(), sortOrder: z.coerce.number().int().optional() });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data produk tidak valid" });
   if (!(await ownsHotel(req, p.data.hotelId))) return res.status(403).json({ error: "Bukan hotel Anda" });
-  const prod = await prisma.posProduct.create({ data: { hotelId: p.data.hotelId, outlet: p.data.outlet, name: p.data.name, price: BigInt(p.data.price), category: p.data.category || null, sortOrder: p.data.sortOrder ?? 0 } });
+  const prod = await prisma.posProduct.create({ data: { hotelId: p.data.hotelId, outlet: p.data.outlet, name: p.data.name, price: BigInt(p.data.price), category: p.data.category || null, barcode: (p.data.barcode || "").trim() || null, sortOrder: p.data.sortOrder ?? 0 } });
   res.json({ product: prod });
 });
 app.put("/api/partner/pos/products/:id", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const prod = await prisma.posProduct.findUnique({ where: { id: req.params.id } });
   if (!prod || !(await ownsHotel(req, prod.hotelId))) return res.status(404).json({ error: "Produk tidak ditemukan" });
-  const schema = z.object({ name: z.string().optional(), outlet: z.string().optional(), price: z.coerce.number().int().min(0).optional(), category: z.string().optional(), active: z.coerce.boolean().optional(), sortOrder: z.coerce.number().int().optional() });
+  const schema = z.object({ name: z.string().optional(), outlet: z.string().optional(), price: z.coerce.number().int().min(0).optional(), category: z.string().optional(), barcode: z.string().optional(), active: z.coerce.boolean().optional(), sortOrder: z.coerce.number().int().optional() });
   const p = schema.safeParse(req.body);
   if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
-  const data: any = { ...p.data }; if (data.price != null) data.price = BigInt(data.price);
+  const data: any = { ...p.data }; if (data.price != null) data.price = BigInt(data.price); if (data.barcode != null) data.barcode = String(data.barcode).trim() || null;
   const upd = await prisma.posProduct.update({ where: { id: prod.id }, data });
   res.json({ product: { ...upd, price: Number(upd.price) } });
 });

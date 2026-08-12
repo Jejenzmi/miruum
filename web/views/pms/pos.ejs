@@ -15,6 +15,12 @@
       <div class="pos-tabs" id="pos-tabs"><% outlets.forEach(function(o,i){ %><button type="button" class="pos-tab <%= i===0?'on':'' %>" data-outlet="<%= o %>"><%= o %></button><% }) %></div>
     </div>
     <div class="card">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;background:#fff8ef;border:1px solid #f0e0c8;border-radius:12px;padding:8px 10px">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;flex-shrink:0" fill="none" stroke="#E07C17" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8v8M11 8v8M15 8v8"/></svg>
+        <input id="pos-scan" autocomplete="off" placeholder="Scan barcode produk (EZcode/HID) → otomatis masuk keranjang"
+               style="flex:1;background:transparent;border:0;outline:none;font-weight:600"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();scanBarcode(this.value);this.value='';}">
+      </div>
       <div id="pos-menu" class="pos-grid"></div>
       <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px">
         <div class="muted" style="font-size:12px;margin-bottom:6px">Item khusus (di luar menu)</div>
@@ -75,6 +81,14 @@
   function add(o,idx){ var it=MENU[o][idx]; bump(it.name,it.price); }
   function addCustom(){ var n=document.getElementById('c-name').value.trim(), p=parseInt(document.getElementById('c-price').value||'0',10); if(!n||p<=0){alert('Isi nama & harga.');return;} bump(n,p); document.getElementById('c-name').value='';document.getElementById('c-price').value=''; }
   function bump(name,price){ var k=key(name); if(!cart[k]) cart[k]={name:name,price:price,qty:0,outlet:outlet}; cart[k].qty++; renderCart(); }
+  // Barcode scan (EZcode/HID types the code + Enter) → find product across outlets → add.
+  function scanBarcode(code){
+    code=(code||'').trim(); if(!code) return;
+    var found=null, fo=null;
+    Object.keys(MENU).forEach(function(o){ (MENU[o]||[]).forEach(function(it){ if(it.barcode && String(it.barcode).trim()===code){ found=it; fo=o; } }); });
+    if(!found){ alert('Barcode tidak dikenal: '+code); return; }
+    var k=fo+'|'+found.name; if(!cart[k]) cart[k]={name:found.name,price:found.price,qty:0,outlet:fo}; cart[k].qty++; renderCart();
+  }
   function bumpKey(k,d){ if(!cart[k])return; cart[k].qty+=d; if(cart[k].qty<=0) delete cart[k]; renderCart(); }
   function renderCart(){
     var keys=Object.keys(cart), total=0;

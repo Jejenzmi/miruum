@@ -1276,7 +1276,14 @@ app.get("/extranet/analytics", partnerGuard, async (req, res) => {
 // ── PMS — Property Management System (pms.miruum.id) ──
 app.get("/pms", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
   const pms = await api("/partner/pms", { token: res.locals.token });
-  res.render("pms/dashboard", { ...pms, active: "pms", done: req.query.done });
+  res.render("pms/dashboard", { ...pms, active: "pms", done: req.query.done, scan: req.query.scan });
+});
+// Scan e-voucher QR (HID scanner types the booking code + Enter) → open its folio.
+app.get("/pms/scan", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
+  const code = String(req.query.code || "").trim();
+  if (!code) return res.redirect("/pms");
+  try { const r = await api(`/partner/bookings/by-code/${encodeURIComponent(code)}`, { token: res.locals.token }); res.redirect(`/pms/booking/${r.booking.id}?saved=scan`); }
+  catch (e) { res.redirect("/pms?scan=notfound"); }
 });
 app.post("/pms/checkin/:id", partnerGuard, productGuard("pms", "PMS"), async (req, res) => {
   try { await api(`/partner/bookings/${req.params.id}/checkin`, { method: "POST", token: res.locals.token, body: {} }); res.redirect("/pms?done=checkin"); }

@@ -5,6 +5,14 @@
 <% if (done==='hk') { %><div class="notice ok">Status housekeeping diperbarui.</div><% } %>
 <% if (done==='audit') { %><div class="notice ok">Night audit selesai — no-show ditandai & tanggal digulung.</div><% } %>
 <% if (done==='err') { %><div class="notice bad">Aksi gagal. Coba lagi.</div><% } %>
+<% if (scan==='notfound') { %><div class="notice bad">Reservasi tidak ditemukan untuk kode itu.</div><% } %>
+
+<!-- Scan e-voucher (scanner HID/EZcode "mengetik" kode + Enter → buka reservasi) -->
+<form method="get" action="/pms/scan" class="card" style="display:flex;gap:10px;align-items:center;margin-bottom:14px;padding:12px 14px">
+  <svg viewBox="0 0 24 24" style="width:26px;height:26px;flex-shrink:0" fill="none" stroke="#E07C17" stroke-width="2"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M7 8h2v8H7zM12 8h1v8h-1zM16 8h1v8h-1z"/></svg>
+  <input name="code" autofocus autocomplete="off" placeholder="Scan QR e-voucher tamu / ketik kode booking (mis. MRM-XXXXXX) lalu Enter" style="flex:1;font-weight:600" oninput="this.value=this.value.toUpperCase()">
+  <button class="btn">Buka Reservasi</button>
+</form>
 
 <% function fmt(d){ return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short'}); } %>
 

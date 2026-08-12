@@ -43,6 +43,29 @@
       <button class="btn"><%= booking.status==='COMPLETED' ? 'Perbarui Kamar' : 'Tetapkan & Check-in' %></button>
     </div>
     <h3 style="margin:16px 0 8px">Identitas Tamu (untuk Registration Card)</h3>
+    <div style="background:#fff8ef;border:1px solid #f0e0c8;border-radius:12px;padding:10px;margin-bottom:10px">
+      <label style="margin-top:0;font-size:12px;font-weight:700">📷 Scan Identitas (scanner EZcode/HID)</label>
+      <input id="idscan" autocomplete="off" placeholder="Scan barcode KTP (NIK 16 digit) lalu Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();parseId(this.value);}">
+      <div style="display:flex;gap:6px;align-items:end;margin-top:6px">
+        <textarea id="mrz" rows="2" placeholder="Paspor: tempel/scan 2 baris MRZ di sini" style="flex:1;font-family:monospace;font-size:12px"></textarea>
+        <button type="button" class="btn ghost sm" onclick="parseMrz()">Isi dari MRZ</button>
+      </div>
+      <p class="muted" style="font-size:11px;margin:5px 0 0">KTP: scan barcode NIK → otomatis isi Jenis=KTP & No. Identitas. Paspor: scan/tempel MRZ (2 baris) → isi paspor & kebangsaan.</p>
+    </div>
+    <script>
+      function _setF(n,v){ var el=document.querySelector('[name="'+n+'"]'); if(el) el.value=v; }
+      function parseId(v){ v=(v||'').replace(/\s/g,'').trim(); if(!v) return;
+        if(/^\d{16}$/.test(v)){ _setF('guestIdType','KTP'); _setF('guestIdNumber',v); document.getElementById('idscan').value=''; return; }
+        if(v.indexOf('<')>=0){ document.getElementById('mrz').value=v; parseMrz(); document.getElementById('idscan').value=''; return; }
+        alert('Format tak dikenal. KTP: NIK 16 digit. Paspor: gunakan MRZ.'); }
+      function parseMrz(){ var raw=(document.getElementById('mrz').value||'').replace(/\r/g,'').trim(); var lines=raw.split('\n').map(function(s){return s.replace(/\s/g,'');}).filter(Boolean); var l1,l2;
+        if(lines.length>=2){ l1=lines[0]; l2=lines[1]; } else { var s=raw.replace(/\s/g,''); if(s.length<88){ alert('MRZ tidak lengkap (butuh 2 baris/88 karakter).'); return; } l1=s.slice(0,44); l2=s.slice(44,88); }
+        if(l1.charAt(0)!=='P'){ alert('Bukan MRZ paspor.'); return; }
+        var parts=l1.slice(5).split('<<'); var surname=(parts[0]||'').replace(/</g,' ').trim(); var given=(parts[1]||'').replace(/</g,' ').trim();
+        var passno=l2.slice(0,9).replace(/</g,'').trim(); var nat=l2.slice(10,13).replace(/</g,'').trim();
+        _setF('guestIdType','PASSPORT'); _setF('guestIdNumber',passno); _setF('guestNationality',nat);
+        alert('Terisi dari paspor: '+(given+' '+surname).trim()+' · '+passno+' · '+nat); }
+    </script>
     <div class="row2">
       <div><label style="margin-top:0">Jenis Identitas</label><select name="guestIdType"><option value="">—</option><option>KTP</option><option>PASSPORT</option><option>SIM</option><option>OTHER</option></select></div>
       <div><label style="margin-top:0">No. Identitas</label><input name="guestIdNumber" placeholder="opsional"></div>

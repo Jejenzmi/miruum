@@ -12,8 +12,10 @@
     <div><label style="margin-top:0">Outlet</label><select name="outlet"><% outlets.forEach(function(o){ %><option><%= o %></option><% }) %></select></div>
     <div style="flex:1;min-width:150px"><label style="margin-top:0">Nama Produk</label><input name="name" required placeholder="mis. Nasi Goreng"></div>
     <div><label style="margin-top:0">Harga</label><input name="price" type="number" min="0" required style="max-width:120px"></div>
+    <div><label style="margin-top:0">Barcode (opsional)</label><input name="barcode" placeholder="scan / ketik" autocomplete="off" style="max-width:150px"></div>
     <button class="btn sm">Tambah</button>
   </form>
+  <p class="muted" style="font-size:12px;margin:8px 0 0">Isi <b>Barcode</b> agar produk bisa ditambah ke keranjang dengan scanner (EZcode/HID) di Terminal POS.</p>
   <% if (!products.length) { %>
     <div style="margin-top:12px"><form method="post" action="/pms/pos/menu/seed" style="display:inline"><input type="hidden" name="hotelId" value="<%= hotels[0].id %>"><button class="btn ghost sm">Muat Menu Contoh (bawaan)</button></form></div>
   <% } %>
@@ -23,14 +25,15 @@
   <div class="card">
     <h3 style="margin-top:0"><%= o %> <span class="muted" style="font-weight:400;font-size:13px">(<%= list.length %> item)</span></h3>
     <table>
-      <thead><tr><th>Nama</th><th style="text-align:right">Harga</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Nama · Harga · Barcode</th><th style="text-align:right">Harga</th><th>Status</th><th></th></tr></thead>
       <tbody>
         <% list.forEach(function(p){ %>
           <tr>
             <td>
-              <form method="post" action="/pms/pos/menu/<%= p.id %>" style="display:flex;gap:6px;align-items:center;margin:0">
-                <input name="name" value="<%= p.name %>" style="min-width:160px">
-                <input name="price" type="number" value="<%= p.price %>" style="max-width:110px">
+              <form method="post" action="/pms/pos/menu/<%= p.id %>" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
+                <input name="name" value="<%= p.name %>" style="min-width:150px">
+                <input name="price" type="number" value="<%= p.price %>" style="max-width:100px">
+                <input name="barcode" value="<%= p.barcode || '' %>" placeholder="barcode" autocomplete="off" style="max-width:130px">
                 <button class="btn ghost sm">Simpan</button>
               </form>
             </td>

@@ -1096,6 +1096,7 @@ model PosProduct {
   category  String?
   name      String
   price     BigInt
+  barcode   String?  // scanner (EZcode/HID) → match this to add the item
   active    Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
