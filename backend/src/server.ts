@@ -3682,9 +3682,9 @@ async function requireModule(key: "moduleTour" | "moduleShuttle" | "moduleHotelP
   return true;
 }
 
-// Public: browse active tours.
+// Public: browse active tours. Module OFF → empty list (graceful; never errors the app).
 app.get("/api/tours", async (req, res) => {
-  if (!(await requireModule("moduleTour", res))) return;
+  if ((await getSettings()).moduleTour === "0") return res.json({ tours: [] });
   const { city, category, q } = req.query as Record<string, string>;
   const where: any = { active: true };
   if (city) where.city = city;
@@ -5560,9 +5560,9 @@ function venuePrice(venue: { basePrice: bigint }, pkg: { perPax: boolean; price:
   return Number(venue.basePrice);
 }
 
-// Public: browse active venues (gated by the moduleVenue toggle).
+// Public: browse active venues. Module OFF → empty list (graceful; never errors the app).
 app.get("/api/venues", async (req, res) => {
-  if (!(await requireModule("moduleVenue", res))) return;
+  if ((await getSettings()).moduleVenue === "0") return res.json({ venues: [] });
   const q = req.query as Record<string, string>;
   const where: any = { active: true, hotel: { /* public */ } };
   if (q.type) where.type = q.type;
