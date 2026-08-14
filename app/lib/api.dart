@@ -459,6 +459,16 @@ class Api {
     return m.map((k, v) => MapEntry(k.toString(), v == true));
   }
 
+  // ── Translation overrides (admin-managed terms) ──
+  Future<Map<String, Map<String, String>>> i18n() async {
+    final r = (await _get('/i18n')) as Map<String, dynamic>;
+    final o = (r['overrides'] as Map?) ?? const {};
+    return o.map((k, v) => MapEntry(k.toString(), {
+          'id': (v is Map ? v['id'] : null)?.toString() ?? '',
+          'en': (v is Map ? v['en'] : null)?.toString() ?? '',
+        }));
+  }
+
   // ── Tour ──
   Future<List<Tour>> tours({String? category, String? q}) async =>
       ((await _get('/tours', {if (category != null) 'category': category, if (q != null) 'q': q}))['tours'] as List)

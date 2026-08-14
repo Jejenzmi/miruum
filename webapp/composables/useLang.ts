@@ -20,8 +20,17 @@ export const useLang = () => {
     cookie.value = v
   }
 
-  /** t('teks Indonesia', 'English text') — same contract as the app's tr(). */
-  const t = (id: string, en: string) => (lang.value === 'en' ? en : id)
+  // Admin-managed overrides, keyed by the Indonesian source phrase.
+  const overrides = useState<Record<string, { id: string; en: string }>>('miruum_i18n', () => ({}))
+
+  /** t('teks Indonesia', 'English text') — same contract as the app's tr().
+   *  If an admin override exists for the source (ID) phrase, it wins. */
+  const t = (id: string, en: string) => {
+    const o = overrides.value[id]
+    const useEn = lang.value === 'en'
+    if (o) return useEn ? (o.en || o.id || en) : (o.id || id)
+    return useEn ? en : id
+  }
 
   return { lang, isEn, setLang, t }
 }

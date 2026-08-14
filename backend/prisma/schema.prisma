@@ -1540,3 +1540,15 @@ model NewsletterSubscriber {
   email     String   @unique
   createdAt DateTime @default(now())
 }
+
+// Admin-managed translation/terminology overrides, keyed by the Indonesian source
+// phrase (the `id` arg of t(id,en)/tr(id,en)). Applied across web, app & portals.
+model TranslationOverride {
+  id        String   @id @default(cuid())
+  source    String   @unique
+  textId    String   // override for Indonesian (may equal source)
+  textEn    String   // English translation/override
+  surface   String?  // optional tag: PUBLIC | APP | PORTAL | ALL (admin filter only)
+  updatedAt DateTime @updatedAt @default(now())
+  createdAt DateTime @default(now())
+}

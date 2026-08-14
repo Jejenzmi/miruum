@@ -1265,6 +1265,53 @@ app.get("/api/config", async (_req, res) => {
   res.json({ taxPct: Number(s.taxPct), currency: s.currency, appName: s.appName, modules: moduleFlags(s) });
 });
 
+// ─────────────── Translation / terminology overrides (all surfaces) ───────────────
+// Public: the override dictionary keyed by source phrase → { id, en }. Every
+// surface (web, app, portals) applies these on top of its built-in t(id,en).
+app.get("/api/i18n", async (_req, res) => {
+  const map = await cached("miruum:i18n", 120, async () => {
+    const rows = await prisma.translationOverride.findMany({ select: { source: true, textId: true, textEn: true } });
+    const o: Record<string, { id: string; en: string }> = {};
+    for (const r of rows) o[r.source] = { id: r.textId, en: r.textEn };
+    return o;
+  });
+  res.json({ overrides: map });
+});
+app.get("/api/admin/i18n", requireRole("ADMIN"), async (_req, res) => {
+  const items = await prisma.translationOverride.findMany({ orderBy: { source: "asc" } });
+  res.json({ items });
+});
+app.post("/api/admin/i18n", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ source: z.string().min(1), textId: z.string().default(""), textEn: z.string().default(""), surface: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const source = p.data.source.trim();
+  const item = await prisma.translationOverride.upsert({
+    where: { source },
+    create: { source, textId: (p.data.textId || source).trim(), textEn: (p.data.textEn || source).trim(), surface: p.data.surface || null },
+    update: { textId: (p.data.textId || source).trim(), textEn: (p.data.textEn || source).trim(), surface: p.data.surface || null },
+  });
+  await invalidate("miruum:i18n");
+  res.json({ item });
+});
+app.put("/api/admin/i18n/:id", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ textId: z.string().optional(), textEn: z.string().optional(), surface: z.string().optional() });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const data: any = {};
+  if (p.data.textId != null) data.textId = p.data.textId.trim();
+  if (p.data.textEn != null) data.textEn = p.data.textEn.trim();
+  if (p.data.surface != null) data.surface = p.data.surface || null;
+  const item = await prisma.translationOverride.update({ where: { id: req.params.id }, data });
+  await invalidate("miruum:i18n");
+  res.json({ item });
+});
+app.delete("/api/admin/i18n/:id", requireRole("ADMIN"), async (req, res) => {
+  await prisma.translationOverride.delete({ where: { id: req.params.id } });
+  await invalidate("miruum:i18n");
+  res.json({ ok: true });
+});
+
 // Area autocomplete for the search box: match a region by name and return it
 // with its full administrative path, plus how many properties it covers.
 app.get("/api/regions/search", async (req, res) => {

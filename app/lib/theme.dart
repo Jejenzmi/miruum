@@ -33,6 +33,10 @@ class AppSettings {
     'hotel': true, 'hotelPackage': true, 'tour': true, 'shuttle': true, 'venue': true,
   });
   static bool moduleOn(String key) => AppSettings.modules.value[key] ?? true;
+
+  /// Admin-managed translation overrides, keyed by the Indonesian source phrase.
+  /// { source: {id, en} }. Consulted by tr(); rebuilds fire when this changes.
+  static final i18n = ValueNotifier<Map<String, Map<String, String>>>({});
 }
 
 /// Miruum brand tokens. Brand hues stay constant across light/dark; structural

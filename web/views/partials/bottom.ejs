@@ -83,6 +83,42 @@
 })();
 </script>
 
+<%
+  // Bangun peta substitusi: { "frasa sumber": "teks tampil" } hanya untuk yang berbeda.
+  var _i18n = locals.i18n || {}; var _lang = locals.portalLang || 'id';
+  var _sub = {};
+  Object.keys(_i18n).forEach(function(src){
+    var o = _i18n[src] || {};
+    var target = _lang === 'en' ? (o.en || o.id || src) : (o.id || src);
+    if (target && target !== src) _sub[src] = target;
+  });
+%>
+<% if (Object.keys(_sub).length) { %>
+<script>
+(function(){
+  var SUB = <%- JSON.stringify(_sub) %>;
+  var SKIP = { SCRIPT:1, STYLE:1, TEXTAREA:1, CODE:1, PRE:1 };
+  function apply(node){
+    var walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n){
+        if (!n.parentNode || SKIP[n.parentNode.nodeName]) return NodeFilter.FILTER_REJECT;
+        var t = n.nodeValue.trim();
+        return (t && SUB[t]) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      }
+    });
+    var hits = [], cur;
+    while ((cur = walker.nextNode())) hits.push(cur);
+    hits.forEach(function(n){ n.nodeValue = n.nodeValue.replace(n.nodeValue.trim(), SUB[n.nodeValue.trim()]); });
+    // Atribut placeholder / title / value tombol.
+    node.querySelectorAll && node.querySelectorAll('[placeholder],[title],input[type=submit],button').forEach(function(el){
+      ['placeholder','title'].forEach(function(a){ var v=el.getAttribute(a); if(v && SUB[v.trim()]) el.setAttribute(a, SUB[v.trim()]); });
+    });
+  }
+  apply(document.body);
+})();
+</script>
+<% } %>
+
 <%- include('req_marker') %>
 </body>
 </html>

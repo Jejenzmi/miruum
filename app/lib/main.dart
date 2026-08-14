@@ -96,7 +96,9 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
         valueListenable: AppSettings.locale,
         builder: (context, locale, __) => ValueListenableBuilder<String>(
           valueListenable: AppSettings.market,
-          builder: (context, market, ___) {
+          builder: (context, market, ___) => ValueListenableBuilder<Map<String, Map<String, String>>>(
+          valueListenable: AppSettings.i18n,
+          builder: (context, i18nMap, ____) {
           final platformDark =
               WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
           kDark = mode == ThemeMode.dark || (mode == ThemeMode.system && platformDark);
@@ -120,7 +122,7 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
               // instantly. The splash skips its animation on this rebuild
               // (AppSettings.booted) and lands back on the last tab.
               return KeyedSubtree(
-                key: ValueKey('locale-${locale.languageCode}-market-$market'),
+                key: ValueKey('locale-${locale.languageCode}-market-$market-i18n-${identityHashCode(i18nMap)}'),
                 child: MediaQuery(
                   data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.15)),
                   child: child!,
@@ -130,6 +132,7 @@ class _MiruumAppState extends State<MiruumApp> with WidgetsBindingObserver {
             home: const SplashScreen(),
           );
           },
+        ),
         ),
       ),
     );

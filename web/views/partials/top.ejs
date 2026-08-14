@@ -107,6 +107,7 @@
         <a href="/admin/app-popup" class="<%= active==='app-popup'?'active':'' %>"><%- ni('bell') %>Pop-up & Update</a>
         <a href="/admin/audit" class="<%= active==='audit'?'active':'' %>"><%- ni('users') %>Log Audit</a>
         <a href="/admin/settings" class="<%= active==='settings'?'active':'' %>"><%- ni('settings') %>Pengaturan</a>
+        <a href="/admin/translations" class="<%= active==='translations'?'active':'' %>"><%- ni('info') %>Terjemahan / Istilah</a>
         <a href="/admin/logout" class="logout" data-confirm="Yakin ingin keluar dari Back Office?" data-confirm-title="Keluar Akun" data-confirm-ok="Ya, keluar" data-confirm-kind="logout"><%- ni('logout') %>Keluar</a>
       <% } else if (pv === 'cm') { %>
         <div class="nav-label">Distribusi</div>
@@ -245,8 +246,14 @@
         <h1><%= heading %></h1>
         <% if (_sub) { %><p class="topbar-sub"><%= _sub %></p><% } %>
       </div>
-      <div class="user-chip">
-        <span><%= me.name %></span>
-        <div class="avatar"><%= me.name.charAt(0).toUpperCase() %></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="lang-switch" style="display:inline-flex;border:1px solid #d8dbe2;border-radius:8px;overflow:hidden;font-size:12px;font-weight:700">
+          <a href="/set-lang/id" style="padding:5px 10px;text-decoration:none;<%= (portalLang||'id')==='id' ? 'background:#E07C17;color:#fff' : 'color:#667085' %>">ID</a>
+          <a href="/set-lang/en" style="padding:5px 10px;text-decoration:none;<%= portalLang==='en' ? 'background:#E07C17;color:#fff' : 'color:#667085' %>">EN</a>
+        </div>
+        <div class="user-chip">
+          <span><%= me.name %></span>
+          <div class="avatar"><%= me.name.charAt(0).toUpperCase() %></div>
+        </div>
       </div>
     </div>

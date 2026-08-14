@@ -1,0 +1,54 @@
+<%- include('../partials/top', { title:'Terjemahan', heading:'Manajer Terjemahan / Istilah', section:'admin', active:'translations', me }) %>
+
+<% if (saved) { %><div class="notice ok">Istilah tersimpan. Berlaku di web publik, aplikasi & portal (cache ±2 menit).</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<p class="muted" style="margin:-4px 0 16px;max-width:760px;line-height:1.6">
+  Atur istilah/terjemahan berdasarkan <b>frasa sumber</b> (teks Bahasa Indonesia asli).
+  Isi <b>Teks ID</b> untuk mengganti istilah versi Indonesia (mis. "Kamar" → "Ruang"), dan <b>Teks EN</b> untuk terjemahan Inggris.
+  Berlaku otomatis di <b>Web Publik</b>, <b>Aplikasi</b>, dan <b>Portal</b> (Back Office/Extranet/CM/PMS) — tanpa perlu deploy.
+</p>
+
+<div class="card">
+  <h3 style="margin-top:0">Tambah / Perbarui Istilah</h3>
+  <form method="post" action="/admin/translations">
+    <label>Frasa Sumber (teks Indonesia asli) <span style="color:#c0392b">*</span></label>
+    <input name="source" required placeholder='mis. Kamar  /  Pesan Sekarang  /  Venue & Meeting'>
+    <div class="row2">
+      <div><label>Teks ID (versi Indonesia)</label><input name="textId" placeholder="kosongkan = sama dengan sumber"></div>
+      <div><label>Teks EN (terjemahan Inggris)</label><input name="textEn" placeholder="mis. Room"></div>
+    </div>
+    <label>Tag Permukaan (opsional, untuk filter saja)</label>
+    <select name="surface" style="max-width:200px">
+      <option value="">Semua</option><option>PUBLIC</option><option>APP</option><option>PORTAL</option>
+    </select>
+    <div style="margin-top:14px"><button class="btn">Simpan Istilah</button></div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">Menyimpan dengan <b>Frasa Sumber</b> yang sama akan memperbarui istilah yang ada (bukan duplikat).</p>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Daftar Istilah (<%= items.length %>)</h3>
+  <table>
+    <thead><tr><th>Frasa Sumber</th><th>Teks ID</th><th>Teks EN</th><th>Tag</th><th></th></tr></thead>
+    <tbody>
+      <% items.forEach(function(it){ %>
+        <tr>
+          <td style="max-width:220px"><b><%= it.source %></b></td>
+          <td colspan="2">
+            <form method="post" action="/admin/translations/<%= it.id %>" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
+              <input name="textId" value="<%= it.textId %>" placeholder="ID" style="min-width:150px">
+              <input name="textEn" value="<%= it.textEn %>" placeholder="EN" style="min-width:150px">
+              <button class="btn ghost sm">Simpan</button>
+            </form>
+          </td>
+          <td><%= it.surface || '—' %></td>
+          <td><form method="post" action="/admin/translations/<%= it.id %>/delete" data-confirm="Hapus istilah ini?"><button class="btn danger sm">Hapus</button></form></td>
+        </tr>
+      <% }) %>
+      <% if(!items.length){ %><tr><td colspan="5" class="empty">Belum ada istilah. Tambahkan di atas.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>

@@ -56,6 +56,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Terjemahan/istilah: muat override sekali (cache ±2 mnt) & sisipkan ke semua view ──
+let _i18nCache = { at: 0, map: {} };
+async function loadI18n() {
+  const now = Date.now();
+  if (now - _i18nCache.at < 120000) return _i18nCache.map;
+  try {
+    const r = await api("/i18n");
+    _i18nCache = { at: now, map: r.overrides || {} };
+  } catch (_) { _i18nCache = { at: now, map: _i18nCache.map || {} }; }
+  return _i18nCache.map;
+}
+app.use(async (req, res, next) => {
+  try { res.locals.i18n = await loadI18n(); } catch (_) { res.locals.i18n = {}; }
+  // Bahasa portal disimpan di cookie sederhana (id|en); default id.
+  const m = (req.headers.cookie || "").match(/miruum_portal_lang=(en|id)/);
+  res.locals.portalLang = m ? m[1] : "id";
+  next();
+});
+app.get("/set-lang/:lang", (req, res) => {
+  const lang = req.params.lang === "en" ? "en" : "id";
+  res.setHeader("Set-Cookie", `miruum_portal_lang=${lang}; Path=/; Max-Age=31536000; SameSite=Lax`);
+  res.redirect(req.get("referer") || "/");
+});
+
 // ── API helper (server-side calls to the core backend) ──
 async function api(pathname, { method = "GET", token, body } = {}) {
   const res = await fetch(API + pathname, {
@@ -859,6 +883,24 @@ app.post("/admin/settings", adminGuard, async (req, res) => {
   // Checkbox: present → "1", absent → "0" (unchecked boxes aren't submitted).
   req.body.foreign_market_enabled = req.body.foreign_market_enabled ? "1" : "0";
   await api("/admin/settings", { method: "PUT", token: res.locals.token, body: req.body }); res.redirect("/admin/settings?saved=1");
+});
+
+// ── Manajer Terjemahan / Istilah ──
+app.get("/admin/translations", adminGuard, async (req, res) => {
+  const { items } = await api("/admin/i18n", { token: res.locals.token });
+  res.render("admin/translations", { items: items || [], active: "translations", saved: req.query.saved, err: req.query.err });
+});
+app.post("/admin/translations", adminGuard, async (req, res) => {
+  try { await api("/admin/i18n", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/translations?saved=1"); }
+  catch (e) { res.redirect("/admin/translations?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/admin/translations/:id", adminGuard, async (req, res) => {
+  try { await api(`/admin/i18n/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); } catch (_) {}
+  res.redirect("/admin/translations?saved=1");
+});
+app.post("/admin/translations/:id/delete", adminGuard, async (req, res) => {
+  try { await api(`/admin/i18n/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
+  res.redirect("/admin/translations");
 });
 // Metode pembayaran yang ditawarkan — disimpan lewat endpoint settings
 // sebagai daftar kode dipisah koma. Kosong = tawarkan semua metode.

@@ -56,6 +56,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       final m = await context.read<Api>().modules();
       if (m.isNotEmpty) AppSettings.modules.value = {...AppSettings.modules.value, ...m};
     } catch (_) {}
+    try {
+      final t = await context.read<Api>().i18n();
+      AppSettings.i18n.value = t;
+    } catch (_) {}
   }
 
   @override

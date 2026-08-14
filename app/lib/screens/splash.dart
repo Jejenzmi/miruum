@@ -23,6 +23,12 @@ class _SplashScreenState extends State<SplashScreen> {
         if (m.isNotEmpty) AppSettings.modules.value = {...AppSettings.modules.value, ...m};
       }).catchError((_) {});
     } catch (_) {}
+    // Load admin-managed translation overrides (never blocks launch).
+    try {
+      context.read<Api>().i18n().then((m) {
+        AppSettings.i18n.value = m;
+      }).catchError((_) {});
+    } catch (_) {}
     // Nationality (market) pricing status + IP-resolved default (never blocks launch).
     try {
       context.read<Api>().market().then((r) {
