@@ -10,18 +10,29 @@
   .sfchip[data-s="Corporate"]{background:#E8EEF2;color:#33566B}
   .sfchip[data-s="Portal"]{background:#EFEFEF;color:#555}
   .sffilter{display:inline-flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
-  .sffilter button{font-size:12px;font-weight:700;padding:5px 11px;border-radius:8px;border:1px solid #d8dbe2;
-    background:#fff;color:#475467;cursor:pointer}
-  .sffilter button.on{background:#E07C17;color:#fff;border-color:#E07C17}
+  .sffilter a{font-size:12px;font-weight:700;padding:5px 11px;border-radius:8px;border:1px solid #d8dbe2;
+    background:#fff;color:#475467;cursor:pointer;text-decoration:none}
+  .sffilter a.on{background:#E07C17;color:#fff;border-color:#E07C17}
+  .pager{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:14px}
+  .pager a,.pager span.cur{font-size:13px;font-weight:700;padding:6px 11px;border-radius:8px;border:1px solid #d8dbe2;
+    background:#fff;color:#475467;text-decoration:none}
+  .pager span.cur{background:#E07C17;color:#fff;border-color:#E07C17}
+  .pager a.dis{opacity:.4;pointer-events:none}
+  .pager .gap{border:none;background:none;color:#98a2b3}
 </style>
+
+<%
+  // Helper: build a querystring preserving q/sf and setting page.
+  function qs(p){ var o=[]; if(q) o.push('q='+encodeURIComponent(q)); if(sf) o.push('sf='+encodeURIComponent(sf)); if(p) o.push('page='+p); return '/admin/translations'+(o.length?'?'+o.join('&'):''); }
+  var SURFACES = ['Aplikasi','Web Publik','Back Office','Extranet','PMS','Corporate'];
+%>
 
 <% if (saved) { %><div class="notice ok">Istilah tersimpan. Berlaku di web publik, aplikasi & portal (cache ±2 menit).</div><% } %>
 <% if (err) { %><div class="notice bad"><%= err %></div><% } %>
 
-<p class="muted" style="margin:-4px 0 16px;max-width:760px;line-height:1.6">
-  Atur istilah/terjemahan berdasarkan <b>frasa sumber</b> (teks Bahasa Indonesia asli).
-  Isi <b>Teks ID</b> untuk mengganti istilah versi Indonesia (mis. "Kamar" → "Ruang"), dan <b>Teks EN</b> untuk terjemahan Inggris.
-  Berlaku otomatis di <b>Web Publik</b>, <b>Aplikasi</b>, dan <b>Portal</b> (Back Office/Extranet/CM/PMS) — tanpa perlu deploy.
+<p class="muted" style="margin:-4px 0 16px;max-width:780px;line-height:1.6">
+  Katalog terisi otomatis dari seluruh istilah aplikasi &amp; web. Isi <b>Teks ID</b> untuk mengganti istilah versi Indonesia dan <b>Teks EN</b> untuk terjemahan Inggris.
+  Berlaku otomatis di <b>Web Publik</b>, <b>Aplikasi</b>, dan <b>Portal</b> (Back Office/Extranet/CM/PMS). Chip di kolom kanan menandai istilah dipakai di mana.
 </p>
 
 <div class="card">
@@ -36,8 +47,7 @@
     <label>Permukaan (tempat istilah dipakai — untuk info admin)</label>
     <select name="surface" style="max-width:220px">
       <option value="">— pilih —</option>
-      <option>Aplikasi</option><option>Web Publik</option><option>Back Office</option>
-      <option>Extranet</option><option>PMS</option><option>Corporate</option>
+      <% SURFACES.forEach(function(s){ %><option><%= s %></option><% }) %>
     </select>
     <div style="margin-top:14px"><button class="btn">Simpan Istilah</button></div>
     <p class="muted" style="font-size:12px;margin:8px 0 0">Menyimpan dengan <b>Frasa Sumber</b> yang sama akan memperbarui istilah yang ada (bukan duplikat).</p>
@@ -45,66 +55,63 @@
 </div>
 
 <div class="card">
-  <h3 style="margin-top:0">Daftar Istilah (<span id="trCount"><%= items.length %></span>)</h3>
-  <div class="sffilter" id="sfFilter">
-    <button class="on" data-sf="" onclick="setSurface(this)">Semua</button>
-    <button data-sf="aplikasi" onclick="setSurface(this)">Aplikasi</button>
-    <button data-sf="web publik" onclick="setSurface(this)">Web Publik</button>
-    <button data-sf="back office" onclick="setSurface(this)">Back Office</button>
-    <button data-sf="extranet" onclick="setSurface(this)">Extranet</button>
-    <button data-sf="pms" onclick="setSurface(this)">PMS</button>
-    <button data-sf="corporate" onclick="setSurface(this)">Corporate</button>
+  <h3 style="margin-top:0">Daftar Istilah (<%= total %><% if (total !== allCount) { %> dari <%= allCount %><% } %>)</h3>
+
+  <!-- Filter per permukaan -->
+  <div class="sffilter">
+    <a href="/admin/translations<%= q ? '?q='+encodeURIComponent(q) : '' %>" class="<%= sf ? '' : 'on' %>">Semua</a>
+    <% SURFACES.forEach(function(s){ var on = sf === s.toLowerCase(); var o=[]; o.push('sf='+encodeURIComponent(s)); if(q) o.push('q='+encodeURIComponent(q)); %>
+      <a href="/admin/translations?<%= o.join('&') %>" class="<%= on ? 'on' : '' %>"><%= s %></a>
+    <% }) %>
   </div>
-  <input id="trSearch" placeholder="🔎 Cari istilah (ketik kata Indonesia/Inggris)…" autocomplete="off"
-         style="width:100%;max-width:520px;margin-bottom:12px" oninput="filterTerms()">
-  <p class="muted" style="font-size:12px;margin:-4px 0 12px">Katalog sudah terisi otomatis dari seluruh istilah aplikasi &amp; web. Admin tinggal cari lalu ubah kolom yang perlu.</p>
-  <table id="trTable">
-    <thead><tr><th>Frasa Sumber</th><th>Teks ID</th><th>Teks EN</th><th>Tag</th><th></th></tr></thead>
+
+  <!-- Pencarian -->
+  <form method="get" action="/admin/translations" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <% if (sf) { %><input type="hidden" name="sf" value="<%= sf %>"><% } %>
+    <input name="q" value="<%= q %>" placeholder="🔎 Cari istilah (Indonesia/Inggris)…" autocomplete="off" style="flex:1;min-width:220px;max-width:520px">
+    <button class="btn sm">Cari</button>
+    <% if (q) { %><a class="btn ghost sm" href="/admin/translations<%= sf ? '?sf='+encodeURIComponent(sf) : '' %>">Reset</a><% } %>
+  </form>
+
+  <table>
+    <thead><tr><th>Frasa Sumber</th><th>Teks ID</th><th>Teks EN</th><th>Dipakai di</th><th></th></tr></thead>
     <tbody>
       <% items.forEach(function(it){ %>
-        <tr data-k="<%= (it.source + ' ' + it.textId + ' ' + it.textEn + ' ' + (it.surface||'')).toLowerCase().replace(/"/g,'&quot;') %>">
+        <tr>
           <td style="max-width:220px"><b><%= it.source %></b></td>
           <td colspan="2">
-            <form method="post" action="/admin/translations/<%= it.id %>" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
+            <form method="post" action="/admin/translations/<%= it.id %>?page=<%= page %><%= q?'&q='+encodeURIComponent(q):'' %><%= sf?'&sf='+encodeURIComponent(sf):'' %>" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
               <input name="textId" value="<%= it.textId %>" placeholder="ID" style="min-width:150px">
               <input name="textEn" value="<%= it.textEn %>" placeholder="EN" style="min-width:150px">
               <button class="btn ghost sm">Simpan</button>
             </form>
           </td>
           <td style="max-width:200px">
-            <% (it.surface ? it.surface.split(',') : []).forEach(function(sf){ sf=sf.trim(); if(!sf) return; %><span class="sfchip" data-s="<%= sf %>"><%= sf %></span><% }) %>
+            <% (it.surface ? it.surface.split(',') : []).forEach(function(s){ s=s.trim(); if(!s) return; %><span class="sfchip" data-s="<%= s %>"><%= s %></span><% }) %>
             <% if(!it.surface){ %><span class="muted">—</span><% } %>
           </td>
           <td><form method="post" action="/admin/translations/<%= it.id %>/delete" data-confirm="Hapus istilah ini?"><button class="btn danger sm">Hapus</button></form></td>
         </tr>
       <% }) %>
-      <% if(!items.length){ %><tr><td colspan="5" class="empty">Belum ada istilah. Tambahkan di atas.</td></tr><% } %>
+      <% if(!items.length){ %><tr><td colspan="5" class="empty">Tidak ada istilah yang cocok.</td></tr><% } %>
     </tbody>
   </table>
-</div>
 
-<script>
-  // Live filter over the (large) term catalog — text search + surface chip.
-  var _trRows = null, _trTimer = null, _sf = '';
-  function setSurface(btn){
-    _sf = btn.getAttribute('data-sf') || '';
-    document.querySelectorAll('#sfFilter button').forEach(function(b){ b.classList.toggle('on', b===btn); });
-    filterTerms();
-  }
-  function filterTerms(){
-    clearTimeout(_trTimer);
-    _trTimer = setTimeout(function(){
-      if (!_trRows) _trRows = Array.prototype.slice.call(document.querySelectorAll('#trTable tbody tr[data-k]'));
-      var s = (document.getElementById('trSearch').value || '').trim().toLowerCase(), shown = 0;
-      _trRows.forEach(function(r){
-        var k = r.getAttribute('data-k');
-        var hit = (!s || k.indexOf(s) !== -1) && (!_sf || k.indexOf(_sf) !== -1);
-        r.style.display = hit ? '' : 'none';
-        if (hit) shown++;
-      });
-      var c = document.getElementById('trCount'); if (c) c.textContent = shown;
-    }, 120);
-  }
-</script>
+  <!-- Paginasi 20/halaman -->
+  <% if (pages > 1) { %>
+  <div class="pager">
+    <a href="<%= qs(page-1) %>" class="<%= page<=1 ? 'dis' : '' %>">← Sebelumnya</a>
+    <%
+      var win = []; var lo = Math.max(1, page-2), hi = Math.min(pages, page+2);
+      if (lo > 1) { win.push(1); if (lo > 2) win.push('gap'); }
+      for (var p = lo; p <= hi; p++) win.push(p);
+      if (hi < pages) { if (hi < pages-1) win.push('gap'); win.push(pages); }
+    %>
+    <% win.forEach(function(p){ if(p==='gap'){ %><span class="gap">…</span><% } else if(p===page){ %><span class="cur"><%= p %></span><% } else { %><a href="<%= qs(p) %>"><%= p %></a><% } }) %>
+    <a href="<%= qs(page+1) %>" class="<%= page>=pages ? 'dis' : '' %>">Berikutnya →</a>
+    <span class="muted" style="margin-left:8px;font-size:12px">Hal. <%= page %>/<%= pages %> · <%= per %>/hal.</span>
+  </div>
+  <% } %>
+</div>
 
 <%- include('../partials/bottom') %>

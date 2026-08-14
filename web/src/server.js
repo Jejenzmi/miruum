@@ -888,7 +888,23 @@ app.post("/admin/settings", adminGuard, async (req, res) => {
 // ── Manajer Terjemahan / Istilah ──
 app.get("/admin/translations", adminGuard, async (req, res) => {
   const { items } = await api("/admin/i18n", { token: res.locals.token });
-  res.render("admin/translations", { items: items || [], active: "translations", saved: req.query.saved, err: req.query.err });
+  const all = items || [];
+  const q = (req.query.q || "").toString().trim().toLowerCase();
+  const sf = (req.query.sf || "").toString().trim().toLowerCase();
+  let filtered = all;
+  if (q) filtered = filtered.filter((i) => (`${i.source} ${i.textId} ${i.textEn} ${i.surface || ""}`).toLowerCase().includes(q));
+  if (sf) filtered = filtered.filter((i) => (i.surface || "").toLowerCase().includes(sf));
+  const per = 20;
+  const total = filtered.length;
+  const pages = Math.max(1, Math.ceil(total / per));
+  let page = parseInt(req.query.page, 10) || 1;
+  if (page < 1) page = 1; if (page > pages) page = pages;
+  const pageItems = filtered.slice((page - 1) * per, (page - 1) * per + per);
+  res.render("admin/translations", {
+    items: pageItems, total, page, pages, per, allCount: all.length,
+    q: req.query.q || "", sf: req.query.sf || "",
+    active: "translations", saved: req.query.saved, err: req.query.err,
+  });
 });
 app.post("/admin/translations", adminGuard, async (req, res) => {
   try { await api("/admin/i18n", { method: "POST", token: res.locals.token, body: req.body }); res.redirect("/admin/translations?saved=1"); }
@@ -896,7 +912,12 @@ app.post("/admin/translations", adminGuard, async (req, res) => {
 });
 app.post("/admin/translations/:id", adminGuard, async (req, res) => {
   try { await api(`/admin/i18n/${req.params.id}`, { method: "PUT", token: res.locals.token, body: req.body }); } catch (_) {}
-  res.redirect("/admin/translations?saved=1");
+  // Kembali ke halaman/filter yang sama supaya admin tidak kehilangan posisi.
+  const keep = []; if (req.query.page) keep.push("page=" + encodeURIComponent(req.query.page));
+  if (req.query.q) keep.push("q=" + encodeURIComponent(req.query.q));
+  if (req.query.sf) keep.push("sf=" + encodeURIComponent(req.query.sf));
+  keep.push("saved=1");
+  res.redirect("/admin/translations?" + keep.join("&"));
 });
 app.post("/admin/translations/:id/delete", adminGuard, async (req, res) => {
   try { await api(`/admin/i18n/${req.params.id}`, { method: "DELETE", token: res.locals.token }); } catch (_) {}
