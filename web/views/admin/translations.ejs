@@ -1,5 +1,20 @@
 <%- include('../partials/top', { title:'Terjemahan', heading:'Manajer Terjemahan / Istilah', section:'admin', active:'translations', me }) %>
 
+<style>
+  .sfchip{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;margin:1px 2px;
+    background:#FDEED9;color:#B5610F;white-space:nowrap}
+  .sfchip[data-s="Web Publik"]{background:#E3F0FA;color:#1C5A8A}
+  .sfchip[data-s="Back Office"]{background:#EAE6FB;color:#5B47B5}
+  .sfchip[data-s="Extranet"]{background:#E4F5EC;color:#1E7A4D}
+  .sfchip[data-s="PMS"]{background:#FCE8EE;color:#B5335C}
+  .sfchip[data-s="Corporate"]{background:#E8EEF2;color:#33566B}
+  .sfchip[data-s="Portal"]{background:#EFEFEF;color:#555}
+  .sffilter{display:inline-flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .sffilter button{font-size:12px;font-weight:700;padding:5px 11px;border-radius:8px;border:1px solid #d8dbe2;
+    background:#fff;color:#475467;cursor:pointer}
+  .sffilter button.on{background:#E07C17;color:#fff;border-color:#E07C17}
+</style>
+
 <% if (saved) { %><div class="notice ok">Istilah tersimpan. Berlaku di web publik, aplikasi & portal (cache ±2 menit).</div><% } %>
 <% if (err) { %><div class="notice bad"><%= err %></div><% } %>
 
@@ -18,9 +33,11 @@
       <div><label>Teks ID (versi Indonesia)</label><input name="textId" placeholder="kosongkan = sama dengan sumber"></div>
       <div><label>Teks EN (terjemahan Inggris)</label><input name="textEn" placeholder="mis. Room"></div>
     </div>
-    <label>Tag Permukaan (opsional, untuk filter saja)</label>
-    <select name="surface" style="max-width:200px">
-      <option value="">Semua</option><option>PUBLIC</option><option>APP</option><option>PORTAL</option>
+    <label>Permukaan (tempat istilah dipakai — untuk info admin)</label>
+    <select name="surface" style="max-width:220px">
+      <option value="">— pilih —</option>
+      <option>Aplikasi</option><option>Web Publik</option><option>Back Office</option>
+      <option>Extranet</option><option>PMS</option><option>Corporate</option>
     </select>
     <div style="margin-top:14px"><button class="btn">Simpan Istilah</button></div>
     <p class="muted" style="font-size:12px;margin:8px 0 0">Menyimpan dengan <b>Frasa Sumber</b> yang sama akan memperbarui istilah yang ada (bukan duplikat).</p>
@@ -29,14 +46,23 @@
 
 <div class="card">
   <h3 style="margin-top:0">Daftar Istilah (<span id="trCount"><%= items.length %></span>)</h3>
+  <div class="sffilter" id="sfFilter">
+    <button class="on" data-sf="" onclick="setSurface(this)">Semua</button>
+    <button data-sf="aplikasi" onclick="setSurface(this)">Aplikasi</button>
+    <button data-sf="web publik" onclick="setSurface(this)">Web Publik</button>
+    <button data-sf="back office" onclick="setSurface(this)">Back Office</button>
+    <button data-sf="extranet" onclick="setSurface(this)">Extranet</button>
+    <button data-sf="pms" onclick="setSurface(this)">PMS</button>
+    <button data-sf="corporate" onclick="setSurface(this)">Corporate</button>
+  </div>
   <input id="trSearch" placeholder="🔎 Cari istilah (ketik kata Indonesia/Inggris)…" autocomplete="off"
-         style="width:100%;max-width:520px;margin-bottom:12px" oninput="filterTerms(this.value)">
+         style="width:100%;max-width:520px;margin-bottom:12px" oninput="filterTerms()">
   <p class="muted" style="font-size:12px;margin:-4px 0 12px">Katalog sudah terisi otomatis dari seluruh istilah aplikasi &amp; web. Admin tinggal cari lalu ubah kolom yang perlu.</p>
   <table id="trTable">
     <thead><tr><th>Frasa Sumber</th><th>Teks ID</th><th>Teks EN</th><th>Tag</th><th></th></tr></thead>
     <tbody>
       <% items.forEach(function(it){ %>
-        <tr data-k="<%= (it.source + ' ' + it.textId + ' ' + it.textEn).toLowerCase().replace(/"/g,'&quot;') %>">
+        <tr data-k="<%= (it.source + ' ' + it.textId + ' ' + it.textEn + ' ' + (it.surface||'')).toLowerCase().replace(/"/g,'&quot;') %>">
           <td style="max-width:220px"><b><%= it.source %></b></td>
           <td colspan="2">
             <form method="post" action="/admin/translations/<%= it.id %>" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
@@ -45,7 +71,10 @@
               <button class="btn ghost sm">Simpan</button>
             </form>
           </td>
-          <td><%= it.surface || '—' %></td>
+          <td style="max-width:200px">
+            <% (it.surface ? it.surface.split(',') : []).forEach(function(sf){ sf=sf.trim(); if(!sf) return; %><span class="sfchip" data-s="<%= sf %>"><%= sf %></span><% }) %>
+            <% if(!it.surface){ %><span class="muted">—</span><% } %>
+          </td>
           <td><form method="post" action="/admin/translations/<%= it.id %>/delete" data-confirm="Hapus istilah ini?"><button class="btn danger sm">Hapus</button></form></td>
         </tr>
       <% }) %>
@@ -55,15 +84,21 @@
 </div>
 
 <script>
-  // Live filter over the (large) term catalog — pure client-side, debounced.
-  var _trRows = null, _trTimer = null;
-  function filterTerms(q){
+  // Live filter over the (large) term catalog — text search + surface chip.
+  var _trRows = null, _trTimer = null, _sf = '';
+  function setSurface(btn){
+    _sf = btn.getAttribute('data-sf') || '';
+    document.querySelectorAll('#sfFilter button').forEach(function(b){ b.classList.toggle('on', b===btn); });
+    filterTerms();
+  }
+  function filterTerms(){
     clearTimeout(_trTimer);
     _trTimer = setTimeout(function(){
       if (!_trRows) _trRows = Array.prototype.slice.call(document.querySelectorAll('#trTable tbody tr[data-k]'));
-      var s = (q || '').trim().toLowerCase(), shown = 0;
+      var s = (document.getElementById('trSearch').value || '').trim().toLowerCase(), shown = 0;
       _trRows.forEach(function(r){
-        var hit = !s || r.getAttribute('data-k').indexOf(s) !== -1;
+        var k = r.getAttribute('data-k');
+        var hit = (!s || k.indexOf(s) !== -1) && (!_sf || k.indexOf(_sf) !== -1);
         r.style.display = hit ? '' : 'none';
         if (hit) shown++;
       });

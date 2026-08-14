@@ -1311,6 +1311,19 @@ app.post("/api/admin/i18n/bulk", requireRole("ADMIN"), async (req, res) => {
   await invalidate("miruum:i18n");
   res.json({ created: r.count, submitted: data.length });
 });
+// Bulk-set the "surface" tag (where a term is used) by source phrase.
+app.post("/api/admin/i18n/tag", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ items: z.array(z.object({ source: z.string().min(1), surface: z.string() })).max(5000) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  let updated = 0;
+  for (const it of p.data.items) {
+    const r = await prisma.translationOverride.updateMany({ where: { source: it.source.trim() }, data: { surface: it.surface || null } });
+    updated += r.count;
+  }
+  await invalidate("miruum:i18n");
+  res.json({ updated });
+});
 app.put("/api/admin/i18n/:id", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({ textId: z.string().optional(), textEn: z.string().optional(), surface: z.string().optional() });
   const p = schema.safeParse(req.body);
