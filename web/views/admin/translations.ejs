@@ -28,12 +28,15 @@
 </div>
 
 <div class="card">
-  <h3 style="margin-top:0">Daftar Istilah (<%= items.length %>)</h3>
-  <table>
+  <h3 style="margin-top:0">Daftar Istilah (<span id="trCount"><%= items.length %></span>)</h3>
+  <input id="trSearch" placeholder="🔎 Cari istilah (ketik kata Indonesia/Inggris)…" autocomplete="off"
+         style="width:100%;max-width:520px;margin-bottom:12px" oninput="filterTerms(this.value)">
+  <p class="muted" style="font-size:12px;margin:-4px 0 12px">Katalog sudah terisi otomatis dari seluruh istilah aplikasi &amp; web. Admin tinggal cari lalu ubah kolom yang perlu.</p>
+  <table id="trTable">
     <thead><tr><th>Frasa Sumber</th><th>Teks ID</th><th>Teks EN</th><th>Tag</th><th></th></tr></thead>
     <tbody>
       <% items.forEach(function(it){ %>
-        <tr>
+        <tr data-k="<%= (it.source + ' ' + it.textId + ' ' + it.textEn).toLowerCase().replace(/"/g,'&quot;') %>">
           <td style="max-width:220px"><b><%= it.source %></b></td>
           <td colspan="2">
             <form method="post" action="/admin/translations/<%= it.id %>" style="display:flex;gap:6px;align-items:center;margin:0;flex-wrap:wrap">
@@ -50,5 +53,23 @@
     </tbody>
   </table>
 </div>
+
+<script>
+  // Live filter over the (large) term catalog — pure client-side, debounced.
+  var _trRows = null, _trTimer = null;
+  function filterTerms(q){
+    clearTimeout(_trTimer);
+    _trTimer = setTimeout(function(){
+      if (!_trRows) _trRows = Array.prototype.slice.call(document.querySelectorAll('#trTable tbody tr[data-k]'));
+      var s = (q || '').trim().toLowerCase(), shown = 0;
+      _trRows.forEach(function(r){
+        var hit = !s || r.getAttribute('data-k').indexOf(s) !== -1;
+        r.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      var c = document.getElementById('trCount'); if (c) c.textContent = shown;
+    }, 120);
+  }
+</script>
 
 <%- include('../partials/bottom') %>

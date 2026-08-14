@@ -1294,6 +1294,23 @@ app.post("/api/admin/i18n", requireRole("ADMIN"), async (req, res) => {
   await invalidate("miruum:i18n");
   res.json({ item });
 });
+// Bulk-seed the term catalog. Inserts only missing sources (skipDuplicates) so
+// existing admin corrections are never clobbered on re-run.
+app.post("/api/admin/i18n/bulk", requireRole("ADMIN"), async (req, res) => {
+  const schema = z.object({ items: z.array(z.object({
+    source: z.string().min(1), textId: z.string().optional(), textEn: z.string().optional(), surface: z.string().optional(),
+  })).max(5000) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data tidak valid" });
+  const seen = new Set<string>();
+  const data = p.data.items.map((it) => {
+    const source = it.source.trim();
+    return { source, textId: (it.textId || source).trim(), textEn: (it.textEn || source).trim(), surface: it.surface || null };
+  }).filter((d) => d.source && !seen.has(d.source) && seen.add(d.source));
+  const r = await prisma.translationOverride.createMany({ data, skipDuplicates: true });
+  await invalidate("miruum:i18n");
+  res.json({ created: r.count, submitted: data.length });
+});
 app.put("/api/admin/i18n/:id", requireRole("ADMIN"), async (req, res) => {
   const schema = z.object({ textId: z.string().optional(), textEn: z.string().optional(), surface: z.string().optional() });
   const p = schema.safeParse(req.body);
