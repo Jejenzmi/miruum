@@ -1000,6 +1000,57 @@ model LedgerEntry {
   @@index([accountId])
 }
 
+// ─────────────── Double-entry accounting (General Ledger) ───────────────
+// Chart of Accounts. hotelId null = shared template; per-hotel accounts are the
+// postable ones. type ∈ ASSET|LIABILITY|EQUITY|REVENUE|EXPENSE.
+model GlAccount {
+  id            String   @id @default(cuid())
+  hotelId       String?
+  code          String
+  name          String
+  type          String
+  normalBalance String   // DEBIT | CREDIT
+  parentCode    String?
+  isPostable    Boolean  @default(true)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  lines         GlLine[]
+
+  @@unique([hotelId, code])
+  @@index([hotelId])
+}
+
+// A balanced journal entry (Σdebit = Σcredit across its lines).
+model GlJournal {
+  id          String   @id @default(cuid())
+  hotelId     String
+  date        DateTime
+  ref         String?          // deterministic key for idempotent rebuild (e.g. ROOM-<code>)
+  source      String           // NIGHT_AUDIT | ROOM | FOLIO | PAYMENT | PREPAY | AR | MANUAL
+  description String
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  lines       GlLine[]
+
+  @@index([hotelId, date])
+  @@index([hotelId, ref])
+  @@index([source])
+}
+
+model GlLine {
+  id        String    @id @default(cuid())
+  journalId String
+  accountId String
+  debit     BigInt    @default(0)
+  credit    BigInt    @default(0)
+  memo      String?
+  journal   GlJournal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account   GlAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([journalId])
+  @@index([accountId])
+}
+
 // Room / unit block — Out-of-Order, maintenance, or a manual hold. Blocking a whole
 // room type reserves inventory (allotment) so it can't be overbooked; blocking a
 // single unit marks it OOO on the rack.

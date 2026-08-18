@@ -1,0 +1,27 @@
+<%- include('../partials/top', { title:'Bagan Akun', heading:'Bagan Akun (Chart of Accounts)', section:'extranet', active:'gl_coa', me }) %>
+
+<% if (posted) { %><div class="notice ok">Jurnal dibangun ulang.</div><% } %>
+<% var TYPE={ASSET:'Aset',LIABILITY:'Kewajiban',EQUITY:'Ekuitas',REVENUE:'Pendapatan',EXPENSE:'Beban'};
+   var order=['ASSET','LIABILITY','EQUITY','REVENUE','EXPENSE']; %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <p class="muted" style="margin:0">Bagan akun standar hotel. Jurnal otomatis di-posting dari reservasi, folio &amp; pembayaran ke akun-akun ini.</p>
+  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/coa"><button class="btn ghost sm">↻ Posting / Bangun Ulang Jurnal</button></form>
+</div>
+
+<% order.forEach(function(t){ var list=(accounts||[]).filter(function(a){return a.type===t;}); if(!list.length) return; %>
+  <div class="card">
+    <h3 style="margin-top:0"><%= TYPE[t] %></h3>
+    <table>
+      <thead><tr><th style="width:90px">Kode</th><th>Nama Akun</th><th style="width:120px">Saldo Normal</th></tr></thead>
+      <tbody>
+        <% list.forEach(function(a){ %>
+          <tr><td><code><%= a.code %></code></td><td><%= a.name %></td><td><%= a.normalBalance==='DEBIT'?'Debit':'Kredit' %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% }) %>
+<% if(!(accounts||[]).length){ %><div class="card"><div class="empty">COA belum dibuat.</div></div><% } %>
+
+<%- include('../partials/bottom') %>

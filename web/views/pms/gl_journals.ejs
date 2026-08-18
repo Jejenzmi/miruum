@@ -1,0 +1,92 @@
+<%- include('../partials/top', { title:'Jurnal', heading:'Jurnal Umum', section:'extranet', active:'gl_journals', me }) %>
+
+<% if (saved) { %><div class="notice ok">Jurnal manual tersimpan.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <p class="muted" style="margin:0">Jurnal otomatis (ROOM/FOLIO/PREPAY/PAYMENT) dibangun dari data PMS. Tambahkan jurnal <b>MANUAL</b> untuk beban, penyesuaian, dsb.</p>
+  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/journals"><button class="btn ghost sm">↻ Posting Ulang Otomatis</button></form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Jurnal Manual Baru</h3>
+  <form method="post" action="/pms/gl/journal">
+    <div class="row2">
+      <div><label>Tanggal</label><input type="date" name="date"></div>
+      <div><label>Keterangan</label><input name="description" required placeholder="mis. Bayar listrik bulan ini"></div>
+    </div>
+    <table id="jlines" style="margin-top:10px">
+      <thead><tr><th>Akun</th><th style="width:150px">Debit</th><th style="width:150px">Kredit</th><th>Memo</th><th></th></tr></thead>
+      <tbody>
+        <% for (var i=0;i<2;i++){ %>
+        <tr>
+          <td><select name="code"><option value="">— pilih akun —</option><% (coa||[]).forEach(function(a){ %><option value="<%= a.code %>"><%= a.code %> · <%= a.name %></option><% }) %></select></td>
+          <td><input name="debit" type="number" min="0" value="0" class="jd" oninput="recalc()"></td>
+          <td><input name="credit" type="number" min="0" value="0" class="jc" oninput="recalc()"></td>
+          <td><input name="memo" placeholder="opsional"></td>
+          <td><button type="button" class="btn ghost sm" onclick="delRow(this)">×</button></td>
+        </tr>
+        <% } %>
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn ghost sm" onclick="addRow()">+ Tambah baris</button>
+      <div>Total Debit <b id="tD">Rp 0</b> · Total Kredit <b id="tC">Rp 0</b> <span id="bal"></span></div>
+    </div>
+    <div style="margin-top:12px"><button class="btn" id="jsave">Simpan Jurnal</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Jurnal Terbaru</h3>
+  <% (journals||[]).forEach(function(j){ %>
+    <div style="border:1px solid #e4e7ec;border-radius:10px;padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <b><%= new Date(j.date).toLocaleDateString('id-ID') %> · <%= j.description %></b>
+        <span class="muted" style="font-size:12px"><%= j.source %><% if(j.ref){ %> · <%= j.ref %><% } %></span>
+      </div>
+      <table style="margin-top:6px">
+        <tbody>
+          <% j.lines.forEach(function(l){ %>
+            <tr>
+              <td><code><%= l.account.code %></code> <%= l.account.name %><% if(l.memo){ %> <span class="muted">· <%= l.memo %></span><% } %></td>
+              <td style="text-align:right;width:150px"><%= Number(l.debit) ? rupiah(Number(l.debit)) : '' %></td>
+              <td style="text-align:right;width:150px"><%= Number(l.credit) ? rupiah(Number(l.credit)) : '' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% }) %>
+  <% if(!(journals||[]).length){ %><div class="empty">Belum ada jurnal. Klik "Posting Ulang Otomatis" untuk membangun dari data PMS.</div><% } %>
+</div>
+
+<script>
+  var COA_OPTIONS = `<option value="">— pilih akun —</option><% (coa||[]).forEach(function(a){ %><option value="<%= a.code %>"><%= a.code %> · <%= (a.name||'').replace(/`/g,'') %></option><% }) %>`;
+  function fmt(n){ return 'Rp ' + (n||0).toLocaleString('id-ID'); }
+  function addRow(){
+    var tb = document.querySelector('#jlines tbody');
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><select name="code">'+COA_OPTIONS+'</select></td>'+
+      '<td><input name="debit" type="number" min="0" value="0" class="jd" oninput="recalc()"></td>'+
+      '<td><input name="credit" type="number" min="0" value="0" class="jc" oninput="recalc()"></td>'+
+      '<td><input name="memo" placeholder="opsional"></td>'+
+      '<td><button type="button" class="btn ghost sm" onclick="delRow(this)">×</button></td>';
+    tb.appendChild(tr);
+  }
+  function delRow(btn){ var tb=document.querySelector('#jlines tbody'); if(tb.rows.length>2) btn.closest('tr').remove(); recalc(); }
+  function recalc(){
+    var d=0,c=0;
+    document.querySelectorAll('#jlines .jd').forEach(function(i){ d+=Number(i.value||0); });
+    document.querySelectorAll('#jlines .jc').forEach(function(i){ c+=Number(i.value||0); });
+    document.getElementById('tD').textContent=fmt(d);
+    document.getElementById('tC').textContent=fmt(c);
+    var bal=document.getElementById('bal'), ok=(d===c && d>0);
+    bal.textContent = ok ? '✓ balance' : '⚠ belum balance';
+    bal.style.color = ok ? '#1E7A4D' : '#B5335C';
+    document.getElementById('jsave').disabled = !ok;
+  }
+  recalc();
+</script>
+
+<%- include('../partials/bottom') %>

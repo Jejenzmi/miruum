@@ -22,6 +22,7 @@ import { PAYMENT_METHODS, methodByCode, activeProvider, verifyLinkquCallback, LI
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { pushDistribution } from "./distribution.js";
+import { seedCoa, rebuildGl, trialBalance, incomeStatement, balanceSheet, generalLedger, STANDARD_COA } from "./accounting.js";
 import { supplyProvider, activeSupplyProviders } from "./supply.js";
 import { channexStatus, channexConfigured, syncChannex, cxCreateBooking } from "./channex.js";
 import { fxConverter } from "./fx.js";
@@ -5611,6 +5612,8 @@ app.post("/api/partner/pms/night-audit", requireRole("PARTNER", "ADMIN"), async 
     adr, revpar, arrivals: arrivalsDone, departures, inhouse: occupiedRooms, noShows: noShows.length, roomRevenue, extraRevenue, totalRevenue,
   } });
   audit(req, "pms.night-audit", "NightAudit", log.id, { noShows: noShows.length, posted, noShowFees, shiftsClosed: openShifts.length });
+  // Keep the General Ledger in sync with the day's activity (best-effort).
+  for (const hid of ids) { try { await rebuildGl(prisma, hid); } catch (e) { logger.warn({ e, hid }, "gl rebuild after night audit failed"); } }
   res.json({ ok: true, report: log, roomChargesPosted: posted, overstays, noShowFees, shiftsClosed: openShifts.length, trialBalance });
 });
 
@@ -6391,6 +6394,87 @@ app.get("/api/partner/pms/report/inhouse-ledger", requireRole("PARTNER", "ADMIN"
   const guests = rows.map((b) => { const extras = b.folioCharges.reduce((s, c) => s + Number(c.amount) * c.qty, 0); const paid = b.folioPayments.reduce((s, p) => s + Number(p.amount), 0); const grand = Number(b.totalPrice) + extras; return { id: b.id, code: b.code, guest: b.bookerName, room: b.room.name, roomNumber: b.roomUnit?.number ?? null, charges: grand, paid, balance: grand - paid }; });
   const totals = guests.reduce((s, g) => ({ charges: s.charges + g.charges, paid: s.paid + g.paid, balance: s.balance + g.balance }), { charges: 0, paid: 0, balance: 0 });
   res.json({ guests, totals });
+});
+
+// ─────────── PMS: Akuntansi (General Ledger / double-entry) ───────────
+// Accounting is per-hotel. Resolve the target hotel from ?hotelId (must belong
+// to the partner) or default to the partner's first PMS hotel.
+async function glHotelId(req: AuthRequest): Promise<string | null> {
+  const wanted = String(req.query.hotelId || "");
+  if (wanted && (await ownsHotel(req, wanted))) return wanted;
+  const ids = await pmsHotelIds(req);
+  return ids[0] || null;
+}
+const parseDate = (v: any): Date | undefined => { if (!v) return undefined; const d = new Date(String(v)); return isNaN(d.getTime()) ? undefined : d; };
+const endOfDay = (d?: Date) => d ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999) : undefined;
+
+app.get("/api/partner/pms/gl/hotels", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const ids = await pmsHotelIds(req);
+  const hotels = await prisma.hotel.findMany({ where: { id: { in: ids } }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+  res.json({ hotels });
+});
+app.get("/api/partner/pms/gl/accounts", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ accounts: [], hotelId: null });
+  let accounts = await prisma.glAccount.findMany({ where: { hotelId }, orderBy: { code: "asc" } });
+  if (!accounts.length) { await seedCoa(prisma, hotelId); accounts = await prisma.glAccount.findMany({ where: { hotelId }, orderBy: { code: "asc" } }); }
+  res.json({ hotelId, accounts });
+});
+app.post("/api/partner/pms/gl/rebuild", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
+  const r = await rebuildGl(prisma, hotelId);
+  audit(req, "pms.gl-rebuild", "GlJournal", hotelId, r);
+  res.json({ ok: true, hotelId, ...r });
+});
+app.get("/api/partner/pms/gl/ledger", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ accounts: [] });
+  const accounts = await generalLedger(prisma, hotelId, req.query.code ? String(req.query.code) : undefined, parseDate(req.query.from), endOfDay(parseDate(req.query.to)));
+  res.json({ hotelId, accounts });
+});
+app.get("/api/partner/pms/gl/trial-balance", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ rows: [], totalDebit: 0, totalCredit: 0, balanced: true });
+  res.json({ hotelId, ...(await trialBalance(prisma, hotelId, endOfDay(parseDate(req.query.asOf)))) });
+});
+app.get("/api/partner/pms/gl/income-statement", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ revenue: [], expense: [], totalRevenue: 0, totalExpense: 0, netIncome: 0 });
+  res.json({ hotelId, from: req.query.from || null, to: req.query.to || null, ...(await incomeStatement(prisma, hotelId, parseDate(req.query.from), endOfDay(parseDate(req.query.to)))) });
+});
+app.get("/api/partner/pms/gl/balance-sheet", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ assets: [], liabilities: [], equity: [], totalAssets: 0, totalLiabilities: 0, totalEquity: 0, balanced: true });
+  res.json({ hotelId, ...(await balanceSheet(prisma, hotelId, endOfDay(parseDate(req.query.asOf)))) });
+});
+app.get("/api/partner/pms/gl/journals", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ journals: [] });
+  const journals = await prisma.glJournal.findMany({
+    where: { hotelId, ...(parseDate(req.query.from) || parseDate(req.query.to) ? { date: { ...(parseDate(req.query.from) ? { gte: parseDate(req.query.from) } : {}), ...(endOfDay(parseDate(req.query.to)) ? { lte: endOfDay(parseDate(req.query.to)) } : {}) } } : {}) },
+    include: { lines: { include: { account: { select: { code: true, name: true } } } } },
+    orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 300,
+  });
+  res.json({ hotelId, journals });
+});
+app.post("/api/partner/pms/gl/journal", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
+  const schema = z.object({ date: z.string().optional(), description: z.string().min(2), lines: z.array(z.object({ code: z.string(), debit: z.coerce.number().int().min(0).default(0), credit: z.coerce.number().int().min(0).default(0), memo: z.string().optional() })).min(2) });
+  const p = schema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: "Data jurnal tidak valid" });
+  const totalD = p.data.lines.reduce((s, l) => s + l.debit, 0);
+  const totalC = p.data.lines.reduce((s, l) => s + l.credit, 0);
+  if (totalD !== totalC || totalD === 0) return res.status(400).json({ error: `Jurnal harus balance & tidak nol (Debit ${totalD} ≠ Kredit ${totalC})` });
+  const accs = await prisma.glAccount.findMany({ where: { hotelId } });
+  const byCode: Record<string, string> = {}; for (const a of accs) byCode[a.code] = a.id;
+  for (const l of p.data.lines) if (!byCode[l.code]) return res.status(400).json({ error: `Akun ${l.code} tidak ada di COA` });
+  const j = await prisma.glJournal.create({ data: {
+    hotelId, date: parseDate(p.data.date) || new Date(), source: "MANUAL", description: p.data.description, createdBy: req.userId,
+    lines: { create: p.data.lines.filter((l) => l.debit || l.credit).map((l) => ({ accountId: byCode[l.code], debit: BigInt(l.debit), credit: BigInt(l.credit), memo: l.memo || null })) },
+  } });
+  res.json({ ok: true, journal: j });
 });
 
 // ─────────── PMS: maintenance / work orders ───────────

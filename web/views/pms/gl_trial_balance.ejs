@@ -1,0 +1,42 @@
+<%- include('../partials/top', { title:'Neraca Saldo', heading:'Neraca Saldo (Trial Balance)', section:'extranet', active:'gl_tb', me }) %>
+
+<% if (posted) { %><div class="notice ok">Posting selesai — jurnal dibangun ulang dari data reservasi, folio &amp; pembayaran.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/gl/trial-balance" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="margin:0">Per tanggal</label><input type="date" name="asOf" value="<%= q.asOf || '' %>" style="width:auto">
+    <button class="btn sm">Tampilkan</button>
+  </form>
+  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/trial-balance"><button class="btn ghost sm">↻ Posting / Bangun Ulang Jurnal</button></form>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Kode</th><th>Nama Akun</th><th style="text-align:right">Debit</th><th style="text-align:right">Kredit</th></tr></thead>
+    <tbody>
+      <% (rows||[]).forEach(function(r){ %>
+        <tr>
+          <td><code><%= r.code %></code></td>
+          <td><%= r.name %></td>
+          <td style="text-align:right"><%= r.debit ? rupiah(r.debit) : '—' %></td>
+          <td style="text-align:right"><%= r.credit ? rupiah(r.credit) : '—' %></td>
+        </tr>
+      <% }) %>
+      <% if(!(rows||[]).length){ %><tr><td colspan="4" class="empty">Belum ada jurnal. Klik "Posting / Bangun Ulang Jurnal".</td></tr><% } %>
+    </tbody>
+    <% if((rows||[]).length){ %>
+    <tfoot><tr style="font-weight:800;border-top:2px solid #20262e">
+      <td colspan="2">Total</td>
+      <td style="text-align:right"><%= rupiah(totalDebit) %></td>
+      <td style="text-align:right"><%= rupiah(totalCredit) %></td>
+    </tr></tfoot>
+    <% } %>
+  </table>
+  <p style="margin-top:12px">
+    <% if (balanced) { %><span class="sfbadge" style="background:#E4F5EC;color:#1E7A4D;padding:4px 10px;border-radius:6px;font-weight:700">✓ Seimbang (Debit = Kredit)</span>
+    <% } else { %><span class="sfbadge" style="background:#FCE8EE;color:#B5335C;padding:4px 10px;border-radius:6px;font-weight:700">⚠ Tidak seimbang</span><% } %>
+  </p>
+</div>
+
+<%- include('../partials/bottom') %>

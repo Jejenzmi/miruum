@@ -1,0 +1,42 @@
+<%- include('../partials/top', { title:'Laba Rugi', heading:'Laporan Laba Rugi', section:'extranet', active:'gl_income', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/gl/income" style="display:flex;gap:8px;align-items:center;margin:0">
+    <label style="margin:0">Dari</label><input type="date" name="from" value="<%= q.from || '' %>" style="width:auto">
+    <label style="margin:0">Sampai</label><input type="date" name="to" value="<%= q.to || '' %>" style="width:auto">
+    <button class="btn sm">Tampilkan</button>
+  </form>
+  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/income"><button class="btn ghost sm">↻ Posting</button></form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Pendapatan</h3>
+  <table>
+    <tbody>
+      <% (revenue||[]).forEach(function(r){ %><tr><td><code><%= r.code %></code> <%= r.name %></td><td style="text-align:right"><%= rupiah(r.balance) %></td></tr><% }) %>
+      <% if(!(revenue||[]).length){ %><tr><td class="empty" colspan="2">Belum ada pendapatan.</td></tr><% } %>
+    </tbody>
+    <tfoot><tr style="font-weight:800;border-top:2px solid #20262e"><td>Total Pendapatan</td><td style="text-align:right"><%= rupiah(totalRevenue) %></td></tr></tfoot>
+  </table>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Beban</h3>
+  <table>
+    <tbody>
+      <% (expense||[]).forEach(function(r){ %><tr><td><code><%= r.code %></code> <%= r.name %></td><td style="text-align:right"><%= rupiah(r.balance) %></td></tr><% }) %>
+      <% if(!(expense||[]).length){ %><tr><td class="empty" colspan="2">Belum ada beban tercatat.</td></tr><% } %>
+    </tbody>
+    <tfoot><tr style="font-weight:800;border-top:2px solid #20262e"><td>Total Beban</td><td style="text-align:right"><%= rupiah(totalExpense) %></td></tr></tfoot>
+  </table>
+</div>
+
+<div class="card" style="background:<%= netIncome>=0 ? '#E4F5EC' : '#FCE8EE' %>">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <b style="font-size:16px"><%= netIncome>=0 ? 'Laba Bersih' : 'Rugi Bersih' %></b>
+    <b style="font-size:20px;color:<%= netIncome>=0 ? '#1E7A4D' : '#B5335C' %>"><%= rupiah(netIncome) %></b>
+  </div>
+  <p class="muted" style="font-size:12px;margin:6px 0 0">Laba/Rugi = Total Pendapatan − Total Beban<% if(q.from||q.to){ %> · periode <%= q.from||'awal' %> s/d <%= q.to||'kini' %><% } %>.</p>
+</div>
+
+<%- include('../partials/bottom') %>

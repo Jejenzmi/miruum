@@ -1396,6 +1396,50 @@ app.get("/pms/reports", ...pmsG, async (req, res) => {
   res.render("pms/reports", { reports, active: "reports", done: req.query.done });
 });
 
+// ─────────── PMS: Akuntansi (Buku Besar / Neraca / Laba Rugi) ───────────
+const glQuery = (req, extra = "") => { const p = []; if (req.query.from) p.push("from=" + encodeURIComponent(req.query.from)); if (req.query.to) p.push("to=" + encodeURIComponent(req.query.to)); if (req.query.asOf) p.push("asOf=" + encodeURIComponent(req.query.asOf)); if (extra) p.push(extra); return p.length ? "?" + p.join("&") : ""; };
+app.post("/pms/gl/rebuild", ...pmsG, async (req, res) => {
+  try { await api("/partner/pms/gl/rebuild", { method: "POST", token: res.locals.token, body: {} }); res.redirect((req.body.back || "/pms/gl/trial-balance") + "?posted=1"); }
+  catch (e) { res.redirect((req.body.back || "/pms/gl/trial-balance") + "?err=" + encodeURIComponent(e.message)); }
+});
+app.get("/pms/gl/coa", ...pmsG, async (req, res) => {
+  const { accounts } = await api("/partner/pms/gl/accounts", { token: res.locals.token });
+  res.render("pms/gl_coa", { accounts: accounts || [], active: "gl_coa", posted: req.query.posted });
+});
+app.get("/pms/gl/trial-balance", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pms/gl/trial-balance" + glQuery(req), { token: res.locals.token });
+  res.render("pms/gl_trial_balance", { ...data, active: "gl_tb", q: req.query, posted: req.query.posted, err: req.query.err });
+});
+app.get("/pms/gl/income", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pms/gl/income-statement" + glQuery(req), { token: res.locals.token });
+  res.render("pms/gl_income", { ...data, active: "gl_income", q: req.query });
+});
+app.get("/pms/gl/balance-sheet", ...pmsG, async (req, res) => {
+  const data = await api("/partner/pms/gl/balance-sheet" + glQuery(req), { token: res.locals.token });
+  res.render("pms/gl_balance_sheet", { ...data, active: "gl_bs", q: req.query });
+});
+app.get("/pms/gl/ledger", ...pmsG, async (req, res) => {
+  const [{ accounts }, coa] = await Promise.all([
+    api("/partner/pms/gl/ledger" + glQuery(req, req.query.code ? "code=" + encodeURIComponent(req.query.code) : ""), { token: res.locals.token }),
+    api("/partner/pms/gl/accounts", { token: res.locals.token }),
+  ]);
+  res.render("pms/gl_ledger", { accounts: accounts || [], coa: coa.accounts || [], active: "gl_ledger", q: req.query });
+});
+app.get("/pms/gl/journals", ...pmsG, async (req, res) => {
+  const [{ journals }, coa] = await Promise.all([
+    api("/partner/pms/gl/journals" + glQuery(req), { token: res.locals.token }),
+    api("/partner/pms/gl/accounts", { token: res.locals.token }),
+  ]);
+  res.render("pms/gl_journals", { journals: journals || [], coa: coa.accounts || [], active: "gl_journals", q: req.query, saved: req.query.saved, err: req.query.err });
+});
+app.post("/pms/gl/journal", ...pmsG, async (req, res) => {
+  // Reassemble line rows (code[], debit[], credit[], memo[]) into a lines array.
+  const codes = [].concat(req.body.code || []); const debits = [].concat(req.body.debit || []); const credits = [].concat(req.body.credit || []); const memos = [].concat(req.body.memo || []);
+  const lines = codes.map((c, i) => ({ code: c, debit: Number(debits[i] || 0), credit: Number(credits[i] || 0), memo: memos[i] || "" })).filter((l) => l.code && (l.debit || l.credit));
+  try { await api("/partner/pms/gl/journal", { method: "POST", token: res.locals.token, body: { date: req.body.date, description: req.body.description, lines } }); res.redirect("/pms/gl/journals?saved=1"); }
+  catch (e) { res.redirect("/pms/gl/journals?err=" + encodeURIComponent(e.message)); }
+});
+
 // POS terminal
 app.get("/pms/pos", ...pmsG, async (req, res) => {
   const data = await api("/partner/pos/rooms", { token: res.locals.token });

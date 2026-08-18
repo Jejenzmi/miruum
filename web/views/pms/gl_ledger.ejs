@@ -1,0 +1,39 @@
+<%- include('../partials/top', { title:'Buku Besar', heading:'Buku Besar (General Ledger)', section:'extranet', active:'gl_ledger', me }) %>
+
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <form method="get" action="/pms/gl/ledger" style="display:flex;gap:8px;align-items:center;margin:0;flex-wrap:wrap">
+    <label style="margin:0">Akun</label>
+    <select name="code" style="width:auto">
+      <option value="">— Semua akun —</option>
+      <% (coa||[]).forEach(function(a){ %><option value="<%= a.code %>" <%= q.code===a.code?'selected':'' %>><%= a.code %> · <%= a.name %></option><% }) %>
+    </select>
+    <label style="margin:0">Dari</label><input type="date" name="from" value="<%= q.from || '' %>" style="width:auto">
+    <label style="margin:0">Sampai</label><input type="date" name="to" value="<%= q.to || '' %>" style="width:auto">
+    <button class="btn sm">Tampilkan</button>
+  </form>
+  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/ledger"><button class="btn ghost sm">↻ Posting</button></form>
+</div>
+
+<% (accounts||[]).forEach(function(a){ %>
+  <div class="card">
+    <h3 style="margin-top:0"><code><%= a.code %></code> <%= a.name %> <span class="muted" style="font-weight:400;font-size:13px">(saldo akhir <%= rupiah(a.closing) %>)</span></h3>
+    <table>
+      <thead><tr><th>Tanggal</th><th>Ref</th><th>Keterangan</th><th style="text-align:right">Debit</th><th style="text-align:right">Kredit</th><th style="text-align:right">Saldo</th></tr></thead>
+      <tbody>
+        <% a.rows.forEach(function(r){ %>
+          <tr>
+            <td><%= new Date(r.date).toLocaleDateString('id-ID') %></td>
+            <td><span class="muted" style="font-size:12px"><%= r.ref || '—' %></span></td>
+            <td><%= r.description %><% if(r.memo){ %> <span class="muted">· <%= r.memo %></span><% } %></td>
+            <td style="text-align:right"><%= r.debit ? rupiah(r.debit) : '' %></td>
+            <td style="text-align:right"><%= r.credit ? rupiah(r.credit) : '' %></td>
+            <td style="text-align:right;font-weight:600"><%= rupiah(r.balance) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% }) %>
+<% if(!(accounts||[]).length){ %><div class="card"><div class="empty">Belum ada mutasi. Klik "Posting" untuk membangun jurnal dari data PMS.</div></div><% } %>
+
+<%- include('../partials/bottom') %>
