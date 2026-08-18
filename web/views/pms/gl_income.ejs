@@ -8,9 +8,10 @@
   </form>
   <div style="display:flex;gap:8px;align-items:center">
     <% var ex = (q.from?'&from='+encodeURIComponent(q.from):'')+(q.to?'&to='+encodeURIComponent(q.to):''); %>
-    <a class="btn ghost sm" href="/pms/gl/export/income?format=pdf<%= ex %>">⬇ PDF</a>
-    <a class="btn ghost sm" href="/pms/gl/export/income?format=csv<%= ex %>">⬇ Excel</a>
-    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/income"><button class="btn ghost sm">↻ Posting</button></form>
+    <a class="btn ghost sm" href="/pms/gl/export/income?format=pdf<%= ex %>">â¬ PDF</a>
+    <a class="btn ghost sm" href="/pms/gl/export/income?format=xlsx<%= ex %>">â¬ Excel</a>
+    <a class="btn ghost sm" href="/pms/gl/workbook?<%= (typeof ex!=="undefined"? ex.replace(/^&/,"") : "") %>" title="Semua laporan dalam satu file Excel">⬇ Laporan Lengkap (Excel)</a>
+    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/income"><button class="btn ghost sm">â» Posting</button></form>
   </div>
 </div>
 
@@ -41,7 +42,7 @@
     <b style="font-size:16px"><%= netIncome>=0 ? 'Laba Bersih' : 'Rugi Bersih' %></b>
     <b style="font-size:20px;color:<%= netIncome>=0 ? '#1E7A4D' : '#B5335C' %>"><%= rupiah(netIncome) %></b>
   </div>
-  <p class="muted" style="font-size:12px;margin:6px 0 0">Laba/Rugi = Total Pendapatan − Total Beban<% if(q.from||q.to){ %> · periode <%= q.from||'awal' %> s/d <%= q.to||'kini' %><% } %>.</p>
+  <p class="muted" style="font-size:12px;margin:6px 0 0">Laba/Rugi = Total Pendapatan â Total Beban<% if(q.from||q.to){ %> Â· periode <%= q.from||'awal' %> s/d <%= q.to||'kini' %><% } %>.</p>
 </div>
 
 <%- include('../partials/bottom') %>

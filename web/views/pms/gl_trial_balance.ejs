@@ -1,6 +1,6 @@
 <%- include('../partials/top', { title:'Neraca Saldo', heading:'Neraca Saldo (Trial Balance)', section:'extranet', active:'gl_tb', me }) %>
 
-<% if (posted) { %><div class="notice ok">Posting selesai — jurnal dibangun ulang dari data reservasi, folio &amp; pembayaran.</div><% } %>
+<% if (posted) { %><div class="notice ok">Posting selesai â jurnal dibangun ulang dari data reservasi, folio &amp; pembayaran.</div><% } %>
 <% if (err) { %><div class="notice bad"><%= err %></div><% } %>
 
 <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
@@ -10,9 +10,10 @@
   </form>
   <div style="display:flex;gap:8px;align-items:center">
     <% var ex = (q.asOf ? '&asOf='+encodeURIComponent(q.asOf) : ''); %>
-    <a class="btn ghost sm" href="/pms/gl/export/trial-balance?format=pdf<%= ex %>">⬇ PDF</a>
-    <a class="btn ghost sm" href="/pms/gl/export/trial-balance?format=csv<%= ex %>">⬇ Excel</a>
-    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/trial-balance"><button class="btn ghost sm">↻ Posting</button></form>
+    <a class="btn ghost sm" href="/pms/gl/export/trial-balance?format=pdf<%= ex %>">â¬ PDF</a>
+    <a class="btn ghost sm" href="/pms/gl/export/trial-balance?format=xlsx<%= ex %>">â¬ Excel</a>
+    <a class="btn ghost sm" href="/pms/gl/workbook?<%= (typeof ex!=="undefined"? ex.replace(/^&/,"") : "") %>" title="Semua laporan dalam satu file Excel">⬇ Laporan Lengkap (Excel)</a>
+    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/trial-balance"><button class="btn ghost sm">â» Posting</button></form>
   </div>
 </div>
 
@@ -24,8 +25,8 @@
         <tr>
           <td><code><%= r.code %></code></td>
           <td><%= r.name %></td>
-          <td style="text-align:right"><%= r.debit ? rupiah(r.debit) : '—' %></td>
-          <td style="text-align:right"><%= r.credit ? rupiah(r.credit) : '—' %></td>
+          <td style="text-align:right"><%= r.debit ? rupiah(r.debit) : 'â' %></td>
+          <td style="text-align:right"><%= r.credit ? rupiah(r.credit) : 'â' %></td>
         </tr>
       <% }) %>
       <% if(!(rows||[]).length){ %><tr><td colspan="4" class="empty">Belum ada jurnal. Klik "Posting / Bangun Ulang Jurnal".</td></tr><% } %>
@@ -39,8 +40,8 @@
     <% } %>
   </table>
   <p style="margin-top:12px">
-    <% if (balanced) { %><span class="sfbadge" style="background:#E4F5EC;color:#1E7A4D;padding:4px 10px;border-radius:6px;font-weight:700">✓ Seimbang (Debit = Kredit)</span>
-    <% } else { %><span class="sfbadge" style="background:#FCE8EE;color:#B5335C;padding:4px 10px;border-radius:6px;font-weight:700">⚠ Tidak seimbang</span><% } %>
+    <% if (balanced) { %><span class="sfbadge" style="background:#E4F5EC;color:#1E7A4D;padding:4px 10px;border-radius:6px;font-weight:700">â Seimbang (Debit = Kredit)</span>
+    <% } else { %><span class="sfbadge" style="background:#FCE8EE;color:#B5335C;padding:4px 10px;border-radius:6px;font-weight:700">â  Tidak seimbang</span><% } %>
   </p>
 </div>
 

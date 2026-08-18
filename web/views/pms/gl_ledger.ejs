@@ -4,8 +4,8 @@
   <form method="get" action="/pms/gl/ledger" style="display:flex;gap:8px;align-items:center;margin:0;flex-wrap:wrap">
     <label style="margin:0">Akun</label>
     <select name="code" style="width:auto">
-      <option value="">— Semua akun —</option>
-      <% (coa||[]).forEach(function(a){ %><option value="<%= a.code %>" <%= q.code===a.code?'selected':'' %>><%= a.code %> · <%= a.name %></option><% }) %>
+      <option value="">â Semua akun â</option>
+      <% (coa||[]).forEach(function(a){ %><option value="<%= a.code %>" <%= q.code===a.code?'selected':'' %>><%= a.code %> Â· <%= a.name %></option><% }) %>
     </select>
     <label style="margin:0">Dari</label><input type="date" name="from" value="<%= q.from || '' %>" style="width:auto">
     <label style="margin:0">Sampai</label><input type="date" name="to" value="<%= q.to || '' %>" style="width:auto">
@@ -13,9 +13,10 @@
   </form>
   <div style="display:flex;gap:8px;align-items:center">
     <% var ex = (q.code?'&code='+encodeURIComponent(q.code):'')+(q.from?'&from='+encodeURIComponent(q.from):'')+(q.to?'&to='+encodeURIComponent(q.to):''); %>
-    <a class="btn ghost sm" href="/pms/gl/export/ledger?format=pdf<%= ex %>">⬇ PDF</a>
-    <a class="btn ghost sm" href="/pms/gl/export/ledger?format=csv<%= ex %>">⬇ Excel</a>
-    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/ledger"><button class="btn ghost sm">↻ Posting</button></form>
+    <a class="btn ghost sm" href="/pms/gl/export/ledger?format=pdf<%= ex %>">â¬ PDF</a>
+    <a class="btn ghost sm" href="/pms/gl/export/ledger?format=xlsx<%= ex %>">â¬ Excel</a>
+    <a class="btn ghost sm" href="/pms/gl/workbook?<%= (typeof ex!=="undefined"? ex.replace(/^&/,"") : "") %>" title="Semua laporan dalam satu file Excel">⬇ Laporan Lengkap (Excel)</a>
+    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/ledger"><button class="btn ghost sm">â» Posting</button></form>
   </div>
 </div>
 
@@ -28,8 +29,8 @@
         <% a.rows.forEach(function(r){ %>
           <tr>
             <td><%= new Date(r.date).toLocaleDateString('id-ID') %></td>
-            <td><span class="muted" style="font-size:12px"><%= r.ref || '—' %></span></td>
-            <td><%= r.description %><% if(r.memo){ %> <span class="muted">· <%= r.memo %></span><% } %></td>
+            <td><span class="muted" style="font-size:12px"><%= r.ref || 'â' %></span></td>
+            <td><%= r.description %><% if(r.memo){ %> <span class="muted">Â· <%= r.memo %></span><% } %></td>
             <td style="text-align:right"><%= r.debit ? rupiah(r.debit) : '' %></td>
             <td style="text-align:right"><%= r.credit ? rupiah(r.credit) : '' %></td>
             <td style="text-align:right;font-weight:600"><%= rupiah(r.balance) %></td>

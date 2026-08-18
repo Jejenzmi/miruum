@@ -22,7 +22,8 @@ import { PAYMENT_METHODS, methodByCode, activeProvider, verifyLinkquCallback, LI
 import { computeFinance } from "./finance.js";
 import { getSettings, getNum, setSettings, SETTING_DEFAULTS } from "./settings.js";
 import { pushDistribution } from "./distribution.js";
-import { seedCoa, rebuildGl, trialBalance, incomeStatement, balanceSheet, generalLedger, STANDARD_COA } from "./accounting.js";
+import { seedCoa, rebuildGl, trialBalance, incomeStatement, balanceSheet, generalLedger, STANDARD_COA, closeBooks, reopenClose, listClosings } from "./accounting.js";
+import ExcelJS from "exceljs";
 import { supplyProvider, activeSupplyProviders } from "./supply.js";
 import { channexStatus, channexConfigured, syncChannex, cxCreateBooking } from "./channex.js";
 import { fxConverter } from "./fx.js";
@@ -6477,7 +6478,32 @@ app.post("/api/partner/pms/gl/journal", requireRole("PARTNER", "ADMIN"), async (
   res.json({ ok: true, journal: j });
 });
 
-// ─────────── PMS: ekspor laporan akuntansi (PDF / CSV-Excel) ───────────
+// ─────────── PMS: Tutup Buku (period closing → Laba Ditahan 3900) ───────────
+app.get("/api/partner/pms/gl/closings", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.json({ closings: [] });
+  const closings = await listClosings(prisma, hotelId);
+  res.json({ hotelId, closings: closings.map((c) => ({ ...c, netIncome: Number(c.netIncome) })) });
+});
+app.post("/api/partner/pms/gl/close", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
+  const asOf = endOfDay(parseDate(req.body?.asOf)) || endOfDay(new Date())!;
+  const r = await closeBooks(prisma, hotelId, asOf, req.userId);
+  if (!r.ok) return res.status(400).json({ error: r.message });
+  audit(req, "pms.gl-close", "GlPeriodClose", r.closeId, { net: r.net });
+  res.json(r);
+});
+app.post("/api/partner/pms/gl/close/:id/reopen", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
+  const r = await reopenClose(prisma, hotelId, req.params.id);
+  if (!r.ok) return res.status(400).json({ error: r.message });
+  audit(req, "pms.gl-reopen", "GlPeriodClose", req.params.id, {});
+  res.json({ ok: true });
+});
+
+// ─────────── PMS: ekspor laporan akuntansi (PDF / CSV / XLSX) ───────────
 // Normalised tabular report used by both exporters.
 async function buildGlReport(hotelId: string, hotelName: string, report: string, q: any) {
   const asOf = endOfDay(parseDate(q.asOf));
@@ -6534,6 +6560,56 @@ async function buildGlReport(hotelId: string, hotelName: string, report: string,
     rows: accounts.map((a) => [a.code, a.name, a.type, a.normalBalance === "DEBIT" ? "Debit" : "Kredit"]) };
 }
 
+// Render a report into a formatted worksheet (bold header, number format,
+// column widths, frozen header, subtotal styling).
+function repToSheet(wb: any, rep: any, hotelName: string) {
+  const SHEET: Record<string, string> = { "Neraca Saldo": "Neraca Saldo", "Laporan Laba Rugi": "Laba Rugi", "Neraca (Balance Sheet)": "Neraca", "Buku Besar": "Buku Besar", "Jurnal Umum": "Jurnal", "Bagan Akun (COA)": "Bagan Akun" };
+  const ws = wb.addWorksheet((SHEET[rep.title] || rep.title).slice(0, 31));
+  const nCols = rep.headers.length;
+  const lastCol = String.fromCharCode(64 + nCols);
+  // Title block
+  ws.mergeCells(`A1:${lastCol}1`); ws.getCell("A1").value = rep.title; ws.getCell("A1").font = { bold: true, size: 15, color: { argb: "FF1C3A52" } };
+  ws.mergeCells(`A2:${lastCol}2`); ws.getCell("A2").value = `${hotelName}  ·  ${rep.period}`; ws.getCell("A2").font = { size: 10, color: { argb: "FF667085" } };
+  // Header row (row 4; row 3 left blank for spacing)
+  ws.addRow([]); ws.addRow(rep.headers);
+  ws.getRow(4).eachCell((c: any) => { c.font = { bold: true, color: { argb: "FFFFFFFF" } }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF08421" } }; c.alignment = { vertical: "middle" }; });
+  // Data rows
+  const numCols = rep.aligns.map((a: string, i: number) => a === "r" ? i : -1).filter((i: number) => i >= 0);
+  const pushRow = (cells: any[], bold = false) => {
+    const r = ws.addRow(cells.map((c: any, i: number) => (rep.aligns[i] === "r" && typeof c === "number") ? (c || null) : c));
+    numCols.forEach((i: number) => { const cell = r.getCell(i + 1); cell.numFmt = "#,##0"; cell.alignment = { horizontal: "right" }; });
+    if (bold) r.eachCell((c: any) => { c.font = { bold: true }; });
+    return r;
+  };
+  rep.rows.forEach((row: any[]) => {
+    // Bold section headings & subtotals (their label matches these keywords).
+    const label = String(row[1] ?? row[2] ?? "");
+    const isSubtotal = /TOTAL|LABA|RUGI|AKTIVA|PASIVA|KEWAJIBAN|EKUITAS|PENDAPATAN|BEBAN|Saldo akhir/i.test(label);
+    pushRow(row, isSubtotal);
+  });
+  if (rep.foot) pushRow(rep.foot, true);
+  // Column widths
+  rep.headers.forEach((h: string, i: number) => { ws.getColumn(i + 1).width = Math.max(12, Math.min(46, (rep.colW[i] || 2) * 8)); });
+  ws.views = [{ state: "frozen", ySplit: 4 }];
+  return ws;
+}
+
+// Multi-sheet workbook = the full financial-statement pack in one .xlsx.
+app.get("/api/partner/pms/gl/workbook.xlsx", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
+  const hotel = await prisma.hotel.findUnique({ where: { id: hotelId }, select: { name: true } });
+  const wb = new ExcelJS.Workbook(); wb.creator = "Miruum PMS";
+  for (const report of ["trial-balance", "income", "balance-sheet", "ledger", "journals", "coa"]) {
+    const rep = await buildGlReport(hotelId, hotel?.name || "Hotel", report, req.query);
+    repToSheet(wb, rep, hotel?.name || "Hotel");
+  }
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="laporan-keuangan-${(hotel?.name || "hotel").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+});
+
 app.get("/api/partner/pms/gl/export", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const hotelId = await glHotelId(req);
   if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
@@ -6553,6 +6629,16 @@ app.get("/api/partner/pms/gl/export", requireRole("PARTNER", "ADMIN"), async (re
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${fname}.csv"`);
     return res.send("﻿" + lines.join("\n"));
+  }
+
+  if (format === "xlsx") {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Miruum PMS";
+    repToSheet(wb, rep, hotel?.name || "Hotel");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}.xlsx"`);
+    await wb.xlsx.write(res);
+    return res.end();
   }
 
   // PDF

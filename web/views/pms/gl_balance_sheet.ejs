@@ -7,9 +7,10 @@
   </form>
   <div style="display:flex;gap:8px;align-items:center">
     <% var ex = (q.asOf ? '&asOf='+encodeURIComponent(q.asOf) : ''); %>
-    <a class="btn ghost sm" href="/pms/gl/export/balance-sheet?format=pdf<%= ex %>">⬇ PDF</a>
-    <a class="btn ghost sm" href="/pms/gl/export/balance-sheet?format=csv<%= ex %>">⬇ Excel</a>
-    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/balance-sheet"><button class="btn ghost sm">↻ Posting</button></form>
+    <a class="btn ghost sm" href="/pms/gl/export/balance-sheet?format=pdf<%= ex %>">â¬ PDF</a>
+    <a class="btn ghost sm" href="/pms/gl/export/balance-sheet?format=xlsx<%= ex %>">â¬ Excel</a>
+    <a class="btn ghost sm" href="/pms/gl/workbook?<%= (typeof ex!=="undefined"? ex.replace(/^&/,"") : "") %>" title="Semua laporan dalam satu file Excel">⬇ Laporan Lengkap (Excel)</a>
+    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/balance-sheet"><button class="btn ghost sm">â» Posting</button></form>
   </div>
 </div>
 
@@ -18,7 +19,7 @@
     <h3 style="margin-top:0">Aktiva (Aset)</h3>
     <table><tbody>
       <% (assets||[]).forEach(function(r){ %><tr><td><code><%= r.code %></code> <%= r.name %></td><td style="text-align:right"><%= rupiah(r.balance) %></td></tr><% }) %>
-      <% if(!(assets||[]).length){ %><tr><td class="empty" colspan="2">—</td></tr><% } %>
+      <% if(!(assets||[]).length){ %><tr><td class="empty" colspan="2">â</td></tr><% } %>
     </tbody>
     <tfoot><tr style="font-weight:800;border-top:2px solid #20262e"><td>Total Aktiva</td><td style="text-align:right"><%= rupiah(totalAssets) %></td></tr></tfoot>
     </table>
@@ -28,7 +29,7 @@
     <table><tbody>
       <tr><td colspan="2" class="muted" style="font-weight:700">Kewajiban</td></tr>
       <% (liabilities||[]).forEach(function(r){ %><tr><td style="padding-left:16px"><code><%= r.code %></code> <%= r.name %></td><td style="text-align:right"><%= rupiah(r.balance) %></td></tr><% }) %>
-      <% if(!(liabilities||[]).length){ %><tr><td style="padding-left:16px" class="muted">—</td><td style="text-align:right">Rp 0</td></tr><% } %>
+      <% if(!(liabilities||[]).length){ %><tr><td style="padding-left:16px" class="muted">â</td><td style="text-align:right">Rp 0</td></tr><% } %>
       <tr><td colspan="2" class="muted" style="font-weight:700;padding-top:8px">Ekuitas</td></tr>
       <% (equity||[]).forEach(function(r){ %><tr><td style="padding-left:16px"><code><%= r.code %></code> <%= r.name %></td><td style="text-align:right"><%= rupiah(r.balance) %></td></tr><% }) %>
       <tr><td style="padding-left:16px">Laba/Rugi Berjalan</td><td style="text-align:right"><%= rupiah(currentEarnings) %></td></tr>
@@ -39,8 +40,8 @@
 </div>
 
 <div class="card" style="margin-top:16px">
-  <% if (balanced) { %><span style="background:#E4F5EC;color:#1E7A4D;padding:4px 10px;border-radius:6px;font-weight:700">✓ Neraca seimbang — Aktiva = Kewajiban + Ekuitas (<%= rupiah(totalAssets) %>)</span>
-  <% } else { %><span style="background:#FCE8EE;color:#B5335C;padding:4px 10px;border-radius:6px;font-weight:700">⚠ Tidak seimbang: Aktiva <%= rupiah(totalAssets) %> ≠ Pasiva <%= rupiah(totalLiabilities + totalEquity) %></span><% } %>
+  <% if (balanced) { %><span style="background:#E4F5EC;color:#1E7A4D;padding:4px 10px;border-radius:6px;font-weight:700">â Neraca seimbang â Aktiva = Kewajiban + Ekuitas (<%= rupiah(totalAssets) %>)</span>
+  <% } else { %><span style="background:#FCE8EE;color:#B5335C;padding:4px 10px;border-radius:6px;font-weight:700">â  Tidak seimbang: Aktiva <%= rupiah(totalAssets) %> â  Pasiva <%= rupiah(totalLiabilities + totalEquity) %></span><% } %>
 </div>
 
 <%- include('../partials/bottom') %>

@@ -86,8 +86,8 @@ export async function rebuildGl(prisma: Tx, hotelId: string): Promise<{ journals
   await seedCoa(prisma, hotelId);
   const map = await acctMap(prisma, hotelId);
 
-  // Wipe auto-posted journals (keep MANUAL ones).
-  await prisma.glJournal.deleteMany({ where: { hotelId, source: { not: "MANUAL" } } });
+  // Wipe only auto-posted journals (keep MANUAL and CLOSING entries).
+  await prisma.glJournal.deleteMany({ where: { hotelId, source: { notIn: ["MANUAL", "CLOSING"] } } });
 
   const bookings = await prisma.booking.findMany({
     where: { hotelId, status: { in: ["PAID", "COMPLETED", "PENDING"] } },
@@ -143,13 +143,13 @@ export async function rebuildGl(prisma: Tx, hotelId: string): Promise<{ journals
 }
 
 // ── Report builders ──
-async function balances(prisma: Tx, hotelId: string, opts: { asOf?: Date; from?: Date; to?: Date } = {}) {
+async function balances(prisma: Tx, hotelId: string, opts: { asOf?: Date; from?: Date; to?: Date; excludeClosing?: boolean } = {}) {
   const dateWhere: any = {};
   if (opts.asOf) dateWhere.lte = opts.asOf;
   if (opts.from) dateWhere.gte = opts.from;
   if (opts.to) dateWhere.lte = opts.to;
   const journals = await prisma.glJournal.findMany({
-    where: { hotelId, ...(Object.keys(dateWhere).length ? { date: dateWhere } : {}) },
+    where: { hotelId, ...(Object.keys(dateWhere).length ? { date: dateWhere } : {}), ...(opts.excludeClosing ? { source: { not: "CLOSING" } } : {}) },
     include: { lines: true },
   });
   const accs = await prisma.glAccount.findMany({ where: { hotelId }, orderBy: { code: "asc" } });
@@ -173,7 +173,9 @@ export async function trialBalance(prisma: Tx, hotelId: string, asOf?: Date) {
 }
 
 export async function incomeStatement(prisma: Tx, hotelId: string, from?: Date, to?: Date) {
-  const rows = await balances(prisma, hotelId, { from, to });
+  // Exclude closing entries so the P&L always shows operational figures even
+  // after the period is closed.
+  const rows = await balances(prisma, hotelId, { from, to, excludeClosing: true });
   const revenue = rows.filter((r) => r.type === "REVENUE" && r.balance !== 0);
   const expense = rows.filter((r) => r.type === "EXPENSE" && r.balance !== 0);
   const totalRevenue = revenue.reduce((s, r) => s + r.balance, 0);
@@ -218,4 +220,45 @@ export async function generalLedger(prisma: Tx, hotelId: string, code?: string, 
     out.push({ code: a.code, name: a.name, type: a.type, normalBalance: a.normalBalance, rows, closing: running });
   }
   return out;
+}
+
+// ── Tutup buku (period closing) ──
+// Zeroes revenue & expense accounts as of `asOf` and moves the net to Laba
+// Ditahan (3900). Residual balances (incl. any earlier closing) are used, so
+// each close only captures activity since the previous close.
+export async function closeBooks(prisma: Tx, hotelId: string, asOf: Date, createdBy?: string) {
+  await seedCoa(prisma, hotelId);
+  const map = await acctMap(prisma, hotelId);
+  const rows = await balances(prisma, hotelId, { asOf }); // include prior CLOSING → residual since last close
+  const revenue = rows.filter((r) => r.type === "REVENUE" && r.balance !== 0);
+  const expense = rows.filter((r) => r.type === "EXPENSE" && r.balance !== 0);
+  const totalRev = revenue.reduce((s, r) => s + r.balance, 0);
+  const totalExp = expense.reduce((s, r) => s + r.balance, 0);
+  const net = totalRev - totalExp;
+  if (!revenue.length && !expense.length) return { ok: false, message: "Tidak ada pendapatan/beban untuk ditutup pada periode ini.", net: 0 };
+
+  const lines: Array<{ accountId: string; debit: bigint; credit: bigint; memo?: string }> = [];
+  for (const r of revenue) lines.push({ accountId: map[r.code], debit: BigInt(r.balance), credit: 0n, memo: "Tutup pendapatan" });
+  for (const e of expense) lines.push({ accountId: map[e.code], debit: 0n, credit: BigInt(e.balance), memo: "Tutup beban" });
+  // Plug Laba Ditahan (3900): profit → credit, loss → debit.
+  if (net > 0) lines.push({ accountId: map["3900"], debit: 0n, credit: BigInt(net), memo: "Laba bersih periode" });
+  else if (net < 0) lines.push({ accountId: map["3900"], debit: BigInt(-net), credit: 0n, memo: "Rugi bersih periode" });
+
+  const journal = await prisma.glJournal.create({
+    data: { hotelId, date: asOf, source: "CLOSING", ref: `CLOSE-${asOf.toISOString().slice(0, 10)}`, description: `Tutup buku per ${asOf.toLocaleDateString("id-ID")}`, createdBy: createdBy || null, lines: { create: lines } },
+  });
+  const rec = await prisma.glPeriodClose.create({ data: { hotelId, asOf, netIncome: BigInt(net), journalId: journal.id, createdBy: createdBy || null } });
+  return { ok: true, net, journalId: journal.id, closeId: rec.id };
+}
+
+export async function reopenClose(prisma: Tx, hotelId: string, closeId: string) {
+  const rec = await prisma.glPeriodClose.findFirst({ where: { id: closeId, hotelId } });
+  if (!rec) return { ok: false, message: "Data tutup buku tidak ditemukan" };
+  if (rec.journalId) await prisma.glJournal.deleteMany({ where: { id: rec.journalId, hotelId } });
+  await prisma.glPeriodClose.delete({ where: { id: rec.id } });
+  return { ok: true };
+}
+
+export async function listClosings(prisma: Tx, hotelId: string) {
+  return prisma.glPeriodClose.findMany({ where: { hotelId }, orderBy: { asOf: "desc" } });
 }

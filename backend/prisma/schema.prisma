@@ -1051,6 +1051,20 @@ model GlLine {
   @@index([accountId])
 }
 
+// A closed accounting period — the closing entry moves net income to Laba
+// Ditahan (3900) and zeroes the revenue/expense accounts as of `asOf`.
+model GlPeriodClose {
+  id        String   @id @default(cuid())
+  hotelId   String
+  asOf      DateTime
+  netIncome BigInt
+  journalId String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([hotelId])
+}
+
 // Room / unit block — Out-of-Order, maintenance, or a manual hold. Blocking a whole
 // room type reserves inventory (allotment) so it can't be overbooked; blocking a
 // single unit marks it OOO on the rack.

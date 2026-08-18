@@ -1406,18 +1406,43 @@ app.get("/pms/gl/coa", ...pmsG, async (req, res) => {
   const { accounts } = await api("/partner/pms/gl/accounts", { token: res.locals.token });
   res.render("pms/gl_coa", { accounts: accounts || [], active: "gl_coa", posted: req.query.posted });
 });
-// Unduh laporan akuntansi (PDF / CSV-Excel) — proxy byte dari backend + token.
-app.get("/pms/gl/export/:report", ...pmsG, async (req, res) => {
-  const fmt = req.query.format === "csv" ? "csv" : "pdf";
-  const qp = new URLSearchParams({ report: req.params.report, format: fmt });
-  ["from", "to", "asOf", "code"].forEach((k) => { if (req.query[k]) qp.set(k, req.query[k]); });
+// Unduh laporan akuntansi (PDF / CSV / XLSX) — proxy byte dari backend + token.
+async function streamGl(res, referer, apiPath) {
   try {
-    const r = await fetch(API + "/partner/pms/gl/export?" + qp.toString(), { headers: { Authorization: `Bearer ${res.locals.token}` } });
-    if (!r.ok) return res.redirect(req.get("referer") || "/pms/gl/trial-balance");
+    const r = await fetch(API + apiPath, { headers: { Authorization: `Bearer ${res.locals.token}` } });
+    if (!r.ok) return res.redirect(referer || "/pms/gl/trial-balance");
     res.setHeader("Content-Type", r.headers.get("content-type") || "application/octet-stream");
     res.setHeader("Content-Disposition", r.headers.get("content-disposition") || "attachment");
     res.send(Buffer.from(await r.arrayBuffer()));
-  } catch (_) { res.redirect(req.get("referer") || "/pms/gl/trial-balance"); }
+  } catch (_) { res.redirect(referer || "/pms/gl/trial-balance"); }
+}
+app.get("/pms/gl/export/:report", ...pmsG, async (req, res) => {
+  const fmt = ["csv", "xlsx"].includes(req.query.format) ? req.query.format : "pdf";
+  const qp = new URLSearchParams({ report: req.params.report, format: fmt });
+  ["from", "to", "asOf", "code"].forEach((k) => { if (req.query[k]) qp.set(k, req.query[k]); });
+  await streamGl(res, req.get("referer"), "/partner/pms/gl/export?" + qp.toString());
+});
+// Workbook multi-sheet (semua laporan dalam satu .xlsx).
+app.get("/pms/gl/workbook", ...pmsG, async (req, res) => {
+  const qp = new URLSearchParams();
+  ["from", "to", "asOf"].forEach((k) => { if (req.query[k]) qp.set(k, req.query[k]); });
+  await streamGl(res, req.get("referer"), "/partner/pms/gl/workbook.xlsx" + (qp.toString() ? "?" + qp.toString() : ""));
+});
+// ── Tutup Buku (period closing) ──
+app.get("/pms/gl/closing", ...pmsG, async (req, res) => {
+  const [{ closings }, inc] = await Promise.all([
+    api("/partner/pms/gl/closings", { token: res.locals.token }),
+    api("/partner/pms/gl/income-statement", { token: res.locals.token }),
+  ]);
+  res.render("pms/gl_closing", { closings: closings || [], inc, active: "gl_close", saved: req.query.saved, err: req.query.err });
+});
+app.post("/pms/gl/closing", ...pmsG, async (req, res) => {
+  try { const r = await api("/partner/pms/gl/close", { method: "POST", token: res.locals.token, body: { asOf: req.body.asOf } }); res.redirect("/pms/gl/closing?saved=" + (r.net >= 0 ? "laba" : "rugi")); }
+  catch (e) { res.redirect("/pms/gl/closing?err=" + encodeURIComponent(e.message)); }
+});
+app.post("/pms/gl/closing/:id/reopen", ...pmsG, async (req, res) => {
+  try { await api(`/partner/pms/gl/close/${req.params.id}/reopen`, { method: "POST", token: res.locals.token, body: {} }); } catch (_) {}
+  res.redirect("/pms/gl/closing");
 });
 app.get("/pms/gl/trial-balance", ...pmsG, async (req, res) => {
   const data = await api("/partner/pms/gl/trial-balance" + glQuery(req), { token: res.locals.token });

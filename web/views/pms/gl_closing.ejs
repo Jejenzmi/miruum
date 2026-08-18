@@ -1,0 +1,45 @@
+<%- include('../partials/top', { title:'Tutup Buku', heading:'Tutup Buku Periode', section:'extranet', active:'gl_close', me }) %>
+
+<% if (saved==='laba') { %><div class="notice ok">Buku ditutup — laba bersih dipindahkan ke <b>Laba Ditahan (3900)</b>. Akun pendapatan &amp; beban kini nol.</div><% } %>
+<% if (saved==='rugi') { %><div class="notice ok">Buku ditutup — rugi bersih dibebankan ke <b>Laba Ditahan (3900)</b>.</div><% } %>
+<% if (err) { %><div class="notice bad"><%= err %></div><% } %>
+
+<div class="card">
+  <h3 style="margin-top:0">Laba/Rugi berjalan (belum ditutup)</h3>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div class="muted" style="font-size:13px">Pendapatan <b><%= rupiah(inc.totalRevenue||0) %></b> − Beban <b><%= rupiah(inc.totalExpense||0) %></b></div>
+    <b style="font-size:20px;color:<%= (inc.netIncome||0)>=0 ? '#1E7A4D' : '#B5335C' %>"><%= rupiah(inc.netIncome||0) %></b>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Tutup Buku</h3>
+  <p class="muted" style="font-size:13px;margin-top:0;max-width:640px;line-height:1.6">
+    Menutup buku akan memindahkan <b>laba/rugi berjalan sejak penutupan terakhir</b> ke akun <b>Laba Ditahan (3900)</b> dan menolkan akun Pendapatan &amp; Beban per tanggal yang dipilih. Laporan Laba Rugi tetap menampilkan angka operasional (jurnal penutup dikecualikan).
+  </p>
+  <form method="post" action="/pms/gl/closing" data-confirm="Tutup buku sampai tanggal ini? Laba/rugi akan dipindah ke Laba Ditahan." data-confirm-title="Tutup Buku" data-confirm-ok="Ya, tutup buku">
+    <label>Tutup buku sampai tanggal</label>
+    <input type="date" name="asOf" required style="max-width:200px">
+    <div style="margin-top:14px"><button class="btn">Tutup Buku Sekarang</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">Riwayat Tutup Buku</h3>
+  <table>
+    <thead><tr><th>Per Tanggal</th><th style="text-align:right">Laba/Rugi Bersih</th><th>Ditutup pada</th><th></th></tr></thead>
+    <tbody>
+      <% (closings||[]).forEach(function(c){ %>
+        <tr>
+          <td><b><%= new Date(c.asOf).toLocaleDateString('id-ID') %></b></td>
+          <td style="text-align:right;color:<%= c.netIncome>=0 ? '#1E7A4D':'#B5335C' %>;font-weight:700"><%= rupiah(c.netIncome) %></td>
+          <td class="muted"><%= new Date(c.createdAt).toLocaleString('id-ID') %></td>
+          <td><form method="post" action="/pms/gl/closing/<%= c.id %>/reopen" data-confirm="Buka kembali periode ini? Jurnal penutup akan dihapus." data-confirm-title="Buka Kembali" data-confirm-ok="Ya, buka"><button class="btn danger sm">Buka Kembali</button></form></td>
+        </tr>
+      <% }) %>
+      <% if(!(closings||[]).length){ %><tr><td colspan="4" class="empty">Belum ada periode yang ditutup.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('../partials/bottom') %>
