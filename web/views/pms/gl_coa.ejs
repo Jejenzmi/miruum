@@ -6,7 +6,11 @@
 
 <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
   <p class="muted" style="margin:0">Bagan akun standar hotel. Jurnal otomatis di-posting dari reservasi, folio &amp; pembayaran ke akun-akun ini.</p>
-  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/coa"><button class="btn ghost sm">↻ Posting / Bangun Ulang Jurnal</button></form>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a class="btn ghost sm" href="/pms/gl/export/coa?format=pdf">⬇ PDF</a>
+    <a class="btn ghost sm" href="/pms/gl/export/coa?format=csv">⬇ Excel</a>
+    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/coa"><button class="btn ghost sm">↻ Posting</button></form>
+  </div>
 </div>
 
 <% order.forEach(function(t){ var list=(accounts||[]).filter(function(a){return a.type===t;}); if(!list.length) return; %>

@@ -11,7 +11,12 @@
     <label style="margin:0">Sampai</label><input type="date" name="to" value="<%= q.to || '' %>" style="width:auto">
     <button class="btn sm">Tampilkan</button>
   </form>
-  <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/ledger"><button class="btn ghost sm">↻ Posting</button></form>
+  <div style="display:flex;gap:8px;align-items:center">
+    <% var ex = (q.code?'&code='+encodeURIComponent(q.code):'')+(q.from?'&from='+encodeURIComponent(q.from):'')+(q.to?'&to='+encodeURIComponent(q.to):''); %>
+    <a class="btn ghost sm" href="/pms/gl/export/ledger?format=pdf<%= ex %>">⬇ PDF</a>
+    <a class="btn ghost sm" href="/pms/gl/export/ledger?format=csv<%= ex %>">⬇ Excel</a>
+    <form method="post" action="/pms/gl/rebuild" style="margin:0"><input type="hidden" name="back" value="/pms/gl/ledger"><button class="btn ghost sm">↻ Posting</button></form>
+  </div>
 </div>
 
 <% (accounts||[]).forEach(function(a){ %>

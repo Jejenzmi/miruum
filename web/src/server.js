@@ -1406,6 +1406,19 @@ app.get("/pms/gl/coa", ...pmsG, async (req, res) => {
   const { accounts } = await api("/partner/pms/gl/accounts", { token: res.locals.token });
   res.render("pms/gl_coa", { accounts: accounts || [], active: "gl_coa", posted: req.query.posted });
 });
+// Unduh laporan akuntansi (PDF / CSV-Excel) — proxy byte dari backend + token.
+app.get("/pms/gl/export/:report", ...pmsG, async (req, res) => {
+  const fmt = req.query.format === "csv" ? "csv" : "pdf";
+  const qp = new URLSearchParams({ report: req.params.report, format: fmt });
+  ["from", "to", "asOf", "code"].forEach((k) => { if (req.query[k]) qp.set(k, req.query[k]); });
+  try {
+    const r = await fetch(API + "/partner/pms/gl/export?" + qp.toString(), { headers: { Authorization: `Bearer ${res.locals.token}` } });
+    if (!r.ok) return res.redirect(req.get("referer") || "/pms/gl/trial-balance");
+    res.setHeader("Content-Type", r.headers.get("content-type") || "application/octet-stream");
+    res.setHeader("Content-Disposition", r.headers.get("content-disposition") || "attachment");
+    res.send(Buffer.from(await r.arrayBuffer()));
+  } catch (_) { res.redirect(req.get("referer") || "/pms/gl/trial-balance"); }
+});
 app.get("/pms/gl/trial-balance", ...pmsG, async (req, res) => {
   const data = await api("/partner/pms/gl/trial-balance" + glQuery(req), { token: res.locals.token });
   res.render("pms/gl_trial_balance", { ...data, active: "gl_tb", q: req.query, posted: req.query.posted, err: req.query.err });

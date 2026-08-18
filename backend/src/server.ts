@@ -6477,6 +6477,116 @@ app.post("/api/partner/pms/gl/journal", requireRole("PARTNER", "ADMIN"), async (
   res.json({ ok: true, journal: j });
 });
 
+// ─────────── PMS: ekspor laporan akuntansi (PDF / CSV-Excel) ───────────
+// Normalised tabular report used by both exporters.
+async function buildGlReport(hotelId: string, hotelName: string, report: string, q: any) {
+  const asOf = endOfDay(parseDate(q.asOf));
+  const from = parseDate(q.from); const to = endOfDay(parseDate(q.to));
+  const money = (n: number) => (n ? n.toLocaleString("id-ID") : "");
+  const period = from || to ? `${q.from || "awal"} s/d ${q.to || "kini"}` : asOf ? `per ${q.asOf}` : `per ${new Date().toLocaleDateString("id-ID")}`;
+  if (report === "trial-balance") {
+    const d = await trialBalance(prisma, hotelId, asOf);
+    return { title: "Neraca Saldo", period, headers: ["Kode", "Nama Akun", "Debit", "Kredit"], aligns: ["l", "l", "r", "r"], colW: [1.2, 4, 2, 2],
+      rows: d.rows.map((r) => [r.code, r.name, r.debit, r.credit]), foot: ["", "TOTAL", d.totalDebit, d.totalCredit] };
+  }
+  if (report === "income") {
+    const d = await incomeStatement(prisma, hotelId, from, to);
+    const rows: any[] = [["", "PENDAPATAN", ""]];
+    d.revenue.forEach((r) => rows.push([r.code, r.name, r.balance]));
+    rows.push(["", "Total Pendapatan", d.totalRevenue], ["", "BEBAN", ""]);
+    d.expense.forEach((r) => rows.push([r.code, r.name, r.balance]));
+    rows.push(["", "Total Beban", d.totalExpense], ["", d.netIncome >= 0 ? "LABA BERSIH" : "RUGI BERSIH", d.netIncome]);
+    return { title: "Laporan Laba Rugi", period, headers: ["Kode", "Keterangan", "Jumlah"], aligns: ["l", "l", "r"], colW: [1.2, 5, 2.5], rows };
+  }
+  if (report === "balance-sheet") {
+    const d = await balanceSheet(prisma, hotelId, asOf);
+    const rows: any[] = [["", "AKTIVA", ""]];
+    d.assets.forEach((r) => rows.push([r.code, r.name, r.balance]));
+    rows.push(["", "Total Aktiva", d.totalAssets], ["", "KEWAJIBAN", ""]);
+    d.liabilities.forEach((r) => rows.push([r.code, r.name, r.balance]));
+    rows.push(["", "EKUITAS", ""]);
+    d.equity.forEach((r) => rows.push([r.code, r.name, r.balance]));
+    rows.push(["", "Laba/Rugi Berjalan", d.currentEarnings], ["", "Total Pasiva", d.totalLiabilities + d.totalEquity]);
+    return { title: "Neraca (Balance Sheet)", period, headers: ["Kode", "Keterangan", "Jumlah"], aligns: ["l", "l", "r"], colW: [1.2, 5, 2.5], rows };
+  }
+  if (report === "ledger") {
+    const accounts = await generalLedger(prisma, hotelId, q.code ? String(q.code) : undefined, from, to);
+    const rows: any[] = [];
+    accounts.forEach((a: any) => {
+      rows.push([`${a.code} ${a.name}`, "", "", "", ""]);
+      a.rows.forEach((r: any) => rows.push([new Date(r.date).toLocaleDateString("id-ID"), r.ref || "", r.description, r.debit, r.credit, r.balance]));
+      rows.push(["", "", "Saldo akhir", "", "", a.closing]);
+    });
+    return { title: "Buku Besar", period, headers: ["Tanggal", "Ref", "Keterangan", "Debit", "Kredit", "Saldo"], aligns: ["l", "l", "l", "r", "r", "r"], colW: [1.3, 1.3, 3, 1.6, 1.6, 1.8], rows };
+  }
+  if (report === "journals") {
+    const journals = await prisma.glJournal.findMany({ where: { hotelId, ...(from || to ? { date: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) }, include: { lines: { include: { account: true } } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 500 });
+    const rows: any[] = [];
+    journals.forEach((j) => {
+      rows.push([new Date(j.date).toLocaleDateString("id-ID"), `${j.source}${j.ref ? " · " + j.ref : ""}`, j.description, "", ""]);
+      j.lines.forEach((l) => rows.push(["", `${l.account.code} ${l.account.name}`, l.memo || "", Number(l.debit), Number(l.credit)]));
+    });
+    return { title: "Jurnal Umum", period, headers: ["Tanggal", "Akun / Sumber", "Keterangan", "Debit", "Kredit"], aligns: ["l", "l", "l", "r", "r"], colW: [1.3, 3, 3, 1.7, 1.7], rows };
+  }
+  // coa
+  const accounts = await prisma.glAccount.findMany({ where: { hotelId }, orderBy: { code: "asc" } });
+  return { title: "Bagan Akun (COA)", period, headers: ["Kode", "Nama Akun", "Tipe", "Saldo Normal"], aligns: ["l", "l", "l", "l"], colW: [1.2, 4, 1.6, 1.6],
+    rows: accounts.map((a) => [a.code, a.name, a.type, a.normalBalance === "DEBIT" ? "Debit" : "Kredit"]) };
+}
+
+app.get("/api/partner/pms/gl/export", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
+  const hotelId = await glHotelId(req);
+  if (!hotelId) return res.status(400).json({ error: "Hotel PMS tidak ditemukan" });
+  const hotel = await prisma.hotel.findUnique({ where: { id: hotelId }, select: { name: true } });
+  const report = String(req.query.report || "trial-balance");
+  const format = String(req.query.format || "pdf");
+  const rep = await buildGlReport(hotelId, hotel?.name || "Hotel", report, req.query);
+  const isNum = (i: number) => rep.aligns[i] === "r";
+  const fname = `${report}-${(hotel?.name || "hotel").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+
+  if (format === "csv") {
+    const esc = (v: any) => { const s = String(v ?? ""); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const lines = [ [rep.title, rep.period].join(" — "), (hotel?.name || ""), "", rep.headers.join(";") ];
+    const emit = (row: any[]) => lines.push(row.map((c, i) => esc(isNum(i) && typeof c === "number" ? (c || "") : c)).join(";"));
+    rep.rows.forEach(emit);
+    if ((rep as any).foot) emit((rep as any).foot);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}.csv"`);
+    return res.send("﻿" + lines.join("\n"));
+  }
+
+  // PDF
+  const doc = new PDFDocument({ size: "A4", margin: 40 });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${fname}.pdf"`);
+  doc.pipe(res);
+  const L = 40, R = 555, W = R - L;
+  const sum = rep.colW.reduce((a, b) => a + b, 0);
+  const widths = rep.colW.map((w) => (w / sum) * W);
+  const xs: number[] = []; let acc = L; for (const w of widths) { xs.push(acc); acc += w; }
+  doc.fillColor("#F08421").fontSize(18).text("Miruum", L, 36); doc.fillColor("#1C3A52").fontSize(15).text(rep.title, L, 58);
+  doc.fillColor("#667085").fontSize(9.5).text(`${hotel?.name || ""}  ·  ${rep.period}`, L, 78);
+  let y = 100;
+  const drawRow = (cells: any[], opts: { bold?: boolean; fill?: string; line?: boolean } = {}) => {
+    const h = 18;
+    if (y + h > 800) { doc.addPage(); y = 40; }
+    if (opts.fill) { doc.rect(L, y - 2, W, h).fill(opts.fill); }
+    doc.fillColor(opts.bold ? "#1C3A52" : "#333").font(opts.bold ? "Helvetica-Bold" : "Helvetica").fontSize(9);
+    cells.forEach((c, i) => {
+      const numeric = isNum(i) && typeof c === "number";
+      const txt = numeric ? (c ? c.toLocaleString("id-ID") : "") : String(c ?? "");
+      doc.text(txt, xs[i] + 2, y + 3, { width: widths[i] - 4, align: rep.aligns[i] === "r" ? "right" : "left", lineBreak: false });
+    });
+    y += h;
+    if (opts.line) { doc.moveTo(L, y).lineTo(R, y).strokeColor("#d8dbe2").lineWidth(0.5).stroke(); }
+  };
+  drawRow(rep.headers, { bold: true, fill: "#F3F4F6", line: true });
+  rep.rows.forEach((r) => drawRow(r));
+  if ((rep as any).foot) { doc.moveTo(L, y).lineTo(R, y).strokeColor("#20262e").lineWidth(1).stroke(); drawRow((rep as any).foot, { bold: true }); }
+  doc.fillColor("#98a2b3").fontSize(8).text(`Dicetak ${new Date().toLocaleString("id-ID")} · Miruum PMS`, L, 812, { width: W, align: "center" });
+  doc.end();
+});
+
 // ─────────── PMS: maintenance / work orders ───────────
 app.get("/api/partner/work-orders", requireRole("PARTNER", "ADMIN"), async (req: AuthRequest, res) => {
   const admin = (req as any).role === "ADMIN";
