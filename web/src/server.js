@@ -11,6 +11,24 @@ const PORT = Number(process.env.PORT || 4101);
 const API = process.env.API_URL || "http://backend:5013/api";
 const APK_URL = process.env.APK_URL || "";
 
+// Resilience: auto-catch async route errors so one failing endpoint can never
+// crash the whole portal (Node's default unhandledRejection would exit). Any
+// throwing handler is routed to the error middleware at the bottom.
+function wrapHandler(fn) {
+  if (typeof fn !== "function" || fn.length >= 4) return fn; // leave error middleware alone
+  return function (req, res, next) {
+    try { const r = fn(req, res, next); if (r && typeof r.catch === "function") r.catch(next); return r; }
+    catch (e) { next(e); }
+  };
+}
+["get", "post", "put", "delete", "patch", "use"].forEach((m) => {
+  const orig = app[m].bind(app);
+  app[m] = (...args) => orig(...args.map((a) => (typeof a === "function" ? wrapHandler(a) : a)));
+});
+// Last-resort net: never let an unhandled rejection/exception take down the process.
+process.on("unhandledRejection", (err) => console.error("[portal] unhandledRejection:", err && err.message));
+process.on("uncaughtException", (err) => console.error("[portal] uncaughtException:", err && err.message));
+
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "..", "views"));
 // Security headers. CSP disabled — portals use inline styles/handlers; the other

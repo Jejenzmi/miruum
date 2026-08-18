@@ -6715,7 +6715,7 @@ app.get("/api/partner/guests", requireRole("PARTNER", "ADMIN"), async (req: Auth
     if (!key) continue;
     const g = (map[key] ??= { name: b.bookerName, email: b.bookerEmail, phone: b.bookerPhone, stays: 0, nights: 0, spend: 0, lastStay: null as any });
     g.stays++; g.nights += b.nights;
-    if (b.status === "PAID" || b.status === "COMPLETED") g.spend += b.totalPrice;
+    if (b.status === "PAID" || b.status === "COMPLETED") g.spend += Number(b.totalPrice);
     if (!g.lastStay || b.checkIn > g.lastStay) g.lastStay = b.checkIn;
   }
   res.json({ guests: Object.values(map).sort((a: any, b: any) => b.spend - a.spend) });
